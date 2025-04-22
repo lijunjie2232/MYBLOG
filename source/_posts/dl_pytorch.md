@@ -31,7 +31,7 @@ PyTorchは、Pythonで書かれたフレームワークです。
 torch.Tensor(2,3,4).size()  # torch.Size([2, 3, 4])
 torch.Tensor([2,3,4]).size()  # torch.Size([3])
 ```
-!(torch_tensor)[assert/dl_pytorch/image/torch_tensor.png]
+![torch_tensor](/assert/dl_pytorch/image/torch_tensor.png)
 
 ## 基本的な使い方
 
