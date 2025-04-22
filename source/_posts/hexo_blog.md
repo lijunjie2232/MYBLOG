@@ -26,6 +26,17 @@ HexoはNode.jsベースの高速でシンプルな静的ブログ生成ツール
   - [6. 基本ワークフロー](#6-基本ワークフロー)
 - [**5. 重要な設定ファイル**](#5-重要な設定ファイル)
 - [**6. 便利な小技**](#6-便利な小技)
+- [**7. 高度なカスタマイズ** 🔧](#7-高度なカスタマイズ-)
+  - [プラグイン活用例](#プラグイン活用例)
+  - [テーマ改造テクニック](#テーマ改造テクニック)
+- [**8. SEO最適化 🔍**](#8-seo最適化-)
+  - [基本設定](#基本設定)
+  - [メタタグ強化](#メタタグ強化)
+- [**9. 自動デプロイ設定 🤖**](#9-自動デプロイ設定-)
+  - [**cloudflareのワーカー機能を使った推奨デプロイメント**](#cloudflareのワーカー機能を使った推奨デプロイメント)
+  - [GitHub Actions例](#github-actions例)
+- [**10. トラブルシューティング 🚨**](#10-トラブルシューティング-)
+- [公式ドキュメント](#公式ドキュメント)
 
 
 ---
@@ -144,4 +155,92 @@ hexo clean && hexo deploy --generate
 - デバッグモード：`hexo generate --debug`
 - 特定ファイルのみ生成：`hexo g --watch`
 
-詳細は公式ドキュメント [https://hexo.io/ja/docs/](https://hexo.io/ja/docs/) を参照してください。
+以下是为您的Hexo日语博客添加的完善建议，使用Markdown格式呈现：
+
+---
+
+## **7. 高度なカスタマイズ** 🔧
+### プラグイン活用例
+```yaml
+# _config.yml に追加
+plugins:
+  - hexo-generator-search  # 検索機能
+  - hexo-related-posts  # 関連記事表示
+  - hexo-autonofollow  # 外部リンク対策
+```
+
+### テーマ改造テクニック
+1. ナビゲーションメニュー追加：
+```html
+<!-- themes/landscape/_partial/header.ejs -->
+<nav>
+  <a href="<%- url_for('/about') %>">自己紹介</a>
+  <a href="<%- url_for('/projects') %>">プロジェクト</a>
+</nav>
+```
+
+2. カスタムCSS追加：
+```bash
+mkdir -p source/css
+echo '.custom-class { color: #ff0000; }' > source/css/custom.css
+```
+
+---
+
+## **8. SEO最適化 🔍**
+### 基本設定
+```yaml
+# _config.yml
+sitemap:
+  path: sitemap.xml
+google_analytics: UA-XXXXX-X
+```
+
+### メタタグ強化
+```html
+<!-- themes/landscape/layout/_partial/head.ejs -->
+<meta name="keywords" content="<%= config.keywords %>">
+<meta property="og:image" content="<%- url_for('/images/ogp.png') %>">
+```
+
+
+## **9. 自動デプロイ設定 🤖**
+### [**cloudflareのワーカー機能を使った推奨デプロイメント**](https://www.cloudflare.com/ja-jp/developer-platform/products/workers/)
+### GitHub Actions例
+```yaml
+# .github/workflows/deploy.yml
+name: Deploy
+on: [push]
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Setup Node
+      uses: actions/setup-node@v2
+      with:
+        node-version: '16'
+
+    - name: Install Dependencies
+      run: |
+        npm install -g hexo-cli
+        npm install
+
+    - name: Deploy
+      run: |
+        hexo clean
+        hexo deploy --generate
+```
+
+
+## **10. トラブルシューティング 🚨**
+| 現象               | 解決方法                              |
+| ------------------ | ------------------------------------- |
+| デプロイ失敗       | `hexo clean` を実行後再試行           |
+| 画像が表示されない | パスを`/images/example.jpg`形式で記述 |
+| スタイルが崩れる   | `hexo g` 実行後にハードリフレッシュ   |
+
+
+## [公式ドキュメント](https://hexo.io/ja/docs/)
