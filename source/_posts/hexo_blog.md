@@ -3,7 +3,7 @@ title: Hexoでブログを構築する方法
 date: 2022-7-6 17:36:00
 categories: [blog]
 tags: [hexo, blog, server]
-lang: ja  # 言語指定
+lang: ja
 ---
 
 GitHub Pagesへの再デプロイを機に、Hexoをブログフレームワークとして採用しました。  
