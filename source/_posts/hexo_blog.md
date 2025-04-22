@@ -33,7 +33,10 @@ HexoはNode.jsベースの高速でシンプルな静的ブログ生成ツール
   - [基本設定](#基本設定)
   - [メタタグ強化](#メタタグ強化)
 - [**9. 自動デプロイ設定 🤖**](#9-自動デプロイ設定-)
-  - [**cloudflareのワーカー機能を使った推奨デプロイメント**](#cloudflareのワーカー機能を使った推奨デプロイメント)
+  - [**Cloudflare Pagesを使った自動デプロイ**](#cloudflare-pagesを使った自動デプロイ)
+  - [**既存設定との統合例**](#既存設定との統合例)
+  - [**主なメリット**](#主なメリット)
+  - [公式ガイド](#公式ガイド)
   - [GitHub Actions例](#github-actions例)
 - [**10. トラブルシューティング 🚨**](#10-トラブルシューティング-)
 - [公式ドキュメント](#公式ドキュメント)
@@ -205,7 +208,40 @@ google_analytics: UA-XXXXX-X
 
 
 ## **9. 自動デプロイ設定 🤖**
-### [**cloudflareのワーカー機能を使った推奨デプロイメント**](https://www.cloudflare.com/ja-jp/developer-platform/products/workers/)
+
+### **Cloudflare Pagesを使った自動デプロイ**
+1. **プロジェクト作成手順**
+   - Cloudflareダッシュボード → [Pages]を選択
+   - [プロジェクトを作成] ボタンをクリック
+   - GitHubアカウントを接続（全リポジトリor特定リポジトリを選択）
+
+2. **ビルド設定**
+   ```yaml
+   ビルドコマンド: npx hexo generate
+   公開ディレクトリ: public
+   フレームワークプリセット: None
+   ```
+
+3. **デプロイ完了**
+   - ビルド成功後、自動で`*.pages.dev`ドメインが割り当てられます
+   - カスタムドメインの設定も可能
+
+### **既存設定との統合例**
+```yaml
+# _config.yml
+url: https://your-domain.pages.dev
+deploy:
+  type: git
+  repo: git@github.com:yourname/yourrepo.git
+```
+### **主なメリット**
+✅ GitHub連動での自動ビルド  
+✅ 無料SSL証明書自動発行  
+✅ グローバルCDN配信  
+✅ プレビュー機能付きPRデプロイ
+
+### [公式ガイド](https://developers.cloudflare.com/pages/)
+
 ### GitHub Actions例
 ```yaml
 # .github/workflows/deploy.yml
@@ -221,7 +257,7 @@ jobs:
     - name: Setup Node
       uses: actions/setup-node@v2
       with:
-        node-version: '16'
+        node-version: '22'
 
     - name: Install Dependencies
       run: |
