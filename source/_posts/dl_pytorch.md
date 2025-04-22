@@ -8,16 +8,16 @@ lang: ja
 
 PyTorchは、Pythonで書かれたフレームワークです。
 
-- [Pytorch インストール](#pytorch-インストール)
+- [Pytorchインストール](#pytorchインストール)
 - [Tips](#tips)
-  - [torch.Tensor() と torch.Tensor(\[\])　の違い](#torchtensor-と-torchtensorの違い)
+  - [torch.Tensor()とtorch.Tensor(\[\])　の違い](#torchtensorとtorchtensorの違い)
 - [基本的な使い方](#基本的な使い方)
   - [import](#import)
   - [データ型](#データ型)
   - [説明](#説明)
 
 
-## Pytorch インストール
+## Pytorchインストール
 
 [アーカイブ　リース](https://pytorch.org/get-started/previous-versions)
 
@@ -26,7 +26,7 @@ PyTorchは、Pythonで書かれたフレームワークです。
 最新のpytorchはcondaでインストールのをできません。
 
 ## Tips
-### torch.Tensor() と torch.Tensor([])　の違い
+### torch.Tensor()とtorch.Tensor([])　の違い
 ```python
 torch.Tensor(2,3,4).size()  # torch.Size([2, 3, 4])
 torch.Tensor([2,3,4]).size()  # torch.Size([3])
