@@ -10,7 +10,7 @@ PyTorchは、Pythonで書かれたフレームワークです。
 
 - [Pytorchインストール](#pytorchインストール)
 - [Tips](#tips)
-  - [torch.Tensor()とtorch.Tensor(\[\])　の違い](#torchtensorとtorchtensorの違い)
+  - [torch.Tensor()とtorch.Tensor(\[\])の違い](#torchtensorとtorchtensorの違い)
 - [基本的な使い方](#基本的な使い方)
   - [import](#import)
   - [データ型](#データ型)
@@ -26,12 +26,12 @@ PyTorchは、Pythonで書かれたフレームワークです。
 最新のpytorchはcondaでインストールのをできません。
 
 ## Tips
-### torch.Tensor()とtorch.Tensor([])　の違い
+### torch.Tensor()とtorch.Tensor([])の違い
 ```python
 torch.Tensor(2,3,4).size()  # torch.Size([2, 3, 4])
 torch.Tensor([2,3,4]).size()  # torch.Size([3])
 ```
-![torch_tensor](/assert/dl_pytorch/image/torch_tensor.png)
+![torch.Tensor(2,3,4) と torch.Tensor([2,3,4])](/assert/dl_pytorch/image/torch_tensor.png)
 
 ## 基本的な使い方
 
@@ -65,3 +65,4 @@ print(torch.cuda.is_available()) # cudaが利用可能かどうか
   （例: `torch.cuda.FloatTensor` はGPU上での32ビット浮動小数点数型を表します。）
 
 
+つづく...
