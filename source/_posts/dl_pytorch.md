@@ -22,6 +22,7 @@ PyTorch is an optimized tensor library for deep learning using GPUs and CPUs.
   - [torch.randxxx](#torchrandxxx)
     - [torch.randn](#torchrandn)
     - [torch.randint](#torchrandint)
+  - [tensorの運算](#tensorの運算)
 
 
 ## Pytorchインストール
@@ -119,5 +120,33 @@ tensor([[7, 8, 6],
 >>> torch.randint(0, 10, [2,3]).dtype
 torch.int64
 ```
+
+### tensorの運算
+
+以下は、指定された関数とその作用を日本語に翻訳したものです。
+
+| 関数                          | 作用                                                                                                                      |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `torch.abs(A)`                | 絶対値を計算する                                                                                                          |
+| `torch.add(A, B)`             | 加算を行う。AとBはTensorまたはスカラーのいずれでも可能                                                                    |
+| `torch.clamp(A, min, max)`    | クリップ（範囲制限）。Aのデータが`min`より小さいか`max`より大きい場合、`min`または`max`に変換され、範囲を[min, max]に保つ |
+| `torch.div(A, B)`             | 除算を行う。A / B。AとBはTensorまたはスカラーのいずれでも可能                                                             |
+| `torch.mul(A, B)`             | 要素ごとの乗算（点乗算）。A * B。AとBはTensorまたはスカラーのいずれでも可能                                               |
+| `torch.pow(A, n)`             | べき乗を計算する。Aのn乗                                                                                                  |
+| `torch.mm(A, B.T)`            | 行列の乗算（行列積）。`torch.mul`との違いに注意                                                                           |
+| `torch.mv(A, B)`              | 行列とベクトルの乗算。Aは行列、Bはベクトル。Bは転置の必要はない                                                           |
+| `A.item()`                    | Tensorを基本データ型に変換する。Tensorに要素が1つしかない場合に使用可能。主にTensorから数値を取り出すために使用           |
+| `A.numpy()`                   | TensorをNumpy型に変換する                                                                                                 |
+| `A.size()`                    | サイズを確認する                                                                                                          |
+| `A.shape`                     | サイズを確認する                                                                                                          |
+| `A.dtype`                     | データ型を確認する                                                                                                        |
+| `A.view()`                    | テンソルのサイズを再構築する。Numpyの`reshape`に類似                                                                      |
+| `A.transpose(0, 1)`           | 行と列を交換する                                                                                                          |
+| `A[1:]`                       | スライス。Numpyのスライスに類似                                                                                           |
+| `A[-1, -1] = 100`             | スライス。Numpyのスライスに類似                                                                                           |
+| `A.zero_()`                   | ゼロ化する（すべての要素を0にする）                                                                                       |
+| `torch.stack((A, B), dim=-1)` | テンソルを結合し、次元を増やす                                                                                            |
+| `torch.diag(A)`               | Aの対角要素を取り出し、1次元ベクトルを形成する                                                                            |
+| `torch.diag_embed(A)`         | 1次元ベクトルを対角線に配置し、残りの要素を0とするテンソルを作成する                                                      |
 
 つづく...
