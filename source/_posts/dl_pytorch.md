@@ -13,6 +13,7 @@ PyTorch is an optimized tensor library for deep learning using GPUs and CPUs.
   - [torch.Tensor()とtorch.Tensor(\[\])の違い](#torchtensorとtorchtensorの違い)
   - [torch.tensor()とtorch.Tensor()の違い](#torchtensorとtorchtensorの違い-1)
   - [torch.mmとtorch.mulの違い](#torchmmとtorchmulの違い)
+  - [t.addとt.add\_の違い](#taddとtadd_の違い)
 - [基本的な使い方](#基本的な使い方)
   - [import](#import)
 - [Tensor](#tensor)
@@ -89,6 +90,13 @@ tensor([[14, 32],
 tensor([[ 5, 12],
         [21, 32]])
 ```
+
+### t.addとt.add_の違い
+
+- t.addは元のテンソルを変更しない
+- t.add_は元のテンソルを変更します
+
+![add and add_](/assert/dl_pytorch/image/add_add_.png)
 
 
 
@@ -185,5 +193,6 @@ torch.int64
 | `torch.stack((A, B), dim=-1)` | テンソルを結合し、次元を増やす                                                                                            |
 | `torch.diag(A)`               | Aの対角要素を取り出し、1次元ベクトルを形成する                                                                            |
 | `torch.diag_embed(A)`         | 1次元ベクトルを対角線に配置し、残りの要素を0とするテンソルを作成する                                                      |
+| `torch.unqueeze(A, dim)`      | テンソルの指定した次元に要素を追加する                                                                                    |
 
 つづく...
