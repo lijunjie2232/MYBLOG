@@ -17,8 +17,11 @@ PyTorch is an optimized tensor library for deep learning using GPUs and CPUs.
 - [Tensor](#tensor)
   - [データ型](#データ型)
   - [説明](#説明)
-- [Tensor の作成](#tensor-の作成)
+- [Tensorの作成](#tensorの作成)
   - [torch.tensor](#torchtensor)
+  - [torch.randxxx](#torchrandxxx)
+    - [torch.randn](#torchrandn)
+    - [torch.randint](#torchrandint)
 
 
 ## Pytorchインストール
@@ -81,7 +84,7 @@ Tensorはnumpyのndarrayと同様にデータを格納するデータ構造で�
 - **GPU Tensor**: CUDA対応GPU上で動作するPyTorchのテンソル型です。  
   （例: `torch.cuda.FloatTensor` はGPU上での32ビット浮動小数点数型を表します。）
 
-## Tensor の作成
+## Tensorの作成
 ### torch.tensor
 ![nparray2tensor](/assert/dl_pytorch/image/nparray2tensor.png)
 ```shell
@@ -95,5 +98,26 @@ tensor([[ 0.5566, -0.5675, -1.2981],
         [ 0.1957, -1.5871,  0.9623]], device='cuda:2')
 ```
 
+### torch.randxxx
+#### torch.randn
+```python
+>>> torch.randn([2,3])
+tensor([[-0.4271,  1.0660,  1.2755],
+        [-1.5805,  0.4410,  0.4207]])
+>>> torch.randn([2,3], dtype=torch.float64, device='cuda')
+tensor([[-0.8559,  1.0472,  0.6330],
+        [-0.5150, -0.8062, -2.4052]], device='cuda:0', dtype=torch.float64)
+```
+#### torch.randint
+```python
+>>> torch.randint(0, 10, [2,3])
+tensor([[5, 7, 5],
+        [0, 7, 9]])
+>>> torch.randint(0, 10, [2,3], dtype=torch.int8, device='cuda')
+tensor([[7, 8, 6],
+        [7, 5, 2]], device='cuda:0', dtype=torch.int8)
+>>> torch.randint(0, 10, [2,3]).dtype
+torch.int64
+```
 
 つづく...
