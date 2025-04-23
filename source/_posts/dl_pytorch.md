@@ -12,6 +12,7 @@ PyTorch is an optimized tensor library for deep learning using GPUs and CPUs.
 - [Tips](#tips)
   - [torch.Tensor()とtorch.Tensor(\[\])の違い](#torchtensorとtorchtensorの違い)
   - [torch.tensor()とtorch.Tensor()の違い](#torchtensorとtorchtensorの違い-1)
+  - [torch.mmとtorch.mulの違い](#torchmmとtorchmulの違い)
 - [基本的な使い方](#基本的な使い方)
   - [import](#import)
 - [Tensor](#tensor)
@@ -51,6 +52,9 @@ tensor = torch.tensor(data, dtype=torch.float32, device='cuda')
 tensor = torch.Tensor([1, 2, 3])  # 指定されたデータでテンソルを作成
 tensor = torch.Tensor(2, 3)       # 2x3の未初期化テンソルを作成
 ```
+
+### torch.mmとtorch.mulの違い
+
 
 ## 基本的な使い方
 
@@ -122,8 +126,6 @@ torch.int64
 ```
 
 ### tensorの運算
-
-以下は、指定された関数とその作用を日本語に翻訳したものです。
 
 | 関数                          | 作用                                                                                                                      |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
