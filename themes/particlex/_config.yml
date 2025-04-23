@@ -78,7 +78,7 @@ highlight:
 
 # KaTeX math rendering
 math:
-    enable: false
+    enable: true
 
 # Image preview
 preview:
@@ -90,7 +90,7 @@ crypto:
 
 # Search
 search:
-    enable: false
+    enable: true
 
 # giscus
 # https://github.com/giscus/giscus
@@ -155,3 +155,4 @@ twikoo:
     region:
     path: location.pathname
     lang:
+

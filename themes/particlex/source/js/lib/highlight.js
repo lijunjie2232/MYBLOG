@@ -4,6 +4,7 @@ mixins.highlight = {
     },
     created() {
         hljs.configure({ ignoreUnescapedHTML: true });
+        hljs.highlightAll();
         this.renderers.push(this.highlight);
     },
     methods: {
@@ -14,7 +15,9 @@ mixins.highlight = {
             let codes = document.querySelectorAll("pre");
             for (let i of codes) {
                 let code = i.textContent;
-                let language = [...i.classList, ...i.firstChild.classList][0] || "plaintext";
+                let language = [...i.classList, ...i.firstChild.classList]
+                    .find(c => c.startsWith('language-'))
+                    ?.replace('language-', '') || 'plaintext';
                 let highlighted;
                 try {
                     highlighted = hljs.highlight(code, { language }).value;

@@ -44,17 +44,17 @@ post_asset_folder: false
 relative_link: false
 future: true
 # syntax_highlighter: highlight.js
-syntax_highlighter: 
-highlight:
-  line_number: true
-  auto_detect: false
-  tab_replace: ""
-  wrap: true
-  hljs: false
-prismjs:
-  preprocess: true
-  line_number: true
-  tab_replace: ""
+syntax_highlighter:
+# highlight:
+#   line_number: true
+#   auto_detect: false
+#   tab_replace: ""
+#   wrap: true
+#   hljs: false
+# prismjs:
+#   preprocess: true
+#   line_number: true
+#   tab_replace: ""
 
 # Home page setting
 # path: Root path for your blogs index page. (default = '')
@@ -105,8 +105,39 @@ deploy:
   type: ""
 
 archive_generator:
-    enabled: true
-    per_page: 0
-    yearly: false
-    monthly: false
-    daily: false
+  enabled: true
+  per_page: 0
+  yearly: false
+  monthly: false
+  daily: false
+
+# markdown:
+#   preset: "default"
+#   render:
+#     html: true
+#     xhtmlOut: false
+#     langPrefix: "language-"
+#     breaks: true
+#     linkify: true
+#     typographer: true
+#     quotes: "“”‘’"
+#   enable_rules:
+#   disable_rules:
+#   plugins:
+#     - name: "@renbaoshuo/markdown-it-katex"
+#       options:
+#         skipDelimitersCheck: true
+#   anchors:
+#     level: 1 # 从一级标题开始渲染，否则无法正确用目录链接
+#     collisionSuffix: ""
+#     permalink: false
+#     permalinkClass: "header-anchor"
+#     permalinkSide: "left"
+#     permalinkSymbol: "¶"
+#     case: 0
+#     separator: "-"
+#   images:
+#     lazyload: false
+#     prepend_root: false
+#     post_asset: false
+#   inline: false # https://markdown-it.github.io/markdown-it/#MarkdownIt.renderInline

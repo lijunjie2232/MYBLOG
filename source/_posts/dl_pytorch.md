@@ -19,10 +19,9 @@ PyTorch is an optimized tensor library for deep learning using GPUs and CPUs.
   - [データ型](#データ型)
   - [説明](#説明)
 - [Tensorの作成](#tensorの作成)
-  - [torch.tensor](#torchtensor)
-  - [torch.randxxx](#torchrandxxx)
-    - [torch.randn](#torchrandn)
-    - [torch.randint](#torchrandint)
+  - [randxxx](#randxxx)
+    - [randn](#randn)
+    - [randint](#randint)
   - [tensorの運算](#tensorの運算)
 
 
@@ -54,6 +53,43 @@ tensor = torch.Tensor(2, 3)       # 2x3の未初期化テンソルを作成
 ```
 
 ### torch.mmとtorch.mulの違い
+✅ [torch.mm](https://pytorch.org/docs/stable/generated/torch.mm.html)：行列積 (Matrix Multiplication)
+
+数学記号：
+<center>$C = A \times B$</center>
+
+ここで、$A \in \mathbb{R}^{m \times n}$、$B \in \mathbb{R}^{n \times p}$と、Cは$C \in \mathbb{R}^{m \times p}$行列です。
+
+式展開：
+<center>$C_{ij} = \sum_{k=1}^{n} A_{ik} \times B_{kj}$</center>
+
+```python
+>>> A = torch.tensor([[1, 2, 3], [4, 5, 6]])  # shape: (2, 3)
+>>> B = torch.tensor([[1, 4], [2, 5], [3, 6]])  # shape: (3, 2)
+>>> C = torch.mm(A, B)
+>>> C
+tensor([[14, 32],
+        [32, 77]])
+```
+✅ [torch.mul](https://pytorch.org/docs/stable/generated/torch.mul.html)：要素ごとの積 (Element-wise Multiplication)
+
+数学記号：
+<center>$C_{ij} = A_{ij} \odot B_{ij}$</center>
+
+ここで、$A,B \in \mathbb{R}^{m \times n}$ は同じ形の行列です。
+
+式展開：
+<center>$C_{ij} = A_{ij} \cdot B_{ij}$</center>
+
+```python
+>>> A = torch.tensor([[1, 2], [3, 4]])  # shape: (2, 2)
+>>> B = torch.tensor([[5, 6], [7, 8]])  # shape: (2, 2)
+>>> C = torch.mul(A, B)  # shape: (2, 2)
+>>> C
+tensor([[ 5, 12],
+        [21, 32]])
+```
+
 
 
 ## 基本的な使い方
@@ -90,9 +126,8 @@ Tensorはnumpyのndarrayと同様にデータを格納するデータ構造で�
   （例: `torch.cuda.FloatTensor` はGPU上での32ビット浮動小数点数型を表します。）
 
 ## Tensorの作成
-### torch.tensor
 ![nparray2tensor](/assert/dl_pytorch/image/nparray2tensor.png)
-```shell
+```python
 >>> a = np.random.randn(2,3)
 >>> a
 array([[ 0.55657307, -0.56752282, -1.29813938],
@@ -103,8 +138,8 @@ tensor([[ 0.5566, -0.5675, -1.2981],
         [ 0.1957, -1.5871,  0.9623]], device='cuda:2')
 ```
 
-### torch.randxxx
-#### torch.randn
+### randxxx
+#### randn
 ```python
 >>> torch.randn([2,3])
 tensor([[-0.4271,  1.0660,  1.2755],
@@ -113,7 +148,7 @@ tensor([[-0.4271,  1.0660,  1.2755],
 tensor([[-0.8559,  1.0472,  0.6330],
         [-0.5150, -0.8062, -2.4052]], device='cuda:0', dtype=torch.float64)
 ```
-#### torch.randint
+#### randint
 ```python
 >>> torch.randint(0, 10, [2,3])
 tensor([[5, 7, 5],
