@@ -16,10 +16,12 @@ Transformerは、RNNやCNNを用いたモデルの代わりに、Attentionを用
     - [Attentionスコアの計算](#attentionスコアの計算)
     - [スケーリングと正規化](#スケーリングと正規化)
     - [重み付き和の計算](#重み付き和の計算)
+  - [Code](#code)
 - [Multi-Head Attention](#multi-head-attention)
   - [コード](#コード)
 - [FNN](#fnn)
 - [Positional Encoding](#positional-encoding)
+- [Casual Mask](#casual-mask)
 
 
 ## Attention
@@ -52,14 +54,49 @@ Transformerは、RNNやCNNを用いたモデルの代わりに、Attentionを用
 Query と Key の間の関連性を計算します。これは一般的に内積（Dot Product）を使用して行われます。
 
 #### スケーリングと正規化
-<center>$\text{Attention Weights} = \text{softmax} \left( \frac{Q K^T}{\sqrt{d_k}} \right)$</center>
+
+Attention Score (scaled):
+
+<center>$\text{Scores} = \frac{Q K^T}{\sqrt{d_k}}$</center>
+
+softmax正規化:
+
+<center>$A_{i,j} = \text{softmax} \left( \frac{Q K^T}{\sqrt{d_k}} \right) = \frac{exp(Scores_{i,j})}{\sum_{k=1}^{n}exp(Scores_{i,k})}$</center>
 
 Attentionスコアはスケーリング（通常は Key の次元数の平方根で割る）と正規化（ソフトマックス関数を適用）によって調整されます。
 
+
 #### 重み付き和の計算
-<center>$\text{Output} = \text{Attention Weights} \cdot V$</center>
+<center>$\text{Output} = \text{A} \cdot V$</center>
 
 Attention Weights を Value に適用し、重み付き和を計算します。
+
+### Code
+```python
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+class ScaledDotProductAttention(nn.Module):
+    ''' Scaled Dot-Product Attention '''
+
+    def __init__(self, temperature, attn_dropout=0.1):
+        super().__init__()
+        self.temperature = temperature
+        self.dropout = nn.Dropout(attn_dropout)
+
+    def forward(self, q, k, v, mask=None):
+
+        attn = torch.matmul(q / self.temperature, k.transpose(2, 3))
+
+        if mask is not None:
+            attn = attn.masked_fill(mask == 0, -1e9)
+
+        attn = self.dropout(F.softmax(attn, dim=-1))
+        output = torch.matmul(attn, v)
+
+        return output, attn
+```
 
 
 ## Multi-Head Attention
@@ -75,58 +112,44 @@ Multi-Head Attention は、複数の Head を結合したものを表します�
 
 ### コード
 ```python
-# Multi-Head Attention implementation in PyTorch
-class MultiHeadAttention(nn.Module):
-    ''' Multi-Head Attention module '''
+import torch.nn as nn
+import torch.nn.functional as F
 
-    def __init__(self, n_head, d_model, d_k, d_v, dropout=0.1):
-        super().__init__()
+def causal_mask(seq_len):
+    # return tensor with size [seq_len, seq_len], masking all the future tokens
+    mask = torch.triu(torch.ones(seq_len, seq_len), diagonal=1).bool()
+    return mask
 
-        self.n_head = n_head
-        self.d_k = d_k
-        self.d_v = d_v
+class MaskedMultiHeadAttention(nn.Module):
+    ''' Multi-Head Attention implementation in PyTorch '''
 
-        self.w_qs = nn.Linear(d_model, n_head * d_k, bias=False)
-        self.w_ks = nn.Linear(d_model, n_head * d_k, bias=False)
-        self.w_vs = nn.Linear(d_model, n_head * d_v, bias=False)
-        self.fc = nn.Linear(n_head * d_v, d_model, bias=False)
+    def __init__(self, emb_size, num_heads):
+        super().__init__()
+        assert emb_size % num_heads == 0
+        self.num_heads = num_heads
+        self.head_dim = emb_size // num_heads
+        self.qkv = nn.Linear(emb_size, emb_size * 3)
+        self.fc_out = nn.Linear(emb_size, emb_size)
 
-        self.attention = ScaledDotProductAttention(temperature=d_k ** 0.5)
+    def forward(self, x):  # x: [B, T, emb]
+        B, T, E = x.shape
+        qkv = self.qkv(x)  # [B, T, 3*E]
+        q, k, v = qkv.chunk(3, dim=-1)
+        # Multi Head
+        q = q.view(B, T, self.num_heads, self.head_dim).transpose(1, 2)
+        k = k.view(B, T, self.num_heads, self.head_dim).transpose(1, 2)
+        v = v.view(B, T, self.num_heads, self.head_dim).transpose(1, 2)
 
-        self.dropout = nn.Dropout(dropout)
-        self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
+        # Attention Score
+        scores = (q @ k.transpose(-2, -1)) / (self.head_dim ** 0.5)
+        # add casual mask
+        mask = causal_mask(T).to(scores.device)
+        scores = scores.masked_fill(mask.unsqueeze(0).unsqueeze(0), float('-inf'))
+        attn = torch.softmax(scores, dim=-1)
 
-
-    def forward(self, q, k, v, mask=None):
-
-        d_k, d_v, n_head = self.d_k, self.d_v, self.n_head
-        sz_b, len_q, len_k, len_v = q.size(0), q.size(1), k.size(1), v.size(1)
-
-        residual = q
-
-        # Pass through the pre-attention projection: b x lq x (n*dv)
-        # Separate different heads: b x lq x n x dv
-        q = self.w_qs(q).view(sz_b, len_q, n_head, d_k)
-        k = self.w_ks(k).view(sz_b, len_k, n_head, d_k)
-        v = self.w_vs(v).view(sz_b, len_v, n_head, d_v)
-
-        # Transpose for attention dot product: b x n x lq x dv
-        q, k, v = q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2)
-
-        if mask is not None:
-            mask = mask.unsqueeze(1)   # For head axis broadcasting.
-
-        q, attn = self.attention(q, k, v, mask=mask)
-
-        # Transpose to move the head dimension back: b x lq x n x dv
-        # Combine the last two dimensions to concatenate all the heads together: b x lq x (n*dv)
-        q = q.transpose(1, 2).contiguous().view(sz_b, len_q, -1)
-        q = self.dropout(self.fc(q))
-        q += residual
-
-        q = self.layer_norm(q)
-
-        return q, attn
+        out = attn @ v  # [B, heads, T, head_dim]
+        out = out.transpose(1, 2).contiguous().view(B, T, E)
+        return self.fc_out(out), attn
 ```
 
 ## FNN
@@ -162,3 +185,17 @@ $PE_{(pos, 2i+1)} = cos(pos / 10000^{2i / d_{model}})$
 
 また、学習型位置エンコーディングも試しましたが、両バージョンの結果はほぼ同じでした。正弦関数を選択した理由は、モデルが訓練中に見なかったよりも長いシーケンス長に外挿できる可能性があるためです。
 
+## Casual Mask
+
+<center>
+$
+M_{i,j} = 
+\begin{cases}
+0  & \text{ if } j \le i \\
+-\infty   & \text{ if } j \lt i
+\end{cases}
+$
+</center>
+
+エンコーダーでは、全ての位置の情報が利用できますが、デコーダーでは未来の位置の情報が利用できないようにするため、因果掩码が使用されます。
+因果掩码は、未来の位置のスコアを (-\infty) に設定し、Softmax後の重みを0にします。
