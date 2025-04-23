@@ -38,7 +38,6 @@ torch.Tensor([2,3,4]).size()  # torch.Size([3])
 ### import
 
 ```python
-
 import torch
  
 print(torch.__version__) # pytorchバージョン
