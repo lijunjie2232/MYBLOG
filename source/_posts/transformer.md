@@ -16,12 +16,11 @@ Transformerは、RNNやCNNを用いたモデルの代わりに、Attentionを用
     - [Attentionスコアの計算](#attentionスコアの計算)
     - [スケーリングと正規化](#スケーリングと正規化)
     - [重み付き和の計算](#重み付き和の計算)
-  - [Code](#code)
+- [Casual Mask](#casual-mask)
 - [Multi-Head Attention](#multi-head-attention)
   - [コード](#コード)
 - [FNN](#fnn)
 - [Positional Encoding](#positional-encoding)
-- [Casual Mask](#casual-mask)
 
 
 ## Attention
@@ -71,7 +70,7 @@ Attentionスコアはスケーリング（通常は Key の次元数の平方根
 
 Attention Weights を Value に適用し、重み付き和を計算します。
 
-### Code
+###　コード
 ```python
 import torch
 import torch.nn as nn
@@ -98,6 +97,20 @@ class ScaledDotProductAttention(nn.Module):
         return output, attn
 ```
 
+## Casual Mask
+
+<center>
+$
+M_{i,j} = 
+\begin{cases}
+0  & \text{ if } j \le i \\
+-\infty   & \text{ if } j \lt i
+\end{cases}
+$
+</center>
+
+エンコーダーでは、全ての位置の情報が利用できますが、デコーダーでは未来の位置の情報が利用できないようにするため、因果掩码が使用されます。
+因果掩码は、未来の位置のスコアを $-\infty$ に設定し、Softmax後の重みを0にします。
 
 ## Multi-Head Attention
 
@@ -184,18 +197,3 @@ $PE_{(pos, 2i+1)} = cos(pos / 10000^{2i / d_{model}})$
 この関数を選択した理由は、モデルが相対的な位置に簡単に注意を向けることができると仮定したからです。任意の固定オフセット $ k $ に対して、$ \text{PE}\text{({pos}+k)} $ は $ \text{PE}{({pos})} $ の線形関数として表現できるためです。
 
 また、学習型位置エンコーディングも試しましたが、両バージョンの結果はほぼ同じでした。正弦関数を選択した理由は、モデルが訓練中に見なかったよりも長いシーケンス長に外挿できる可能性があるためです。
-
-## Casual Mask
-
-<center>
-$
-M_{i,j} = 
-\begin{cases}
-0  & \text{ if } j \le i \\
--\infty   & \text{ if } j \lt i
-\end{cases}
-$
-</center>
-
-エンコーダーでは、全ての位置の情報が利用できますが、デコーダーでは未来の位置の情報が利用できないようにするため、因果掩码が使用されます。
-因果掩码は、未来の位置のスコアを $-\infty$ に設定し、Softmax後の重みを0にします。
