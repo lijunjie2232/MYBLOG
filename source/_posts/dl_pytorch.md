@@ -74,7 +74,7 @@ tensor([[14, 32],
 ✅ [torch.mul](https://pytorch.org/docs/stable/generated/torch.mul.html)：要素ごとの積 (Element-wise Multiplication)
 
 数学記号：
-<center>$C_{ij} = A_{ij} \odot B_{ij}$</center>
+<center>$C = A \odot B$</center>
 
 ここで、$A,B \in \mathbb{R}^{m \times n}$ は同じ形の行列です。
 
