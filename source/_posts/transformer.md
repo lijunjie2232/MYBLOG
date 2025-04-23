@@ -19,6 +19,7 @@ Transformerは、RNNやCNNを用いたモデルの代わりに、Attentionを用
 - [Multi-Head Attention](#multi-head-attention)
   - [コード](#コード)
 - [FNN](#fnn)
+- [Positional Encoding](#positional-encoding)
 
 
 ## Attention
@@ -129,5 +130,35 @@ class MultiHeadAttention(nn.Module):
 ```
 
 ## FNN
+
 FNN(Feed-Forward Network)は、入力から出力を計算する非線形関数です。
-<center>FFN(x) = max \left(0, xW_1 + b_1 \right)W_2 + b_2</center>
+
+<center>$FFN(x) = max \left(0, xW_1 + b_1 \right)W_2 + b_2$</center>
+
+入力の次元数は、入力と出力の次元数に等しい必要があります。
+
+## Positional Encoding
+
+Transformerモデルは、再帰や畳み込みを使用しないため、モデルがシーケンスの順序を利用できるように位置情報を組み込む必要があります。そのため、エンコーダとデコーダのスタックの入力埋め込みに "位置エンコーディング" を追加します。位置エンコーディングは、埋め込みと同じ次元 $ d_{\text{model}} $ を持つため、二つを足し合わせることができます。
+
+位置エンコーディングには学習型と固定型の選択肢がありますが、この研究では正弦とコサイン関数を使用します。これらの関数は異なる周波数を持ちます：
+
+<center>
+$PE_{(pos, 2i)} = sin(pos / 10000^{2i / d_{model}})$
+</center>
+<center>
+$PE_{(pos, 2i+1)} = cos(pos / 10000^{2i / d_{model}})$
+</center>
+
+- $\text{PE}_{(pos, 2i)}$ は偶数次元の位置エンコーディング
+- $\text{PE}_{(pos, 2i+1)}$ は奇数次元の位置エンコーディング
+- $pos$ はシーケンス内の位置
+- $i$ は次元のインデックス
+- $d_{\text{model}}$ はモデルの次元数（通常は512など）
+
+ここで、$ \text{pos} $ は位置、$ i $ は次元です。つまり、位置エンコーディングの各次元は異なる周波数を持つ正弦波に対応します。波長は $ 2\pi $ から $ 10000 \cdot 2\pi $ までの幾何級数を形成します。
+
+この関数を選択した理由は、モデルが相対的な位置に簡単に注意を向けることができると仮定したからです。任意の固定オフセット $ k $ に対して、$ \text{PE}\text{({pos}+k)} $ は $ \text{PE}{({pos})} $ の線形関数として表現できるためです。
+
+また、学習型位置エンコーディングも試しましたが、両バージョンの結果はほぼ同じでした。正弦関数を選択した理由は、モデルが訓練中に見なかったよりも長いシーケンス長に外挿できる可能性があるためです。
+
