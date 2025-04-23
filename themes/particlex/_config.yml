@@ -49,8 +49,7 @@ menu:
 card:
     enable: true
     description: |
-        Description
-        ...
+        平凡なAI開発者であり、様々な技術を学ぶことが好きです
     iconLinks:
     friendLinks:
         My Github: https://github.com/lijunjie2232
