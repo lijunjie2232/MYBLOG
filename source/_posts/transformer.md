@@ -26,6 +26,10 @@ Transformerは、RNNやCNNを用いたモデルの代わりに、Attentionを用
   - [主要コンポーネント](#主要コンポーネント)
     - [Encoder](#encoder)
     - [Decoder](#decoder)
+  - [技術的詳細](#技術的詳細)
+    - [ポジションワイズFFN](#ポジションワイズffn)
+    - [残差接続と正規化](#残差接続と正規化)
+    - [アテンション機構](#アテンション機構)
 
 
 ## Attention
@@ -263,3 +267,45 @@ class TransformerDecoder(d2l.AttentionDecoder):
 - **重要技術**：
   - **自己回帰マスク**：生成時は過去のトークンのみ参照可能
   - **状態キャッシュ**：`state[2][self.i]`に生成履歴を保存
+
+
+### 技術的詳細
+
+#### ポジションワイズFFN
+```python
+class PositionWiseFFN(nn.Module):
+    def __init__(self, ffn_num_hiddens, ffn_num_outputs):
+        self.dense1 = nn.Linear(...)  # 第1全結合層
+        self.relu = nn.ReLU()         # 活性化関数
+        self.dense2 = nn.Linear(...)  # 第2全結合層
+```
+- **特徴**：
+  - 全位置で同一のMLPを適用
+  - 次元調整：入力次元 → 隠れ層 → 出力次元
+  - 数式表現：
+    \[ \text{FFN}(x) = \text{ReLU}(xW_1 + b_1)W_2 + b_2 \]
+
+#### 残差接続と正規化
+```python
+class AddNorm(nn.Module):
+    def forward(self, X, Y):
+        return self.ln(self.dropout(Y) + X)  # 残差接続+正規化
+```
+- **設計思想**：
+  - 勾配消失問題の緩和
+  - 安定した深層学習を実現
+  - レイヤー正規化 vs バッチ正規化：
+    - レイヤー正規化：特徴次元で正規化（可変長シーケンスに適応）
+    - バッチ正規化：バッチ次元で正規化（画像処理向け）
+
+#### アテンション機構
+- **3種類のアテンション**：
+  1. **エンコーダ自己注意**：Q=K=V=前層エンコーダ出力
+  2. **デコーダ自己注意**：マスク付きQ=K=V=前層デコーダ出力
+  3. **エンコーダ-デコーダ注意**：Q=デコーダ状態，K=V=エンコーダ出力
+
+- **マスク実装**：
+  ```python
+  # 訓練時：デコーダが未来情報を見ないようにマスク
+  dec_valid_lens = torch.arange(1, num_steps+1).repeat(batch_size, 1)
+  ```
