@@ -215,3 +215,7 @@ Transformerモデルは、Self-Attentionメカニズムを用いてシーケン�
 
 ![Transformer Architecture](/assert/transformer/image/transformer.svg)
 
+- **エンコーダ・デコーダ構造**：古典的なseq2seqフレームワークを改良
+- **中核的イノベーション**：RNN/CNNを完全に排除しアテンション機構に基づく
+- **並列処理能力**：逐次計算の制限を打破
+
