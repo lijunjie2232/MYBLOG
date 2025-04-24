@@ -35,6 +35,7 @@ PyTorch is an optimized tensor library for deep learning using GPUs and CPUs.
     - [randn](#randn)
     - [randint](#randint)
   - [tensorの運算](#tensorの運算)
+- [CUDAの使い方](#cudaの使い方)
 
 
 ## Pytorchインストール
@@ -330,5 +331,11 @@ torch.int64
 | `torch.diag(A)`               | Aの対角要素を取り出し、1次元ベクトルを形成する                                                                            |
 | `torch.diag_embed(A)`         | 1次元ベクトルを対角線に配置し、残りの要素を0とするテンソルを作成する                                                      |
 | `torch.unqueeze(A, dim)`      | テンソルの指定した次元に要素を追加する                                                                                    |
+
+## CUDAの使い方
+1. デバイスを設定する
+2. テンソルをGPUに移動する
+3. 計算する
+
 
 つづく...
