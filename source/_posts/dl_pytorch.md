@@ -36,6 +36,7 @@ PyTorch is an optimized tensor library for deep learning using GPUs and CPUs.
     - [randint](#randint)
   - [tensorの運算](#tensorの運算)
 - [CUDAの使い方](#cudaの使い方)
+  - [使う例](#使う例)
   - [Tips](#tips-1)
 
 
@@ -338,6 +339,37 @@ torch.int64
 1. デバイスを設定する
 2. テンソルをGPUに移動する
 3. 計算する
+
+### 使う例
+```python
+import torch
+
+# GPU環境が利用可能かテスト
+print(torch.__version__)      # PyTorchのバージョン確認
+print(torch.version.cuda)     # CUDAのバージョン確認
+print(torch.cuda.is_available())  # CUDAが利用可能か確認
+
+# GPUまたはCPUのデバイス選択
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+# オブジェクトの実行環境を確認
+a.device  # テンソルaが存在するデバイスを表示
+
+# オブジェクトを指定デバイスに転送
+A = A.to(device)  # テンソルAを選択したデバイス環境に設定
+
+# オブジェクトをCPU環境に転送
+A.cpu().device  # テンソルAをCPU環境に移動
+
+# 異なるデバイス間での演算時の自動変換
+a + b.to(device)  # デバイス環境が混在する場合、bのデバイス環境に統一される
+
+# CUDAテンソルからnumpyへの変換手順
+a.cpu().numpy()  # CUDAテンソルはCPU経由でnumpyに変換する必要あり
+
+# CUDA型テンソルの作成
+torch.tensor([1,2], device=device)  # 指定デバイス上に直接テンソルを作成
+```
 
 ### Tips
 1. bashに`nvidia-smi`でGPUの状態を確認する
