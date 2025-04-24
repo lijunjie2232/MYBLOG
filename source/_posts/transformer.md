@@ -26,6 +26,7 @@ Transformerは、RNNやCNNを用いたモデルの代わりに、Attentionを用
   - [主要コンポーネント](#主要コンポーネント)
     - [Encoder](#encoder)
     - [Decoder](#decoder)
+    - [TransformerBlock](#transformerblock)
   - [技術的詳細](#技術的詳細)
     - [ポジションワイズFFN](#ポジションワイズffn)
     - [残差接続と正規化](#残差接続と正規化)
@@ -271,6 +272,61 @@ class TransformerDecoder(d2l.AttentionDecoder):
   - **状態キャッシュ**：`state[2][self.i]`に生成履歴を保存
 
 
+#### TransformerBlock
+
+Transformer Blockは、**Multi-Head Attention**と**Position-Wise Feed-Forward Networks**を組み合わせ、TransformerEncoderBlockとTransformerDecoderBlockの両方で使用されるレイヤーです。
+
+```python
+class TransformerBlock(nn.Module, ABC):
+    def __init__(self,
+                 d_model,
+                 n_heads,
+                 attn_dropout,
+                 res_dropout):
+        super(TransformerBlock, self).__init__()
+        self.layer_norm = nn.LayerNorm(d_model)
+        self.self_attn = nn.MultiheadAttention(d_model, n_heads, dropout=attn_dropout)
+        self.dropout = nn.Dropout(res_dropout)
+
+    def forward(self,
+                query, key, value,
+                key_padding_mask=None,
+                attn_mask=True):
+        """
+        From original Multimodal Transformer code,
+
+        In the original paper each operation (multi-head attention or FFN) is
+        post-processed with: `dropout -> add residual -> layer-norm`. In the
+        tensor2tensor code they suggest that learning is more robust when
+        preprocessing each layer with layer-norm and postprocessing with:
+        `dropout -> add residual`. We default to the approach in the paper.
+        """
+        query, key, value = [self.layer_norm(x) for x in (query, key, value)]
+        mask = self.get_future_mask(query, key) if attn_mask else None
+        x = self.self_attn(
+            query, key, value,
+            key_padding_mask=key_padding_mask,
+            attn_mask=mask)[0]
+        return query + self.dropout(x)
+
+    @staticmethod
+    def get_future_mask(query, key=None):
+        """
+        :return: source mask
+            ex) tensor([[0., -inf, -inf],
+                        [0., 0., -inf],
+                        [0., 0., 0.]])
+        """
+        dim_query = query.shape[0]
+        dim_key = dim_query if key is None else key.shape[0]
+
+        future_mask = torch.ones(dim_query, dim_key, device=query.device)
+        future_mask = torch.triu(future_mask, diagonal=1).float()
+        future_mask = future_mask.masked_fill(future_mask == float(1), float('-inf'))
+        return future_mask
+```
+
+
 ### 技術的詳細
 
 #### ポジションワイズFFN
@@ -285,7 +341,7 @@ class PositionWiseFFN(nn.Module):
   - 全位置で同一のMLPを適用
   - 次元調整：入力次元 → 隠れ層 → 出力次元
   - 数式表現：
-    \[ \text{FFN}(x) = \text{ReLU}(xW_1 + b_1)W_2 + b_2 \]
+    <center>$\text{FFN}(x) = \text{ReLU}(xW_1 + b_1)W_2 + b_2$</center>
 
 #### 残差接続と正規化
 ```python
