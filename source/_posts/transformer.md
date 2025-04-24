@@ -23,6 +23,9 @@ Transformerは、RNNやCNNを用いたモデルの代わりに、Attentionを用
 - [Positional Encoding](#positional-encoding)
 - [Encoder-Decoder architecture](#encoder-decoder-architecture)
 - [Transformer](#transformer)
+  - [主要コンポーネント](#主要コンポーネント)
+    - [Encoder](#encoder)
+    - [Decoder](#decoder)
 
 
 ## Attention
@@ -219,3 +222,44 @@ Transformerモデルは、Self-Attentionメカニズムを用いてシーケン�
 - **中核的イノベーション**：RNN/CNNを完全に排除しアテンション機構に基づく
 - **並列処理能力**：逐次計算の制限を打破
 
+
+### 主要コンポーネント
+
+#### Encoder
+```python
+class TransformerEncoder(d2l.Encoder):
+    def __init__(self, vocab_size, num_hiddens, ...):
+        self.embedding = nn.Embedding(...)  # 単語埋め込み
+        self.pos_encoding = PositionalEncoding(...)  # 位置エンコーディング
+        self.blks = nn.Sequential(TransformerEncoderBlock(...))  # 層スタック
+```
+
+- **階層構造**：
+  - **N個の同一層**を積層（典型値：N=6）
+  - 各層の構成：
+    1. **マルチヘッド・セルフアテンション**
+    2. **ポジションワイズFFN**
+    3. **残差接続** + **レイヤー正規化**
+
+- **データ処理フロー**：
+  1. 入力埋め込み + 位置エンコーディング → `X = pos_encoding(embedding(X) * sqrt(d_model))`
+  2. 層ごとの処理：`for blk in blks: X = blk(X, valid_lens)`
+
+#### Decoder
+```python
+class TransformerDecoder(d2l.AttentionDecoder):
+    def __init__(self, vocab_size, num_hiddens, ...):
+        self.blks = nn.Sequential(TransformerDecoderBlock(...))  # デコーダ層
+```
+
+- **階層構造**：
+  - **N個の同一層**を積層（エンコーダと同数）
+  - 各層の構成：
+    1. **マスク付きセルフアテンション**
+    2. **エンコーダ・デコーダ間アテンション**
+    3. **ポジションワイズFFN**
+    4. **残差接続** + **レイヤー正規化**（各サブ層後）
+
+- **重要技術**：
+  - **自己回帰マスク**：生成時は過去のトークンのみ参照可能
+  - **状態キャッシュ**：`state[2][self.i]`に生成履歴を保存
