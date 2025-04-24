@@ -202,7 +202,11 @@ $PE_{(pos, 2i+1)} = cos(pos / 10000^{2i / d_{model}})$
 
 ## Encoder-Decoder architecture
 
+![Encoder Decoder Architecture](/assert/transformer/image/encoder_decoder.png)
 
+- エンコーダは可変長入力シーケンスを固定次元の状態ベクトルに変換
+
+- デコーダはエンコードされた状態と生成済みトークンから次のトークンを逐次予測
 
 ## Transformer
 
@@ -210,3 +214,4 @@ Transformerモデルは、Self-Attentionメカニズムを用いてシーケン�
 
 
 ![Transformer Architecture](/assert/transformer/image/transformer.svg)
+
