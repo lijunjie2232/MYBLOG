@@ -21,6 +21,8 @@ Transformerは、RNNやCNNを用いたモデルの代わりに、Attentionを用
   - [コード](#コード)
 - [FNN](#fnn)
 - [Positional Encoding](#positional-encoding)
+- [Encoder-Decoder architecture](#encoder-decoder-architecture)
+- [Transformer](#transformer)
 
 
 ## Attention
@@ -197,3 +199,14 @@ $PE_{(pos, 2i+1)} = cos(pos / 10000^{2i / d_{model}})$
 この関数を選択した理由は、モデルが相対的な位置に簡単に注意を向けることができると仮定したからです。任意の固定オフセット $ k $ に対して、$ \text{PE}\text{({pos}+k)} $ は $ \text{PE}{({pos})} $ の線形関数として表現できるためです。
 
 また、学習型位置エンコーディングも試しましたが、両バージョンの結果はほぼ同じでした。正弦関数を選択した理由は、モデルが訓練中に見なかったよりも長いシーケンス長に外挿できる可能性があるためです。
+
+## Encoder-Decoder architecture
+
+
+
+## Transformer
+
+Transformerモデルは、Self-Attentionメカニズムを用いてシーケンスデータを処理します
+
+
+![Transformer Architecture](/assert/transformer/image/transformer.svg)
