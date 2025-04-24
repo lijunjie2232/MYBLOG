@@ -36,6 +36,7 @@ PyTorch is an optimized tensor library for deep learning using GPUs and CPUs.
     - [randint](#randint)
   - [tensorの運算](#tensorの運算)
 - [CUDAの使い方](#cudaの使い方)
+  - [Tips](#tips-1)
 
 
 ## Pytorchインストール
@@ -333,9 +334,18 @@ torch.int64
 | `torch.unqueeze(A, dim)`      | テンソルの指定した次元に要素を追加する                                                                                    |
 
 ## CUDAの使い方
+
 1. デバイスを設定する
 2. テンソルをGPUに移動する
 3. 計算する
+
+### Tips
+1. bashに`nvidia-smi`でGPUの状態を確認する
+2. `torch.cuda.is_available()`でGPUが利用可能か確認する
+3. `torch.cuda.empty_cache()`でメモリを解放する
+4. `torch.cuda.device_count()`でGPUの数を確認する
+5. `torch.cuda.get_device_name(0)`でGPUの名前を確認する
+6. `torch.cuda.current_device()`で現在のGPUを確認する（おもにmulti-gpusをつかう場合）
 
 
 つづく...
