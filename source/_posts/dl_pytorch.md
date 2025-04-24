@@ -14,6 +14,17 @@ PyTorch is an optimized tensor library for deep learning using GPUs and CPUs.
   - [torch.tensor()とtorch.Tensor()の違い](#torchtensorとtorchtensorの違い-1)
   - [torch.mmとtorch.mulの違い](#torchmmとtorchmulの違い)
   - [t.addとt.add\_の違い](#taddとtadd_の違い)
+  - [torch.stackとtorch.cat](#torchstackとtorchcat)
+- [torch.stack vs torch.cat](#torchstack-vs-torchcat)
+  - [基本的な違い](#基本的な違い)
+  - [詳細な使用例](#詳細な使用例)
+    - [torch.stack](#torchstack)
+    - [torch.cat](#torchcat)
+  - [主な使用ケース](#主な使用ケース)
+    - [torch.stackの典型的な用途](#torchstackの典型的な用途)
+    - [torch.catの典型的な用途](#torchcatの典型的な用途)
+  - [注意事項](#注意事項)
+  - [パフォーマンス比較](#パフォーマンス比較)
 - [基本的な使い方](#基本的な使い方)
   - [import](#import)
 - [Tensor](#tensor)
@@ -98,6 +109,131 @@ tensor([[ 5, 12],
 
 ![add and add_](/assert/dl_pytorch/image/add_add_.png)
 
+### torch.stackとtorch.cat
+
+以下はPyTorchにおける`torch.stack`と`torch.cat`の使い分けと詳細な説明です：
+
+---
+
+## torch.stack vs torch.cat
+
+### 基本的な違い
+| 関数          | 動作                     | 入力条件                   | 出力形状                       | 主な用途               |
+| ------------- | ------------------------ | -------------------------- | ------------------------------ | ---------------------- |
+| `torch.stack` | 新しい次元を追加して結合 | **同じ形状**のテンソルのみ | 入力テンソルの形状に新次元追加 | バッチ処理・次元拡張   |
+| `torch.cat`   | 既存の次元で結合         | **次元数が同じ**テンソル   | 指定次元のサイズが合算         | 特徴量結合・データ連結 |
+
+
+| 関数                       | 作用                                                                             |
+| -------------------------- | -------------------------------------------------------------------------------- |
+| `torch.stack((A, B), dim)` | 新しい次元を追加してテンソルを結合（入力テンソルは完全に同一形状である必要あり） |
+| `torch.cat((A, B), dim)`   | 既存の次元に沿ってテンソルを連結（指定次元のサイズ以外は同一形状である必要あり） |
+
+
+### 詳細な使用例
+
+#### torch.stack
+```python
+A = torch.tensor([[1, 2], [3, 4]])  # (2,2)
+B = torch.tensor([[5, 6], [7, 8]])  # (2,2)
+
+# dim=0でstack（バッチ次元追加）
+C = torch.stack((A, B), dim=0)
+print(C.shape)  # torch.Size([2, 2, 2])
+"""
+tensor([[[1, 2],
+         [3, 4]],
+
+        [[5, 6],
+         [7, 8]]])
+"""
+
+# dim=1でstack（行方向に結合）
+D = torch.stack((A, B), dim=1)
+print(D.shape)  # torch.Size([2, 2, 2])
+"""
+tensor([[[1, 2],
+         [5, 6]],
+
+        [[3, 4],
+         [7, 8]]])
+"""
+```
+
+#### torch.cat
+```python
+A = torch.randn(2, 3)  # (2,3)
+B = torch.randn(2, 3)  # (2,3)
+
+# dim=0で結合（行方向）
+C = torch.cat((A, B), dim=0)
+print(C.shape)  # torch.Size([4, 3])
+
+# dim=1で結合（列方向）
+D = torch.cat((A, B), dim=1)
+print(D.shape)  # torch.Size([2, 6])
+```
+
+### 主な使用ケース
+
+#### torch.stackの典型的な用途
+- 複数の単一画像からバッチ次元を作成
+```python
+img1 = torch.randn(3, 224, 224)  # 画像1（CHW）
+img2 = torch.randn(3, 224, 224)  # 画像2
+batch = torch.stack((img1, img2), dim=0)  # バッチ次元追加 (2,3,224,224)
+```
+
+- 時系列データのフレームスタック
+```python
+frame1 = torch.randn(256)  # 特徴量ベクトル
+frame2 = torch.randn(256)
+sequence = torch.stack((frame1, frame2), dim=0)  # (2,256)
+```
+
+#### torch.catの典型的な用途
+- マルチモーダルデータの結合
+```python
+image_features = torch.randn(10, 512)  # 画像特徴量
+text_features = torch.randn(10, 256)   # テキスト特徴量
+combined = torch.cat((image_features, text_features), dim=1)  # (10,768)
+```
+
+- レイヤー出力の連結
+```python
+conv_out1 = torch.randn(32, 64, 64)
+conv_out2 = torch.randn(32, 64, 64)
+merged = torch.cat((conv_out1, conv_out2), dim=0)  # (64, 64, 64)
+```
+
+### 注意事項
+
+- **形状の一致要件**：
+  ```python
+  # torch.stackは完全な形状一致が必要
+  A = torch.rand(2,3)
+  B = torch.rand(2,3)
+  torch.stack((A, B))  # OK
+
+  A = torch.rand(2,3)
+  B = torch.rand(3,2)
+  torch.stack((A, B))  # RuntimeError
+  ```
+
+- **次元指定の範囲**：
+  ```python
+  A = torch.rand(2,3)
+  B = torch.rand(2,3)
+  
+  torch.stack((A, B), dim=2)  # 有効な次元範囲外（0-1）
+  # IndexError: Dimension out of range
+  ```
+
+### パフォーマンス比較
+| 操作  | 実行時間（例） | メモリ使用量         |
+| ----- | -------------- | -------------------- |
+| stack | 1.2ms ± 15µs   | 高い（新次元作成）   |
+| cat   | 850µs ± 10µs   | 低い（既存次元拡張） |
 
 
 ## 基本的な使い方
