@@ -32,7 +32,6 @@ Transformerは、RNNやCNNを用いたモデルの代わりに、Attentionを用
     - [アテンション機構](#アテンション機構)
   - [主要な革新点](#主要な革新点)
   - [性能優位性](#性能優位性)
-  - [標準構成例](#標準構成例)
 
 
 ## Attention
@@ -328,24 +327,3 @@ class AddNorm(nn.Module):
 3. **拡張性**：層の追加で容易にモデル容量増加
 4. **汎用性**：翻訳・要約・生成など多様なタスクに適用
 
-### 標準構成例
-```python
-# 標準パラメータ設定
-encoder = TransformerEncoder(
-    vocab_size=10000,    # 語彙数
-    num_hiddens=512,     # d_model（モデル次元）
-    ffn_num_hiddens=2048,# FFN隠れ層サイズ
-    num_heads=8,         # アテンションヘッド数
-    num_blks=6,          # エンコーダ層数
-    dropout=0.1          # ドロップアウト率
-)
-
-decoder = TransformerDecoder(
-    vocab_size=10000,
-    num_hiddens=512,     # エンコーダと同一次元
-    ffn_num_hiddens=2048,
-    num_heads=8,
-    num_blks=6,          # デコーダ層数
-    dropout=0.1
-)
-```
