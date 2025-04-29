@@ -46,6 +46,11 @@ PyTorch is an optimized tensor library for deep learning using GPUs and CPUs.
   - [逆伝播（Backpropagation）](#逆伝播backpropagation)
   - [勾配計算の無効化](#勾配計算の無効化)
   - [主なメソッド](#主なメソッド)
+- [DatasetとDataLoader](#datasetとdataloader)
+  - [Datasetの説明](#datasetの説明)
+  - [DataLoaderの説明](#dataloaderの説明)
+  - [使用の例](#使用の例)
+  - [注意事項](#注意事項-1)
 
 
 ## Pytorchインストール
@@ -451,7 +456,13 @@ def inference():
     return y
 
 # 方法3: 属性設定
+print(x.requires_grad)
+# True
 x.requires_grad_(False)
+# tensor([[-0.5736, -0.2012],
+#         [ 1.3563,  0.5499]])
+print(x.requires_grad)
+# False
 ```
 
 ### 主なメソッド
@@ -461,6 +472,82 @@ x.requires_grad_(False)
 | `.detach()`       | 勾配追跡から切り離したテンソルを生成 |
 | `torch.no_grad()` | 勾配計算を無効にするコンテキスト     |
 | `.retain_grad()`  | 非リーフテンソルの勾配を保持         |
+
+
+## DatasetとDataLoader
+
+### Datasetの説明
+1. **役割**  
+   データセットの抽象基底クラス。データの読み込みと前処理をカプセル化し、データアクセスを一貫性のある方法で提供します。
+
+2. **必須メソッド**  
+   - `__getitem__(self, index)`: 指定インデックスのデータサンプルを返す
+   - `__len__(self)`: データセットの総サンプル数を返す
+
+3. **特徴**  
+   - データ変換（transforms）の統合が可能
+   - 自定义データ形式のサポート
+   - データの並列読み込みとキャッシュの最適化
+
+
+### DataLoaderの説明
+1. **役割**  
+   データセットをバッチ単位で効率的に読み込み、モデル訓練に最適なデータパイプラインを提供します。
+
+2. **主な引数**  
+   - `batch_size`: バッチサイズ（デフォルト32）
+   - `shuffle`: エポックごとにデータをシャッフル（学習時推奨）
+   - `num_workers`: データロード用のプロセス数（I/O並列化）
+   - `pin_memory`: データをメモリにピン留め、TrueにするとCUDAテンソルへ高速転送可能（GPU使用時推奨）
+
+3. **特徴**  
+   - マルチプロセスデータローディングでI/Oボトルネックを軽減
+   - サンプル加重やサブセット抽出のサポート
+   - バッチ正規化やデータオーギメンテーションの統合
+
+### 使用の例
+```python
+# Datasetの基本構造
+class CustomDataset(torch.utils.data.Dataset):
+    def __init__(self, data, targets):
+        self.data = data
+        self.targets = targets
+
+    def __getitem__(self, index):
+        return self.data[index], self.targets[index]
+
+    def __len__(self):
+        return len(self.data)
+
+# DataLoaderの基本使用例
+train_dataset = CustomDataset(data_samples, target_labels)
+train_loader = torch.utils.data.DataLoader(
+    dataset=train_dataset,
+    batch_size=64,
+    shuffle=True,
+    num_workers=4
+)
+
+# 実行ループ例
+for epoch in range(num_epochs):
+    for batch_data, batch_labels in train_loader:
+        batch_data = batch_data.to(device)
+        batch_labels = batch_labels.to(device)
+        ...
+```
+
+### 注意事項
+1. **データ並列化**  
+   `num_workers > 0`の場合は、`__getitem__`がマルチスレッドで実行されることに注意が必要です
+
+2. **GPU最適化**  
+   `pin_memory=True`と`to(device)`の組み合わせがCUDA環境で推奨
+
+3. **バッチサイズ最適化**  
+   GPUメモリ容量とトレードオフ関係にあるため、適切なサイズ選択が必要
+
+4. **データ変換**  
+   `torchvision.transforms`モジュールを使用すると画像データの前処理が容易に実装可能
 
 
 
