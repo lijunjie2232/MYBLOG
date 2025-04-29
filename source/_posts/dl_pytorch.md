@@ -38,6 +38,14 @@ PyTorch is an optimized tensor library for deep learning using GPUs and CPUs.
 - [CUDAの使い方](#cudaの使い方)
   - [使う例](#使う例)
   - [関するコマンド](#関するコマンド)
+- [Autograd](#autograd)
+  - [主な用途](#主な用途)
+  - [基本原理](#基本原理)
+  - [動的グラフ vs 静的グラフ](#動的グラフ-vs-静的グラフ)
+  - [PyTorchでの実装方法](#pytorchでの実装方法)
+  - [逆伝播（Backpropagation）](#逆伝播backpropagation)
+  - [勾配計算の無効化](#勾配計算の無効化)
+  - [主なメソッド](#主なメソッド)
 
 
 ## Pytorchインストール
@@ -378,6 +386,82 @@ torch.tensor([1,2], device=device)  # 指定デバイス上に直接テンソル
 4. `torch.cuda.device_count()`でGPUの数を確認する
 5. `torch.cuda.get_device_name(0)`でGPUの名前を確認する
 6. `torch.cuda.current_device()`で現在のGPUを確認する（おもにmulti-gpusをつかう場合）
+
+
+## Autograd
+
+Autogradは自動微分のこと。つまり、関数の値や勾配を自動で計算する。
+- Backpropagation → 誤差逆伝播法
+- Chain Rule → 連鎖律
+- Dynamic Graph → 動的計算グラフ
+- Static Graph → 静的計算グラフ
+
+自動微分（Automatic Differentiation）はディープラーニングフレームワークの中核機能で、数学関数の導関数を自動的に計算します。
+
+### 主な用途
+- ニューラルネットワークの訓練時の勾配計算
+- 誤差逆伝播法（Backpropagation）の実装
+
+### 基本原理
+連鎖律（Chain Rule）に基づき、複合関数の導関数を効率的に計算します。PyTorchのモデルは多くの層で構成される複雑な関数のため、Autogradが各層の勾配を効率的に計算します。
+
+### 動的グラフ vs 静的グラフ
+| 種類           | 特徴                                         | フレームワーク例     |
+| -------------- | -------------------------------------------- | -------------------- |
+| 動的計算グラフ | 実行時にグラフを構築（デバッグ・変更が容易） | PyTorch              |
+| 静的計算グラフ | 実行前にグラフを構築（最適化が可能）         | TensorFlow（初期版） |
+
+### PyTorchでの実装方法
+`torch.Tensor`オブジェクトの`requires_grad`属性で勾配計算の有無を制御：
+```python
+# 勾配計算が必要なテンソル作成
+x = torch.randn(2, 2, requires_grad=True)
+print(x)
+# tensor([[-0.5736, -0.2012],
+#         [ 1.3563,  0.5499]], requires_grad=True)
+
+# 演算の追跡
+y = x + 2
+z = y * y * 3
+out = z.mean()
+print(out)
+# tensor(17.2779, grad_fn=<MeanBackward0>)
+```
+
+### 逆伝播（Backpropagation）
+`.backward()`メソッドで勾配計算：
+```python
+out.backward()        # 勾配計算
+print(x.grad)         # 勾配値の確認
+# tensor([[2.1396, 2.6982],
+#         [5.0345, 3.8248]])
+```
+
+### 勾配計算の無効化
+以下の方法で勾配計算を停止可能：
+```python
+# 方法1: コンテキストマネージャー
+with torch.no_grad():
+    y = x * 2
+
+# 方法2: メソッドの引数
+@torch.no_grad()
+def inference():
+    y = x * 2
+    return y
+
+# 方法3: 属性設定
+x.requires_grad_(False)
+```
+
+### 主なメソッド
+| メソッド          | 説明                                 |
+| ----------------- | ------------------------------------ |
+| `.backward()`     | 勾配を自動計算                       |
+| `.detach()`       | 勾配追跡から切り離したテンソルを生成 |
+| `torch.no_grad()` | 勾配計算を無効にするコンテキスト     |
+| `.retain_grad()`  | 非リーフテンソルの勾配を保持         |
+
 
 
 つづく...
