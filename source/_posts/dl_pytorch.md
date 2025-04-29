@@ -15,16 +15,17 @@ PyTorch is an optimized tensor library for deep learning using GPUs and CPUs.
   - [torch.mmとtorch.mulの違い](#torchmmとtorchmulの違い)
   - [t.addとt.add\_の違い](#taddとtadd_の違い)
   - [torch.stackとtorch.cat](#torchstackとtorchcat)
-- [torch.stack vs torch.cat](#torchstack-vs-torchcat)
-  - [基本的な違い](#基本的な違い)
-  - [詳細な使用例](#詳細な使用例)
-    - [torch.stack](#torchstack)
-    - [torch.cat](#torchcat)
-  - [主な使用ケース](#主な使用ケース)
-    - [torch.stackの典型的な用途](#torchstackの典型的な用途)
-    - [torch.catの典型的な用途](#torchcatの典型的な用途)
-  - [注意事項](#注意事項)
-  - [パフォーマンス比較](#パフォーマンス比較)
+  - [torch.stack vs torch.cat](#torchstack-vs-torchcat)
+    - [基本的な違い](#基本的な違い)
+    - [詳細な使用例](#詳細な使用例)
+      - [torch.stack](#torchstack)
+      - [torch.cat](#torchcat)
+    - [主な使用ケース](#主な使用ケース)
+      - [torch.stackの典型的な用途](#torchstackの典型的な用途)
+      - [torch.catの典型的な用途](#torchcatの典型的な用途)
+    - [注意事項](#注意事項)
+    - [パフォーマンス比較](#パフォーマンス比較)
+  - [epochとiterationとbatchsizeなどの関係](#epochとiterationとbatchsizeなどの関係)
 - [基本的な使い方](#基本的な使い方)
   - [import](#import)
 - [Tensor](#tensor)
@@ -131,9 +132,9 @@ tensor([[ 5, 12],
 
 ---
 
-## torch.stack vs torch.cat
+### torch.stack vs torch.cat
 
-### 基本的な違い
+#### 基本的な違い
 | 関数          | 動作                     | 入力条件                   | 出力形状                       | 主な用途               |
 | ------------- | ------------------------ | -------------------------- | ------------------------------ | ---------------------- |
 | `torch.stack` | 新しい次元を追加して結合 | **同じ形状**のテンソルのみ | 入力テンソルの形状に新次元追加 | バッチ処理・次元拡張   |
@@ -146,9 +147,9 @@ tensor([[ 5, 12],
 | `torch.cat((A, B), dim)`   | 既存の次元に沿ってテンソルを連結（指定次元のサイズ以外は同一形状である必要あり） |
 
 
-### 詳細な使用例
+#### 詳細な使用例
 
-#### torch.stack
+##### torch.stack
 ```python
 A = torch.tensor([[1, 2], [3, 4]])  # (2,2)
 B = torch.tensor([[5, 6], [7, 8]])  # (2,2)
@@ -176,7 +177,7 @@ tensor([[[1, 2],
 """
 ```
 
-#### torch.cat
+##### torch.cat
 ```python
 A = torch.randn(2, 3)  # (2,3)
 B = torch.randn(2, 3)  # (2,3)
@@ -190,9 +191,9 @@ D = torch.cat((A, B), dim=1)
 print(D.shape)  # torch.Size([2, 6])
 ```
 
-### 主な使用ケース
+#### 主な使用ケース
 
-#### torch.stackの典型的な用途
+##### torch.stackの典型的な用途
 - 複数の単一画像からバッチ次元を作成
 ```python
 img1 = torch.randn(3, 224, 224)  # 画像1（CHW）
@@ -207,7 +208,7 @@ frame2 = torch.randn(256)
 sequence = torch.stack((frame1, frame2), dim=0)  # (2,256)
 ```
 
-#### torch.catの典型的な用途
+##### torch.catの典型的な用途
 - マルチモーダルデータの結合
 ```python
 image_features = torch.randn(10, 512)  # 画像特徴量
@@ -222,7 +223,7 @@ conv_out2 = torch.randn(32, 64, 64)
 merged = torch.cat((conv_out1, conv_out2), dim=0)  # (64, 64, 64)
 ```
 
-### 注意事項
+#### 注意事項
 
 - **形状の一致要件**：
   ```python
@@ -245,11 +246,28 @@ merged = torch.cat((conv_out1, conv_out2), dim=0)  # (64, 64, 64)
   # IndexError: Dimension out of range
   ```
 
-### パフォーマンス比較
+#### パフォーマンス比較
 | 操作  | 実行時間（例） | メモリ使用量         |
 | ----- | -------------- | -------------------- |
 | stack | 1.2ms ± 15µs   | 高い（新次元作成）   |
 | cat   | 850µs ± 10µs   | 低い（既存次元拡張） |
+
+
+### epochとiterationとbatchsizeなどの関係
+
+ここで、画像のデータセットを例にして：
+
+
+<center>$total\_iteration = iteration * epoch$</center>
+
+<center>$image\_num = iteration * batch\_size$</center>
+
+- `image_num`とは、画像はデータセットに何枚あるかを表す。
+- `epoch`とは、データセットを何回学習させるかを表す。
+- `iteration`とは、毎回epochはデータセットを何回読み込むかを表す。
+- `batch_size`とは、毎回epochは画像を何枚読み込むかを表す。
+- `total_iteration`とは、(トレーニング)全体はデータセットを読み込む回数を表す。
+
 
 
 ## 基本的な使い方
