@@ -60,6 +60,12 @@ PyTorch is an optimized tensor library for deep learning using GPUs and CPUs.
   - [出力結果](#出力結果)
   - [簡単なトレーニングの例](#簡単なトレーニングの例)
 - [Loss](#loss)
+  - [損失関数の基本概念](#損失関数の基本概念)
+  - [pytorch損失関数の使用例](#pytorch損失関数の使用例)
+  - [カスタム損失関数の作成方法](#カスタム損失関数の作成方法)
+  - [実践的な使用例](#実践的な使用例)
+  - [損失関数選択のガイドライン](#損失関数選択のガイドライン)
+  - [勾配計算の注意点](#勾配計算の注意点)
 
 
 ## Pytorchインストール
@@ -712,8 +718,122 @@ for epoch in range(num_epochs):
 
 
 ## Loss
-Lossとは、
 
+### 損失関数の基本概念
+1. **損失（Loss）の役割**  
+   - モデル予測値と真値の差異を定量化
+   - 逆伝播時の勾配計算の基準となる
+   - 学習プロセスの収束状況を監視
 
+2. **主な損失関数の種類**  
+   | 損失関数クラス         | 数学式                                                                   | 主な用途     | 入力形式要件           |
+   | ---------------------- | ------------------------------------------------------------------------ | ------------ | ---------------------- |
+   | `nn.MSELoss`           | $\frac{1}{n}\sum(y_{pred}-y_{true})^2$                                   | 回帰問題     | 連続値（任意形状）     |
+   | `nn.CrossEntropyLoss`  | $-\sum y_{true}\log(\text{softmax}(y_{pred}))$                           | 多クラス分類 | ロジット値（未正規化） |
+   | `nn.BCELoss`           | $-\frac{1}{n}\sum[y_{true}\log y_{pred} + (1-y_{true})\log(1-y_{pred})]$ | 二値分類     | 確率値（0-1範囲）      |
+   | `nn.L1Loss`            | $\frac{1}{n}\sum\|y_{pred}-y_{true}\|$                                   | ロバスト回帰 | 連続値（任意形状）     |
+   | `nn.TripletMarginLoss` | $\max(d(a,p) - d(a,n) + \text{margin}, 0)$                               | 類似度学習   | 3組の埋め込みベクトル  |
+
+### pytorch損失関数の使用例
+```python
+# 代表的な損失関数の使用例
+import torch.nn as nn
+
+# 平均二乗誤差（回帰問題用）
+mse_loss = nn.MSELoss()
+output = model(inputs)
+loss = mse_loss(output, targets)
+
+# 交差エントロピー（分類問題用）
+ce_loss = nn.CrossEntropyLoss()
+output = model(inputs)
+loss = ce_loss(output, targets)
+
+# バイナリ交差エントロピー（二値分類用）
+bce_loss = nn.BCELoss()
+output = torch.sigmoid(model(inputs))  # 確率値に変換
+loss = bce_loss(output, targets.float())
+```
+
+### カスタム損失関数の作成方法
+```python
+# 方法1: nn.Moduleを継承
+class CustomLoss(nn.Module):
+    def __init__(self, alpha=0.5):
+        super().__init__()
+        self.alpha = alpha
+
+    def forward(self, pred, target):
+        mse = torch.mean((pred - target)**2)
+        l1 = torch.mean(torch.abs(pred - target))
+        return self.alpha * mse + (1 - self.alpha) * l1
+
+# 方法2: 関数形式
+def custom_loss(pred, target, beta=0.3):
+    base_loss = F.binary_cross_entropy(pred, target)
+    penalty = torch.mean(torch.relu(pred - 0.7))**2
+    return base_loss + beta * penalty
+```
+
+### 実践的な使用例
+```python
+# マルチタスク学習用の複合損失
+class MultiTaskLoss(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.ce = nn.CrossEntropyLoss()
+        self.mse = nn.MSELoss()
+
+    def forward(self, pred_class, pred_reg, target_class, target_reg):
+        loss1 = self.ce(pred_class, target_class)
+        loss2 = self.mse(pred_reg, target_reg)
+        return loss1 + 0.5*loss2  # 重み付け加算
+
+# 学習ループ内での利用
+criterion = MultiTaskLoss()
+optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+
+for epoch in range(epochs):
+    for data, (labels_class, labels_reg) in train_loader:
+        outputs_class, outputs_reg = model(data)
+        loss = criterion(outputs_class, outputs_reg, labels_class, labels_reg)
+        
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+```
+
+### 損失関数選択のガイドライン
+| 問題タイプ       | 推奨損失関数               | 補足事項                                     |
+| ---------------- | -------------------------- | -------------------------------------------- |
+| 回帰問題         | `MSELoss` / `HuberLoss`    | 外れ値が多い場合はHuberLossが安定            |
+| 多クラス分類     | `CrossEntropyLoss`         | 出力層の直前にSoftmax不要（組み込み済み）    |
+| 二値分類         | `BCELoss`                  | 出力をシグモイドで確率値に変換する必要あり   |
+| マルチラベル分類 | `BCEWithLogitsLoss`        | シグモイド+BCELossを組み合わせた効率的な実装 |
+| 不均衡データ分類 | 重み付き`CrossEntropyLoss` | クラスごとのサンプル数に応じて重み設定       |
+| 物体検出         | `SmoothL1Loss`             | バウンディングボックス回帰に有効             |
+
+### 勾配計算の注意点
+1. **カスタム損失の微分保証**  
+   - PyTorchの組み込み関数のみ使用すれば自動微分可能
+   - 独自の数学的操作を行う場合、微分可能性を確認する必要あり
+
+2. **メモリ効率最適化**  
+   ```python
+   # メモリ節約テクニック
+   loss = criterion(output, target)
+   loss.backward()           # 勾配計算
+   optimizer.step()          # パラメータ更新
+   optimizer.zero_grad()     # 勾配リセット（重要！）
+   ```
+
+3. **複数損失の組み合わせ**  
+   ```python
+   # 複数損失を個別に計算する例
+   loss1 = criterion1(output1, target1) * weight1
+   loss2 = criterion2(output2, target2) * weight2
+   total_loss = loss1 + loss2
+   total_loss.backward()
+   ```
 
 つづく...
