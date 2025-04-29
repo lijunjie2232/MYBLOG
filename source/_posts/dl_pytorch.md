@@ -55,6 +55,9 @@ PyTorch is an optimized tensor library for deep learning using GPUs and CPUs.
     - [実践的な設定例](#実践的な設定例)
     - [重要な注意点](#重要な注意点)
 - [nn.Module](#nnmodule)
+  - [シンプルなニューラルネットワークの作成例](#シンプルなニューラルネットワークの作成例)
+  - [出力結果](#出力結果)
+  - [主なポイント](#主なポイント)
 
 
 ## Pytorchインストール
@@ -637,6 +640,65 @@ test_loader = DataLoader(
 
 
 ## nn.Module
+
+ニューラルネットワークはニューロン間の接続重みを調整することで予測結果を最適化し、このプロセスには以下の要素が含まれます：
+- 順伝播（Forward Propagation）
+- 損失計算（Loss Calculation）
+- 逆伝播（Backward propagation）
+- パラメータ更新（Parameter Update）
+
+
+主なニューラルネットワークの種類と用途：
+| 種類                                    | 用途例                             |
+| --------------------------------------- | ---------------------------------- |
+| フィードフォワードネットワーク          | 基本的なパターン認識               |
+| 畳み込みニューラルネットワーク（CNN）   | 画像認識、物体検出                 |
+| リカレントニューラルネットワーク（RNN） | 時系列データ分析、自然言語処理     |
+| LSTMネットワーク                        | 長期依存関係のある時系列データ処理 |
+
+
+PyTorchは`torch.nn.Module`クラスを通じてニューラルネットワーク構築の便利なインターフェースを提供します。nn.Moduleクラスを継承し、独自のネットワーク層を定義することができます。
+
+### シンプルなニューラルネットワークの作成例
+
+```python
+import torch.nn as nn
+import torch.optim as optim
+
+# 全結合ニューラルネットワークの定義
+class SimpleNN(nn.Module):
+    def __init__(self):
+        super(SimpleNN, self).__init__()
+        self.fc1 = nn.Linear(1024, 224)  # 入力層から隠れ層へ
+        self.fc2 = nn.Linear(224, 10)  # 隠れ層から出力層へ
+    
+    def forward(self, x):
+        x = torch.relu(self.fc1(x))  # ReLU活性化関数
+        x = self.fc2(x)
+        return x
+
+# ネットワークインスタンスの作成
+model = SimpleNN()
+
+# モデル構造の表示
+print(model)
+```
+
+### 出力結果
+```
+SimpleNN(
+  (fc1): Linear(in_features=1024, out_features=224, bias=True)
+  (fc2): Linear(in_features=224, out_features=10, bias=True)
+)
+```
+
+### 主なポイント
+- `nn.Module`を継承してネットワーククラスを定義
+- `__init__`メソッドで層を初期化
+- `forward`メソッドでデータの流れを定義
+- 活性化関数（ReLU）で非線形性を追加
+- 自動的にパラメータ追跡と勾配計算が有効化
+
 
 
 つづく...
