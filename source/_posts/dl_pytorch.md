@@ -48,10 +48,13 @@ PyTorch is an optimized tensor library for deep learning using GPUs and CPUs.
   - [勾配計算の無効化](#勾配計算の無効化)
   - [主なメソッド](#主なメソッド)
 - [DatasetとDataLoader](#datasetとdataloader)
+  - [使用の例](#使用の例)
   - [Datasetの説明](#datasetの説明)
   - [DataLoaderの説明](#dataloaderの説明)
-  - [使用の例](#使用の例)
-  - [注意事項](#注意事項-1)
+    - [主要パラメータの詳細説明](#主要パラメータの詳細説明)
+    - [実践的な設定例](#実践的な設定例)
+    - [重要な注意点](#重要な注意点)
+- [nn.Module](#nnmodule)
 
 
 ## Pytorchインストール
@@ -494,6 +497,40 @@ print(x.requires_grad)
 
 ## DatasetとDataLoader
 
+
+### 使用の例
+```python
+from torch.utils.data import DataLoader, Dataset
+
+# Datasetの基本構造
+class CustomDataset(Dataset):
+    def __init__(self, data, targets):
+        self.data = data
+        self.targets = targets
+
+    def __getitem__(self, index):
+        return self.data[index], self.targets[index]
+
+    def __len__(self):
+        return len(self.data)
+
+# DataLoaderの基本使用例
+train_dataset = CustomDataset(data_samples, target_labels)
+train_loader = DataLoader(
+    dataset=train_dataset,
+    batch_size=64,
+    shuffle=True,
+    num_workers=4
+)
+
+# 実行ループ例
+for epoch in range(num_epochs):
+    for batch_data, batch_labels in train_loader:
+        batch_data = batch_data.to(device)
+        batch_labels = batch_labels.to(device)
+        ...
+```
+
 ### Datasetの説明
 1. **役割**  
    データセットの抽象基底クラス。データの読み込みと前処理をカプセル化し、データアクセスを一貫性のある方法で提供します。
@@ -512,61 +549,94 @@ print(x.requires_grad)
 1. **役割**  
    データセットをバッチ単位で効率的に読み込み、モデル訓練に最適なデータパイプラインを提供します。
 
-2. **主な引数**  
-   - `batch_size`: バッチサイズ（デフォルト32）
-   - `shuffle`: エポックごとにデータをシャッフル（学習時推奨）
-   - `num_workers`: データロード用のプロセス数（I/O並列化）
-   - `pin_memory`: データをメモリにピン留め、TrueにするとCUDAテンソルへ高速転送可能（GPU使用時推奨）
+```python
+# DataLoaderの主要パラメータとその説明（橙色部分重点）
 
-3. **特徴**  
+from torch.utils.data import DataLoader, Dataset
+
+class SampleDataset(Dataset):
+    def __init__(self):
+        self.data = [...]  # データセットの初期化
+    def __len__(self):
+        return len(self.data)
+    def __getitem__(self, idx):
+        return self.data[idx]
+
+# データローダーの実用的設定例
+train_loader = DataLoader(
+    dataset=SampleDataset(),          # [必須] 使用するDatasetオブジェクト
+    batch_size=32,                    # [重要] バッチサイズ（デフォルト1）
+    shuffle=True,                     # [重要] エポックごとにデータをシャッフル（学習時はTrue推奨）
+    num_workers=4,                    # [重要] データ読み込みの並列プロセス数（0でシングルスレッド）
+    collate_fn=None,                  # [応用] カスタムバッチ作成関数（不規則データ用）
+    pin_memory=True,                  # [GPU推奨] CUDAへの高速転送を可能にする
+    drop_last=False                   # [調整] 最後の不完全バッチを削除するか（デフォルトFalse）
+)
+```
+
+#### 主要パラメータの詳細説明
+
+| パラメータ      | 役割と設定例                                     | 最適化のポイント                                                               |
+| --------------- | ------------------------------------------------ | ------------------------------------------------------------------------------ |
+| **dataset**     | データソースとなるDatasetオブジェクト（必須）    | 自作Datasetクラスか torchvision.datasets等の既存データセットを使用する         |
+| **batch_size**  | 1イテレーションあたりのサンプル数                | GPUメモリ容量とトレードオフ<br>（例：32/64/128/256）                           |
+| **shuffle**     | エポックごとにデータをランダムシャッフルするか   | 学習時はTrueで過学習防止<br>評価時はFalseで安定化                              |
+| **num_workers** | データ読み込み用プロセス数（I/O並列化）          | CPUリソース許す限り増やす（例：4-8）<br>`num_workers=0`はシングルスレッド      |
+| **collate_fn**  | バッチ作成時のカスタム処理（不規則形状データ用） | 画像とテキストの組み合わせなど、形状が異なるデータをバッチ化する際に必要       |
+| **pin_memory**  | CUDAへの転送速度向上（ページ锁定メモリ使用）     | GPU環境では必ずTrueに設定<br>（CPU→GPU転送速度が約2倍速くなる）                |
+| **drop_last**   | 最後の不完全バッチを削除するか                   | バッチ処理が厳密なサイズ要求の場合はTrue<br>（例：特定のモデルアーキテクチャ） |
+
+
+#### 実践的な設定例
+
+```python
+# GPU環境向け最適設定例
+dataloader = DataLoader(
+    dataset=train_dataset,
+    batch_size=64,    # GPUメモリ許容範囲で最大限設定
+    shuffle=True,
+    num_workers=4,    # CPUコア数に応じて調整
+    pin_memory=True,  # CUDA環境必須
+    drop_last=False   # データロスを許容できない場合
+)
+
+# データオーギメンテーション付き例
+from torchvision import transforms
+test_dataset = MyDataset(transform=transforms.Compose([...]))
+test_loader = DataLoader(
+    dataset=test_dataset,
+    batch_size=16,
+    shuffle=False,
+    num_workers=2,
+    collate_fn=my_custom_collate  # 不規則データ用
+)
+```
+
+#### 重要な注意点
+1. **num_workersの最適化**  
+   - 物理CPUコア数の半分を推奨（例：8コアなら4）
+   - オーバー設定するとメモリ不足の可能性あり
+
+2. **pin_memoryの効果**  
+   - CUDAテンソルへの転送速度が約2倍向上
+   - CPU→GPU転送がボトルネックの場合は必須
+
+3. **バッチサイズのトレードオフ**  
+   - 大きくすると学習安定性向上だがメモリ使用増加
+   - 小さくすると学習速度向上だが不安定化の可能性
+
+4. **collate_fnの使用ケース**  
+   - 文字列と画像のペアデータ
+   - 多可変長入力（例：異なる長さの時系列データ）
+   - データ拡張をバッチレベルで実施する場合
+
+5. **特徴**  
    - マルチプロセスデータローディングでI/Oボトルネックを軽減
    - サンプル加重やサブセット抽出のサポート
    - バッチ正規化やデータオーギメンテーションの統合
 
-### 使用の例
-```python
-# Datasetの基本構造
-class CustomDataset(torch.utils.data.Dataset):
-    def __init__(self, data, targets):
-        self.data = data
-        self.targets = targets
 
-    def __getitem__(self, index):
-        return self.data[index], self.targets[index]
-
-    def __len__(self):
-        return len(self.data)
-
-# DataLoaderの基本使用例
-train_dataset = CustomDataset(data_samples, target_labels)
-train_loader = torch.utils.data.DataLoader(
-    dataset=train_dataset,
-    batch_size=64,
-    shuffle=True,
-    num_workers=4
-)
-
-# 実行ループ例
-for epoch in range(num_epochs):
-    for batch_data, batch_labels in train_loader:
-        batch_data = batch_data.to(device)
-        batch_labels = batch_labels.to(device)
-        ...
-```
-
-### 注意事項
-1. **データ並列化**  
-   `num_workers > 0`の場合は、`__getitem__`がマルチスレッドで実行されることに注意が必要です
-
-2. **GPU最適化**  
-   `pin_memory=True`と`to(device)`の組み合わせがCUDA環境で推奨
-
-3. **バッチサイズ最適化**  
-   GPUメモリ容量とトレードオフ関係にあるため、適切なサイズ選択が必要
-
-4. **データ変換**  
-   `torchvision.transforms`モジュールを使用すると画像データの前処理が容易に実装可能
-
+## nn.Module
 
 
 つづく...
