@@ -56,9 +56,10 @@ PyTorch is an optimized tensor library for deep learning using GPUs and CPUs.
     - [重要な注意点](#重要な注意点)
 - [nn.Module](#nnmodule)
   - [作成例](#作成例)
-  - [出力結果](#出力結果)
   - [主なポイント](#主なポイント)
-  - [トレーニングの例](#トレーニングの例)
+  - [出力結果](#出力結果)
+  - [簡単なトレーニングの例](#簡単なトレーニングの例)
+- [Loss](#loss)
 
 
 ## Pytorchインストール
@@ -639,15 +640,7 @@ test_loader = DataLoader(
    - サンプル加重やサブセット抽出のサポート
    - バッチ正規化やデータオーギメンテーションの統合
 
-
 ## nn.Module
-
-ニューラルネットワークはニューロン間の接続重みを調整することで予測結果を最適化し、このプロセスには以下の要素が含まれます：
-1. 順伝播（Forward Propagation）
-2. 損失計算（Loss Calculation）
-3. 逆伝播（Backward propagation）
-4. パラメータ更新（Parameter Update）
-
 
 PyTorchは`torch.nn.Module`クラスを通じてニューラルネットワーク構築の便利なインターフェースを提供します。nn.Moduleクラスを継承し、独自のネットワーク層を定義することができます。
 
@@ -676,6 +669,11 @@ model = SimpleNN()
 print(model)
 ```
 
+### 主なポイント
+- `nn.Module`を継承してネットワーククラスを定義
+- `__init__`メソッドで層を初期化
+- `forward`メソッドでデータの流れを定義
+
 ### 出力結果
 ```
 SimpleNN(
@@ -684,23 +682,25 @@ SimpleNN(
 )
 ```
 
-### 主なポイント
-- `nn.Module`を継承してネットワーククラスを定義
-- `__init__`メソッドで層を初期化
-- `forward`メソッドでデータの流れを定義
+### 簡単なトレーニングの例
 
-### トレーニングの例
+ニューラルネットワークはニューロン間の接続重みを調整することで予測結果を最適化し、このプロセスには以下の要素が含まれます：
+1. 順伝播（Forward Propagation）
+2. 損失計算（Loss Calculation）
+3. 逆伝播（Backward propagation）
+4. パラメータ更新（Parameter Update）
+
 ```python
 # 実行ループ例
+model.train()  # モデルを学習モードに設定
 for epoch in range(num_epochs):
-    for batch_data, batch_labels in train_loader:
+    for batch_data, batch_labels in train_loader:  # バッチデータを取得
         batch_data = batch_data.to(device)
         batch_labels = batch_labels.to(device)
-        outputs = model(batch_data)
-        loss = criterion(outputs, batch_labels)
-        loss.backward()
+        outputs = model(batch_data)  # 順伝播
+        loss = criterion(outputs, batch_labels)  # 損失計算
+        loss.backward()  # 逆伝播とパラメータ更新（簡単の例）
 ```
-
 
 主なニューラルネットワークの種類と用途：
 | 種類                                    | 用途例                             |
@@ -709,4 +709,11 @@ for epoch in range(num_epochs):
 | 畳み込みニューラルネットワーク（CNN）   | 画像認識、物体検出                 |
 | リカレントニューラルネットワーク（RNN） | 時系列データ分析、自然言語処理     |
 | LSTMネットワーク                        | 長期依存関係のある時系列データ処理 |
+
+
+## Loss
+Lossとは、
+
+
+
 つづく...
