@@ -55,9 +55,10 @@ PyTorch is an optimized tensor library for deep learning using GPUs and CPUs.
     - [実践的な設定例](#実践的な設定例)
     - [重要な注意点](#重要な注意点)
 - [nn.Module](#nnmodule)
-  - [シンプルなニューラルネットワークの作成例](#シンプルなニューラルネットワークの作成例)
+  - [作成例](#作成例)
   - [出力結果](#出力結果)
   - [主なポイント](#主なポイント)
+  - [トレーニングの例](#トレーニングの例)
 
 
 ## Pytorchインストール
@@ -642,24 +643,15 @@ test_loader = DataLoader(
 ## nn.Module
 
 ニューラルネットワークはニューロン間の接続重みを調整することで予測結果を最適化し、このプロセスには以下の要素が含まれます：
-- 順伝播（Forward Propagation）
-- 損失計算（Loss Calculation）
-- 逆伝播（Backward propagation）
-- パラメータ更新（Parameter Update）
-
-
-主なニューラルネットワークの種類と用途：
-| 種類                                    | 用途例                             |
-| --------------------------------------- | ---------------------------------- |
-| フィードフォワードネットワーク          | 基本的なパターン認識               |
-| 畳み込みニューラルネットワーク（CNN）   | 画像認識、物体検出                 |
-| リカレントニューラルネットワーク（RNN） | 時系列データ分析、自然言語処理     |
-| LSTMネットワーク                        | 長期依存関係のある時系列データ処理 |
+1. 順伝播（Forward Propagation）
+2. 損失計算（Loss Calculation）
+3. 逆伝播（Backward propagation）
+4. パラメータ更新（Parameter Update）
 
 
 PyTorchは`torch.nn.Module`クラスを通じてニューラルネットワーク構築の便利なインターフェースを提供します。nn.Moduleクラスを継承し、独自のネットワーク層を定義することができます。
 
-### シンプルなニューラルネットワークの作成例
+### 作成例
 
 ```python
 import torch.nn as nn
@@ -696,9 +688,25 @@ SimpleNN(
 - `nn.Module`を継承してネットワーククラスを定義
 - `__init__`メソッドで層を初期化
 - `forward`メソッドでデータの流れを定義
-- 活性化関数（ReLU）で非線形性を追加
-- 自動的にパラメータ追跡と勾配計算が有効化
+
+### トレーニングの例
+```python
+# 実行ループ例
+for epoch in range(num_epochs):
+    for batch_data, batch_labels in train_loader:
+        batch_data = batch_data.to(device)
+        batch_labels = batch_labels.to(device)
+        outputs = model(batch_data)
+        loss = criterion(outputs, batch_labels)
+        loss.backward()
+```
 
 
-
+主なニューラルネットワークの種類と用途：
+| 種類                                    | 用途例                             |
+| --------------------------------------- | ---------------------------------- |
+| フィードフォワードネットワーク          | 基本的なパターン認識               |
+| 畳み込みニューラルネットワーク（CNN）   | 画像認識、物体検出                 |
+| リカレントニューラルネットワーク（RNN） | 時系列データ分析、自然言語処理     |
+| LSTMネットワーク                        | 長期依存関係のある時系列データ処理 |
 つづく...
