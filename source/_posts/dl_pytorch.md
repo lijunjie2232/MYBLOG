@@ -66,6 +66,8 @@ PyTorch is an optimized tensor library for deep learning using GPUs and CPUs.
   - [実践的な使用例](#実践的な使用例)
   - [損失関数選択のガイドライン](#損失関数選択のガイドライン)
   - [勾配計算の注意点](#勾配計算の注意点)
+- [Optimizer](#optimizer)
+  - [使用例](#使用例)
 
 
 ## Pytorchインストール
@@ -835,5 +837,27 @@ for epoch in range(epochs):
    total_loss = loss1 + loss2
    total_loss.backward()
    ```
+
+## Optimizer
+
+### 使用例
+```python
+# 主要オプティマイザの使用例
+import torch.optim as optim
+
+# モデルパラメータとオプティマイザの初期化
+model = SimpleNN()
+optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-4)
+
+# 学習ループでの使用
+for epoch in range(epochs):
+    for data, target in train_loader:
+        optimizer.zero_grad()  # 勾配のリセット
+        output = model(data)
+        loss = criterion(output, target)
+        loss.backward()        # 勾配計算
+        optimizer.step()       # パラメータ更新
+```
+
 
 つづく...
