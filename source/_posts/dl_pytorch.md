@@ -69,6 +69,9 @@ PyTorch is an optimized tensor library for deep learning using GPUs and CPUs.
 - [Optimizer](#optimizer)
   - [使用例](#使用例)
   - [PyTorchオプティマイザの主要機能](#pytorchオプティマイザの主要機能)
+  - [実践的な使用パターン](#実践的な使用パターン)
+    - [異なるレイヤーに異なる学習率を設定](#異なるレイヤーに異なる学習率を設定)
+    - [勾配クリッピング](#勾配クリッピング)
 
 
 ## Pytorchインストール
@@ -886,6 +889,27 @@ for epoch in range(epochs):
        amsgrad=False               # AMSGrad変種（Adam専用）
    )
    ```
+
+### 実践的な使用パターン
+
+#### 異なるレイヤーに異なる学習率を設定
+```python
+# パラメータグループの分割
+optimizer = optim.SGD([
+    {'params': model.base.parameters(), 'lr': 0.001},
+    {'params': model.classifier.parameters(), 'lr': 0.01}
+], momentum=0.9)
+
+# 学習率スケジューラとの連携
+scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.1)
+```
+
+#### 勾配クリッピング
+```python
+# 勾配のノルム制限
+torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+optimizer.step()
+```
 
 
 つづく...
