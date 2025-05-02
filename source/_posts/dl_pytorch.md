@@ -68,6 +68,7 @@ PyTorch is an optimized tensor library for deep learning using GPUs and CPUs.
   - [勾配計算の注意点](#勾配計算の注意点)
 - [Optimizer](#optimizer)
   - [使用例](#使用例)
+  - [PyTorchオプティマイザの主要機能](#pytorchオプティマイザの主要機能)
 
 
 ## Pytorchインストール
@@ -858,6 +859,33 @@ for epoch in range(epochs):
         loss.backward()        # 勾配計算
         optimizer.step()       # パラメータ更新
 ```
+
+### PyTorchオプティマイザの主要機能
+
+1. **パラメータ更新メカニズム**
+   - 勾配降下法の変種を実装
+   - モーメンタム、重み減衰などの拡張機能をサポート
+   - 自動微分結果を利用した効率的なパラメータ更新
+
+2. **主要オプティマイザの比較**
+   | オプティマイザ | メリット                 | デメリット     | 最適な使用ケース   |
+   | -------------- | ------------------------ | -------------- | ------------------ |
+   | SGD            | シンプル、メモリ効率良好 | 収束が遅い     | 小規模データセット |
+   | Adam           | 高速収束、ハイパラ調整少 | メモリ使用多   | 深層学習全般       |
+   | RMSprop        | 不安定な勾配に強い       | 学習率調整必要 | RNN/LSTM           |
+   | Adagrad        | 特徴頻度適応型           | 学習率急速低下 | スパースデータ     |
+   | Adadelta       | 学習率自動調整           | 計算コスト高   | 長期依存関係       |
+
+3. **共通パラメータ**
+   ```python
+   optimizer = optim.Adam(
+       params=model.parameters(),  # 必須：最適化対象パラメータ
+       lr=0.001,                   # 学習率（デフォルト値あり）
+       betas=(0.9, 0.999),         # モーメンタム係数（Adam専用）
+       weight_decay=0.01,          # L2正則化係数
+       amsgrad=False               # AMSGrad変種（Adam専用）
+   )
+   ```
 
 
 つづく...
