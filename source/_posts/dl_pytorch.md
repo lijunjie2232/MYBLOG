@@ -72,6 +72,9 @@ PyTorch is an optimized tensor library for deep learning using GPUs and CPUs.
   - [実践的な使用パターン](#実践的な使用パターン)
     - [異なるレイヤーに異なる学習率を設定](#異なるレイヤーに異なる学習率を設定)
     - [勾配クリッピング](#勾配クリッピング)
+  - [主要オプティマイザの数式比較](#主要オプティマイザの数式比較)
+  - [パフォーマンス最適化Tips](#パフォーマンス最適化tips)
+  - [よくあるエラーと対策](#よくあるエラーと対策)
 
 
 ## Pytorchインストール
@@ -910,6 +913,98 @@ scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.1)
 torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
 optimizer.step()
 ```
+
+### 主要オプティマイザの数式比較
+
+| オプティマイザ | 更新式（簡略版）                                                                                                                                                                          |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **SGD**        | $θ_{t+1} = θ_t - η \nabla J(θ_t)$                                                                                                                                                         |
+| **Momentum**   | $v_{t+1} = γv_t + η \nabla J(θ_t)$<br>$θ_{t+1} = θ_t - v_{t+1}$                                                                                                                           |
+| **Adam**       | $m_t = β_1m_{t-1} + (1-β_1)g_t$<br>$v_t = β_2v_{t-1} + (1-β_2)g_t^2$<br>$\hat{m}_t = m_t/(1-β_1^t)$<br>$\hat{v}_t = v_t/(1-β_2^t)$<br>$θ_{t+1} = θ_t - η\hat{m}_t/(\sqrt{\hat{v}_t} + ε)$ |
+
+### パフォーマンス最適化Tips
+
+1. **学習率のウォームアップ**
+   ```python
+   # 初期数エポックで学習率を徐々に増加
+   warmup_epochs = 5
+   for epoch in range(epochs):
+       lr = base_lr * min(epoch / warmup_epochs, 1.0)
+       for param_group in optimizer.param_groups:
+           param_group['lr'] = lr
+       # 通常の学習処理...
+   ```
+
+2. **勾配蓄積（メモリ不足時）**
+   ```python
+   accumulation_steps = 4
+   for i, (data, target) in enumerate(train_loader):
+       output = model(data)
+       loss = criterion(output, target)
+       loss = loss / accumulation_steps  # 損失のスケーリング
+       loss.backward()
+       
+       if (i+1) % accumulation_steps == 0:
+           optimizer.step()
+           optimizer.zero_grad()
+   ```
+
+3. **混合精度トレーニング**
+   ```python
+   scaler = torch.cuda.amp.GradScaler()
+   
+   for data, target in train_loader:
+       optimizer.zero_grad()
+       with torch.cuda.amp.autocast():
+           output = model(data)
+           loss = criterion(output, target)
+       scaler.scale(loss).backward()
+       scaler.step(optimizer)
+       scaler.update()
+   ```
+
+### よくあるエラーと対策
+
+1. **勾配の未リセット**
+   ```python
+   # 誤り例
+   output = model(input)
+   loss.backward()
+   optimizer.step()  # 勾配が蓄積される
+   
+   # 正しい例
+   optimizer.zero_grad()
+   output = model(input)
+   loss.backward()
+   optimizer.step()
+   ```
+
+2. **パラメータグループの誤指定**
+   ```python
+   # 誤り例（重み減衰の不適切適用）
+   optimizer = Adam(model.parameters(), weight_decay=1e-4)  # BatchNorm層にも適用される
+   
+   # 正しい例
+   params = [
+       {'params': model.features.parameters(), 'weight_decay': 1e-4},
+       {'params': model.bn.parameters(), 'weight_decay': 0}
+   ]
+   optimizer = Adam(params, lr=0.001)
+   ```
+
+3. **学習率スケジューラの誤使用**
+   ```python
+   # 誤り例（ステップ位置不適切）
+   optimizer.step()
+   scheduler.step()  # エポック終了時に実行するべき
+   
+   # 正しい例
+   for epoch in range(epochs):
+       for batch in train_loader:
+           # ...学習処理...
+           optimizer.step()
+       scheduler.step()
+   ```
 
 
 つづく...
