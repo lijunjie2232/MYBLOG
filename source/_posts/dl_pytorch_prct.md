@@ -15,6 +15,8 @@ lang: ja
 - [データセットtransoforms](#データセットtransoforms)
   - [主な特徴](#主な特徴)
   - [よく使われるクラス一覧](#よく使われるクラス一覧)
+  - [使用例](#使用例)
+  - [適用方法の例（`ImageFolder`）](#適用方法の例imagefolder)
 
 
 ## Pytorchインストール
@@ -78,3 +80,30 @@ print("Path to dataset files:", path)
 | `RandomRotation(degrees)`                        | 画像をランダムに回転させる（角度は `degrees` 以内）           |
 | `RandomAffine(degrees, translate, scale, shear)` | 画像をランダムに回転・平行移動・拡大縮小・傾斜させる          |
 | `RandomCrop(size)`                               | 画像をランダムに切り出す                                      |
+
+### 使用例
+
+```python
+from torchvision import transforms
+
+transform = transforms.Compose([
+    transforms.Resize(256),         # 256x256にリサイズ
+    transforms.CenterCrop(224),     # 中心を224x224に切り抜き
+    transforms.ToTensor(),          # Tensorに変換
+    transforms.Normalize(           # 正規化
+        mean=[0.485, 0.456, 0.406],
+        std=[0.229, 0.224, 0.225]
+    )
+])
+```
+
+このようにして作成した `transform` は、`ImageFolder` や自作の `Dataset` クラスで画像に適用されます。
+
+
+### 適用方法の例（`ImageFolder`）
+
+```python
+from torchvision import datasets
+
+dataset = datasets.ImageFolder(root='path/to/data', transform=transform)
+```
