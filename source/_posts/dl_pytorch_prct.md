@@ -1,6 +1,6 @@
 ---
 title: pytorch 実践
-date: 2022-8-12 15:10:00
+date: 2022-8-12 10:15:00
 categories: [AI]
 tags: [deep learning, pytorch, python]
 lang: ja
