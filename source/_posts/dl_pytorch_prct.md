@@ -6,17 +6,22 @@ tags: [deep learning, pytorch, python]
 lang: ja
 ---
 
+
 この記事は、画像の顔表情認識に例をして、Pytorchを用いた実践な任務を解説する。
+codeの例：[main.ipynb](/assert/dl_pytorch_prct/main.ipynb)
+
 
 - [Pytorchインストール](#pytorchインストール)
+  - [requirements](#requirements)
 - [Tips](#tips)
 - [基本的な任務](#基本的な任務)
 - [データセット情報](#データセット情報)
-- [データセットtransoforms](#データセットtransoforms)
+- [データのtransoforms](#データのtransoforms)
   - [主な特徴](#主な特徴)
   - [よく使われるクラス一覧](#よく使われるクラス一覧)
   - [使用例](#使用例)
   - [適用方法の例（`ImageFolder`）](#適用方法の例imagefolder)
+- [モーデルの作成](#モーデルの作成)
 
 
 ## Pytorchインストール
@@ -26,6 +31,11 @@ lang: ja
 - use pip: `pip3 install torch torchvision torchaudio`　(CUDA12.6 by default)
 
 最新のpytorchはcondaでインストールのをできません。
+
+
+### requirements
+[requirements.txt](/assert/dl_pytorch_prct/requirements.txt)
+`pip install -r requirements.txt`
 
 ## Tips
 
@@ -57,7 +67,7 @@ path = kagglehub.dataset_download("aadityasinghal/facial-expression-dataset")
 print("Path to dataset files:", path)
 ```
 
-## データセットtransoforms
+## データのtransoforms
 
 `torchvision.transforms` は、PyTorchで画像データを処理するための一般的な変換（前処理・水増し）を行うモジュールです。主に `torchvision.datasets` と組み合わせて使用され、画像をテンソルに変換したり、正規化や拡張などの操作を行います。
 
@@ -107,3 +117,5 @@ from torchvision import datasets
 
 dataset = datasets.ImageFolder(root='path/to/data', transform=transform)
 ```
+
+## モーデルの作成
