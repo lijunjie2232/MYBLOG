@@ -6,12 +6,12 @@ tags: [deep learning, pytorch, python]
 lang: ja
 ---
 
-この記事は、画像の表情認識に例して、Pytorchを用いた実践な任務を解説する。
+この記事は、画像の顔表情認識に例をして、Pytorchを用いた実践な任務を解説する。
 
 - [Pytorchインストール](#pytorchインストール)
 - [Tips](#tips)
-- [データセット情報](#データセット情報)
 - [基本的な任務](#基本的な任務)
+- [データセット情報](#データセット情報)
 
 
 ## Pytorchインストール
@@ -24,11 +24,24 @@ lang: ja
 
 ## Tips
 
+
+## 基本的な任務
+
+要するに、画像のファイルには顔がある、その画像を読み込んて、pytorchモデルで顔表情を判断します。
+
+1. データ準備と画像前処理
+2. モデルアーキテクチャ設計
+3. モデルトレーニング
+4. モデル推論
+
+
 ## データセット情報
 
 今回のデータセットは、Kaggleのデータセットを利用します。
 
 link：[https://www.kaggle.com/datasets/aadityasinghal/facial-expression-dataset](https://www.kaggle.com/datasets/aadityasinghal/facial-expression-dataset)
+
+ラベル: 7種類の感情（angry, disgust, fear, happy, neutral, sad, surprise）
 
 ```python
 import kagglehub
@@ -38,7 +51,3 @@ path = kagglehub.dataset_download("aadityasinghal/facial-expression-dataset")
 
 print("Path to dataset files:", path)
 ```
-
-
-## 基本的な任務
-
