@@ -79,6 +79,9 @@ PyTorch is an optimized tensor library for deep learning using GPUs and CPUs.
   - [よく使われるScheduler一覧](#よく使われるscheduler一覧)
   - [使用例:](#使用例-1)
   - [ReduceLROnPlateauの使い方](#reducelronplateauの使い方)
+  - [OneCyclePolicyの使い方](#onecyclepolicyの使い方)
+  - [実践的なTips](#実践的なtips)
+  - [warmupを使って初期の不安定性を抑える](#warmupを使って初期の不安定性を抑える)
 
 
 ## Pytorchインストール
@@ -1062,6 +1065,47 @@ for epoch in range(epochs):
     train(...)
     val_loss = validate(...)
     scheduler.step(val_loss)  # 検証ロスを与える
+```
+
+### OneCyclePolicyの使い方
+Sets the learning rate of each parameter group according to the 1cycle learning rate policy.
+
+```python
+from torch.optim.lr_scheduler import OneCycleLR
+
+scheduler = OneCycleLR(
+    optimizer,
+    max_lr=0.01,
+    steps_per_epoch=len(dataloader),
+    epochs=num_epochs
+)
+
+for epoch in range(num_epochs):
+    for batch in dataloader:
+        ...
+        scheduler.step()
+```
+
+### 実践的なTips
+
+- `scheduler.step()` は通常 **各エポック終了時に1回だけ呼び出す**
+- 多重のスケジューラを使う場合は順序に注意
+- スケジューラとオプティマイザの状態を保存するには `state_dict()` を使う
+
+### warmupを使って初期の不安定性を抑える
+```python
+# スケジューラの設定
+warmup_epochs = 5
+total_epochs = 100
+
+# Cosine Annealing スケジューラ　（warmup設定）
+lr_scheduler = CosineAnnealingLR(
+    optimizer,
+    max_epochs=total_epochs,
+    warmup_epochs=warmup_epochs,
+    warmup_start_lr=0.0001,
+    eta_min=0.00001
+)
 ```
 
 
