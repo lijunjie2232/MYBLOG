@@ -122,7 +122,7 @@ dataset = datasets.ImageFolder(root='path/to/data', transform=transform)
 
 ```python
 class MotionNet(nn.Module):
-    def __init__(self, c1=224, nc: int = 7):
+    def __init__(self, c1: int = 3, nc: int = 7):
         """
         Initialize classification model
 
@@ -138,7 +138,7 @@ class MotionNet(nn.Module):
         self.backbone = nn.ModuleList(
             [
                 # 0-P1/2
-                Conv(c1=c1, c2=16, k=3, s=2),
+                Conv(c1=3, c2=16, k=3, s=2),
                 # 1-P2/4
                 Conv(c1=16, c2=32, k=3, s=2),
                 # 2-C3k2 block
