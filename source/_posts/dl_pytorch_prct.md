@@ -1,12 +1,12 @@
 ---
-title: pytorch フレームワーク　基本的な使い方
+title: pytorch 実践
 date: 2022-8-3 15:10:00
 categories: [AI]
 tags: [deep learning, pytorch, python]
 lang: ja
 ---
 
-PyTorch is an optimized tensor library for deep learning using GPUs and CPUs.
+
 
 - [Pytorchインストール](#pytorchインストール)
 - [Tips](#tips)
