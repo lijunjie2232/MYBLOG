@@ -75,6 +75,7 @@ PyTorch is an optimized tensor library for deep learning using GPUs and CPUs.
   - [主要オプティマイザの数式比較](#主要オプティマイザの数式比較)
   - [パフォーマンス最適化Tips](#パフォーマンス最適化tips)
   - [よくあるエラーと対策](#よくあるエラーと対策)
+- [Scheduler](#scheduler)
 
 
 ## Pytorchインストール
@@ -1005,6 +1006,15 @@ optimizer.step()
            optimizer.step()
        scheduler.step()
    ```
+## Scheduler
+
+PyTorchの`lr_scheduler`（学習率スケジューラ）は、ニューラルネットワークの訓練中に**学習率を動的に調整するための仕組み**です。これにより、収束速度やモデル性能を向上させることが可能になります。
+
+- **初期段階では大きい学習率で探索**
+- **後半は小さい学習率で微調整**
+- **過学習の防止・汎化性能の向上**
+
+
 
 
 つづく...
