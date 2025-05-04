@@ -76,7 +76,9 @@ PyTorch is an optimized tensor library for deep learning using GPUs and CPUs.
   - [パフォーマンス最適化Tips](#パフォーマンス最適化tips)
   - [よくあるエラーと対策](#よくあるエラーと対策)
 - [Scheduler](#scheduler)
-- [よく使われるScheduler一覧](#よく使われるscheduler一覧)
+  - [よく使われるScheduler一覧](#よく使われるscheduler一覧)
+  - [使用例:](#使用例-1)
+  - [ReduceLROnPlateauの使い方](#reducelronplateauの使い方)
 
 
 ## Pytorchインストール
@@ -1015,7 +1017,7 @@ PyTorchの`lr_scheduler`（学習率スケジューラ）は、ニューラル�
 - **後半は小さい学習率で微調整**
 - **過学習の防止・汎化性能の向上**
 
-## よく使われるScheduler一覧
+### よく使われるScheduler一覧
 
 | クラス名            | 説明                                              |
 | ------------------- | ------------------------------------------------- |
@@ -1026,6 +1028,41 @@ PyTorchの`lr_scheduler`（学習率スケジューラ）は、ニューラル�
 | `ReduceLROnPlateau` | 検証損失が改善しなくなったときに学習率を減少      |
 | `CyclicLR`          | 学習率を周期的に増減させる                        |
 | `OneCycleLR`        | エポック内で1回だけ学習率を上げ下げする（高性能） |
+
+### 使用例:
+
+```python
+import torch
+from torch.optim import SGD
+from torch.optim.lr_scheduler import StepLR
+
+model = ... # モデル定義
+optimizer = SGD(model.parameters(), lr=0.1)
+scheduler = StepLR(optimizer, step_size=30, gamma=0.1)
+
+for epoch in range(100):
+    for input, target in dataloader:
+        optimizer.zero_grad()
+        output = model(input)
+        loss = loss_fn(output, target)
+        loss.backward()
+        optimizer.step()
+
+    scheduler.step()  # エポックごとに呼び出す
+```
+
+### ReduceLROnPlateauの使い方
+
+```python
+from torch.optim.lr_scheduler import ReduceLROnPlateau
+
+scheduler = ReduceLROnPlateau(optimizer, 'min', patience=5)
+
+for epoch in range(epochs):
+    train(...)
+    val_loss = validate(...)
+    scheduler.step(val_loss)  # 検証ロスを与える
+```
 
 
 つづく...
