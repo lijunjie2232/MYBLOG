@@ -76,6 +76,7 @@ PyTorch is an optimized tensor library for deep learning using GPUs and CPUs.
   - [パフォーマンス最適化Tips](#パフォーマンス最適化tips)
   - [よくあるエラーと対策](#よくあるエラーと対策)
 - [Scheduler](#scheduler)
+- [よく使われるScheduler一覧](#よく使われるscheduler一覧)
 
 
 ## Pytorchインストール
@@ -1014,7 +1015,17 @@ PyTorchの`lr_scheduler`（学習率スケジューラ）は、ニューラル�
 - **後半は小さい学習率で微調整**
 - **過学習の防止・汎化性能の向上**
 
+## よく使われるScheduler一覧
 
+| クラス名            | 説明                                              |
+| ------------------- | ------------------------------------------------- |
+| `StepLR`            | 一定エポックごとに学習率を減少（gamma倍）         |
+| `MultiStepLR`       | 指定した複数のエポックで学習率を減少              |
+| `ExponentialLR`     | 各エポックで学習率を指数関数的に減少              |
+| `CosineAnnealingLR` | コサイン減衰に従って学習率を変化                  |
+| `ReduceLROnPlateau` | 検証損失が改善しなくなったときに学習率を減少      |
+| `CyclicLR`          | 学習率を周期的に増減させる                        |
+| `OneCycleLR`        | エポック内で1回だけ学習率を上げ下げする（高性能） |
 
 
 つづく...
