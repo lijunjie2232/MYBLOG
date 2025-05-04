@@ -127,6 +127,7 @@ class MotionNet(nn.Module):
         Initialize classification model
 
         Args:
+            c1 (int): Input channel size
             nc (int): Number of output classes
         """
         super().__init__()
