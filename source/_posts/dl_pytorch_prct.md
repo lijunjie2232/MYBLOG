@@ -8,11 +8,10 @@ lang: ja
 
 
 この記事は、画像の顔表情認識に例をして、Pytorchを用いた実践な任務を解説する。
-codeの例：[main.ipynb](/assert/dl_pytorch_prct/main.ipynb)
+codeの例：[main.ipynb](https://colab.research.google.com/github/lijunjie2232/MYBLOG/blob/master/source/assert/dl_pytorch_prct/main.ipynb)
 
 
 - [Pytorchインストール](#pytorchインストール)
-  - [requirements](#requirements)
 - [Tips](#tips)
 - [基本的な任務](#基本的な任務)
 - [データセット情報](#データセット情報)
@@ -32,10 +31,6 @@ codeの例：[main.ipynb](/assert/dl_pytorch_prct/main.ipynb)
 
 最新のpytorchはcondaでインストールのをできません。
 
-
-### requirements
-[requirements.txt](/assert/dl_pytorch_prct/requirements.txt)
-`pip install -r requirements.txt`
 
 ## Tips
 
