@@ -123,7 +123,7 @@ dataset = datasets.ImageFolder(root='path/to/data', transform=transform)
 ## モーデルの作成
 
 ```python
-class MotionNet(nn.Module):
+class EmotionNet(nn.Module):
     def __init__(self, c1: int = 3, nc: int = 7):
         """
         Initialize classification model
