@@ -7,6 +7,9 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.distributed import init_process_group, destroy_process_group, get_rank
 import os
 import argparse
+import logging
+import sys
+from pathlib import Path
 
 
 def train_epoch(
@@ -61,7 +64,7 @@ def train_epoch(
 
 
 @torch.no_grad()
-def test_epoch(
+def val_epoch(
     model,
     val_loader,
     criterion,
@@ -106,16 +109,24 @@ def load(model, optimizer, path):
     return epoch
 
 
-def ddp_setup(rank: int, world_size: int, backend="nccl"):
+def ddp_setup(
+    rank: int,
+    world_size: int,
+    backend="nccl",
+    master_addr="localhost",
+    master_port=12355,
+):
     """
     Args:
         rank: Unique identifier of each process
     world_size: Total number of processes
     """
-    os.environ["MASTER_ADDR"] = "localhost"
-    os.environ["MASTER_PORT"] = "12355"
+    os.environ["MASTER_ADDR"] = master_addr
+    os.environ["MASTER_PORT"] = str(master_port)
     torch.cuda.set_device(rank)
-    init_process_group(backend=backend, rank=rank, world_size=world_size)
+    init_process_group(
+        backend=backend, rank=rank, world_size=world_size, init_method="env://"
+    )
 
 
 def ddp_cleanup():
@@ -208,4 +219,48 @@ def parse_args():
         help="Number of workers for dataloaders (default: 8)",
     )
 
+    # seed set
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Seed value for randomization (default: 42)",
+    )
+
     return parser.parse_args()
+
+
+def get_logger(
+    local_rank=0,
+    name="logger",
+    cli_level=logging.INFO,
+    log_level=logging.DEBUG,
+    cli=True,
+    log_dir=None,
+):
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.DEBUG)
+    logger.propagate = False
+
+    if cli:
+        cli_formatter = logging.Formatter("%(message)s")
+        cli_handler = logging.StreamHandler(sys.stdout)
+        cli_handler.setLevel(cli_level if local_rank == 0 else logging.CRITICAL)
+        cli_handler.setFormatter(cli_formatter)
+        logger.addHandler(cli_handler)
+
+    if log_dir:
+        log_dir = Path(log_dir)
+        if log_dir.is_file():
+            raise ValueError(f"Log directory path exists as file: {log_dir}")
+        log_dir.mkdir(exist_ok=True, parents=True)
+
+        file_formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+        file_handler = logging.FileHandler(
+            log_dir / f"log_rank{local_rank}.txt",
+        )
+        file_handler.setLevel(log_level)
+        file_handler.setFormatter(file_formatter)
+        logger.addHandler(file_handler)
+
+    return logger
