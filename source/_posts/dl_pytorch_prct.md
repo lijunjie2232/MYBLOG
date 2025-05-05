@@ -12,6 +12,7 @@ codeの例：[main.ipynb](https://colab.research.google.com/github/lijunjie2232/
 
 
 - [Pytorchインストール](#pytorchインストール)
+  - [requirements](#requirements)
 - [Tips](#tips)
 - [基本的な任務](#基本的な任務)
 - [データセット情報](#データセット情報)
@@ -31,6 +32,12 @@ codeの例：[main.ipynb](https://colab.research.google.com/github/lijunjie2232/
 
 最新のpytorchはcondaでインストールのをできません。
 
+### requirements
+```bash
+pip install torch torchvision torchaudio
+pip install ultralytics
+pip install kagglehub
+```
 
 ## Tips
 
