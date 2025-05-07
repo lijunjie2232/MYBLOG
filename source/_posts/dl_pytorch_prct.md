@@ -29,6 +29,7 @@ codeの例：[main.ipynb](https://colab.research.google.com/github/lijunjie2232/
 - [モーデルの作成](#モーデルの作成)
 - [モーデルのトレーニングと検証](#モーデルのトレーニングと検証)
   - [train\_epoch関数](#train_epoch関数)
+  - [val\_epoch関数](#val_epoch関数)
 
 
 ## Pytorchインストール
@@ -199,5 +200,74 @@ class EmotionNet(nn.Module):
   - 精度（`acc`）と損失（`loss`）を計算し、プログレスバーに表示。
   - 最終的な訓練精度と平均損失を返す。
 
+### val_epoch関数
+
+検証用のデータローダー (`val_loader`) を使って、モデルの性能を評価します。
+
+- **主な処理:**
+  - `model.eval()` でモデルを評価モードに設定。
+  - `torch.no_grad()` で勾配計算を無効化。
+  - 検証データをモデルに入力し、損失と精度を計算。
+  - バッチごとに損失と正解数を累積。
+  - 最終的な検証精度と平均損失を返す。
+```python
+def train_epoch(
+    model,               # 訓練対象のモデル
+    train_loader,        # 訓練データのDataLoader
+    optimizer,          # オプティマイザ（例: Adam）
+    scheduler,          # 学習率スケジューラ
+    criterion,          # 損失関数（例: 交差エントロピー）
+    scaler=None,        # FP16混合精度訓練用のスケーラ
+    device="cuda",      # 使用デバイス（デフォルトはCUDA/GPU）
+    fp16=True,          # FP16混合精度使用フラグ
+    progress=True,      # 進捗表示の有無
+):
+    model.train()  # モデルを訓練モードに設定
+    # tqdmでプログレスバーを表示（progress=Falseなら表示しない）
+    loop = tqdm(train_loader, desc="train", leave=False) if progress else train_loader
+    total_loss = 0.0    # 累積損失
+    total_count = 0     # 累計データ数
+    ateru = 0          # 正解数（「当てる」から命名）
+    assert scaler is not None or not fp16  # FP16時はscaler必須
+
+    for batch_idx, (data, target) in enumerate(loop):
+        data = data.to(device)    # データをGPUに転送
+        target = target.to(device) # ラベルをGPUに転送
+        optimizer.zero_grad()      # 勾配をリセット
+        
+        # 自動混合精度（FP16）コンテキスト
+        with torch.amp.autocast(
+            device_type=device,
+            enabled=fp16,
+            dtype=torch.float16 if fp16 else torch.float32,
+        ):
+            output = model(data)           # モデルの順伝播
+            loss = criterion(output, target)  # 損失計算
+        
+        # FP16対応の逆伝播
+        if fp16:
+            scaler.scale(loss).backward()  # スケール付き逆伝播
+            scaler.step(optimizer)         # 勾配更新
+            scaler.update()                # スケーラ更新
+        else:
+            loss.backward()     # 通常の逆伝播
+            optimizer.step()    # 勾配更新
+        
+        # メトリクス計算
+        total_count += len(data)
+        ateru += (output.argmax(dim=1) == target).sum().item()  # 正解数集計
+        total_loss += loss.item()
+        
+        # 進捗表示更新
+        if progress:
+            loop.set_postfix({
+                "acc": ateru / total_count,               # 精度
+                "loss": total_loss / (batch_idx + 1),     # 平均損失
+            })
+    
+    scheduler.step()  # 学習率更新
+    return ateru / total_count, total_loss / (batch_idx + 1)  # 精度, 平均損失
+
+```
 
 つつく．．．
