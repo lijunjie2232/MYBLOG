@@ -30,6 +30,9 @@ codeの例：[main.ipynb](https://colab.research.google.com/github/lijunjie2232/
 - [モーデルのトレーニングと検証](#モーデルのトレーニングと検証)
   - [train\_epoch関数](#train_epoch関数)
   - [val\_epoch関数](#val_epoch関数)
+  - [メインの訓練ループ](#メインの訓練ループ)
+  - [全体の流れ](#全体の流れ)
+  - [主な技術ポイント](#主な技術ポイント)
 
 
 ## Pytorchインストール
@@ -200,16 +203,6 @@ class EmotionNet(nn.Module):
   - 精度（`acc`）と損失（`loss`）を計算し、プログレスバーに表示。
   - 最終的な訓練精度と平均損失を返す。
 
-### val_epoch関数
-
-検証用のデータローダー (`val_loader`) を使って、モデルの性能を評価します。
-
-- **主な処理:**
-  - `model.eval()` でモデルを評価モードに設定。
-  - `torch.no_grad()` で勾配計算を無効化。
-  - 検証データをモデルに入力し、損失と精度を計算。
-  - バッチごとに損失と正解数を累積。
-  - 最終的な検証精度と平均損失を返す。
 ```python
 def train_epoch(
     model,               # 訓練対象のモデル
@@ -269,5 +262,145 @@ def train_epoch(
     return ateru / total_count, total_loss / (batch_idx + 1)  # 精度, 平均損失
 
 ```
+
+### val_epoch関数
+
+検証用のデータローダー (`val_loader`) を使って、モデルの性能を評価します。
+
+- **主な処理:**
+  - `model.eval()` でモデルを評価モードに設定。
+  - `torch.no_grad()` で勾配計算を無効化。
+  - 検証データをモデルに入力し、損失と精度を計算。
+  - バッチごとに損失と正解数を累積。
+  - 最終的な検証精度と平均損失を返す。
+
+```python
+@torch.no_grad()  # 勾配計算無効化（メモリ節約）
+def val_epoch(
+    model,              # 評価対象モデル
+    val_loader,         # 検証データのDataLoader
+    criterion,          # 損失関数
+    device="cuda",      # 使用デバイス
+    progress=True,      # 進捗表示の有無
+):
+    model.eval()  # モデルを評価モードに設定
+    loop = tqdm(val_loader, desc="val", leave=False) if progress else val_loader
+    val_loss = 0.0
+    total_num = 0
+    total_correct = 0
+    
+    for i, (inputs, labels) in enumerate(loop):
+        inputs = inputs.to(device)
+        labels = labels.to(device)
+        logist, _ = model(inputs)  # モデル推論（多くの場合、logistは予測スコア）
+        loss = criterion(logist, labels)
+        
+        # メトリクス集計
+        val_loss += loss.item() * inputs.size(0)  # 損失をバッチサイズで重み付け
+        total_num += labels.size(0)
+        total_correct += (logist.argmax(dim=1) == labels).sum().item()  # 正解数
+        
+        if progress:
+            loop.set_postfix(
+                loss=val_loss / (i + 1),           # 現在の平均損失
+                acc=total_correct / total_num      # 現在の精度
+            )
+    
+    # 最終結果計算
+    val_loss = val_loss / len(val_loader.dataset)  # データセット全体での平均損失
+    return total_correct / total_num, val_loss / (i + 1)  # 精度, 平均損失
+```
+
+### メインの訓練ループ
+
+エポックごとに `train_epoch` と `val_epoch` を実行し、モデルの訓練と検証を行います。
+
+- **主な処理:**
+  - `tqdm` でエポックの進行状況を表示。
+  - 訓練と検証の精度・損失をリストに保存。
+  - チェックポイントを保存（`save` 関数）。
+  - 訓練/検証の精度・損失をプロット（`plot` 関数）。
+  - 検証精度が向上した場合、ベストモデルを保存（`best_checkpoint`）。
+  - `patience` を使った早期停止（Early Stopping）を実装（精度が向上しなければ `patience` を減らし、`0` になったら訓練終了）。
+```python
+# 訓練進捗表示の初期化
+loop = tqdm(range(start_epoch + 1, epochs))
+train_acc_list = []  # 訓練精度の履歴
+train_loss_list = [] # 訓練損失の履歴
+val_acc_list = []    # 検証精度の履歴
+val_loss_list = []   # 検証損失の履歴
+best_acc = 0         # ベスト精度記録用
+patience = train_patience  # Early Stopping用のカウンタ
+
+for epoch in loop:
+    loop.set_description(f"Epoch [{epoch+1}/{epochs}]")  # 現在のエポック表示
+    
+    # 1エポックの訓練実行
+    train_acc, train_loss = train_epoch(
+        model, train_dataloader, optimizer, 
+        scheduler, criterion, scaler, device
+    )
+    train_acc_list.append(train_acc)
+    train_loss_list.append(train_loss)
+    
+    # 検証実行
+    val_acc, val_loss = val_epoch(model, val_dataloader, criterion, device)
+    val_acc_list.append(val_acc)
+    val_loss_list.append(val_loss)
+    
+    # 進捗表示更新
+    loop.set_postfix(
+        train_acc=train_acc,
+        train_loss=train_loss,
+        val_acc=val_acc,
+        val_loss=val_loss,
+    )
+    
+    # チェックポイント保存
+    save(model, optimizer, epoch, last_checkpoint)
+    
+    # 学習曲線描画
+    plot(
+        train_acc_list, train_loss_list,
+        val_acc_list, val_loss_list,
+        fig_save_dir="./",
+    )
+    
+    # Early Stopping ロジック
+    if val_acc > best_acc:  # 精度が向上した場合
+        shutil.copyfile(last_checkpoint, best_checkpoint)  # ベストモデルを保存
+        best_acc = val_acc
+        patience = train_patience  # カウンタをリセット
+    else:
+        patience -= 1  # 精度向上なしの場合カウンタを減らす
+    
+    if patience == 0:  # 指定エポック数精度が向上しなかった場合
+        break  # 訓練終了
+```
+
+
+### 全体の流れ
+1. **訓練フェーズ** (`train_epoch`):
+   - モデルを訓練データで学習。
+   - 損失と精度を記録。
+2. **検証フェーズ** (`val_epoch`):
+   - モデルを検証データで評価。
+   - 過学習を防ぐため、検証精度を監視。
+3. **モデルの保存と早期停止**:
+   - 検証精度が向上した場合、モデルを保存。
+   - 一定エポック（`patience`）精度が向上しなければ訓練を終了。
+
+### 主な技術ポイント
+1. **混合精度訓練（FP16）**
+   - `scaler`を使用して勾配のアンダーフローを防止
+   - メモリ使用量削減と計算速度向上
+2. **Early Stopping**
+   - `patience`回数だけ検証精度の向上を待つ
+   - 過学習を防止するための重要な仕組み
+3. **モード切り替え**
+   - `model.train()` / `model.eval()`でBatchNormやDropoutの挙動を変更
+4. **チェックポイント管理**
+   - 最高精度モデルを`best_checkpoint`として別途保存
+   - 訓練中断時の再開が可能
 
 つつく．．．
