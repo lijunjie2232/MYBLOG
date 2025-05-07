@@ -33,6 +33,7 @@ codeの例：[main.ipynb](https://colab.research.google.com/github/lijunjie2232/
   - [メインの訓練ループ](#メインの訓練ループ)
   - [全体の流れ](#全体の流れ)
   - [主な技術ポイント](#主な技術ポイント)
+- [結果](#結果)
 
 
 ## Pytorchインストール
@@ -402,5 +403,9 @@ for epoch in loop:
 4. **チェックポイント管理**
    - 最高精度モデルを`best_checkpoint`として別途保存
    - 訓練中断時の再開が可能
+
+## 結果
+
+![結果](/assert/dl_pytorch_prct/accuracy_and_loss.png)
 
 つつく．．．
