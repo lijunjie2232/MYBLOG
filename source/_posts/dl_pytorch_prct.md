@@ -27,6 +27,8 @@ codeの例：[main.ipynb](https://colab.research.google.com/github/lijunjie2232/
   - [使用例](#使用例)
   - [適用方法の例（`ImageFolder`）](#適用方法の例imagefolder)
 - [モーデルの作成](#モーデルの作成)
+- [モーデルのトレーニングと検証](#モーデルのトレーニングと検証)
+  - [train\_epoch関数](#train_epoch関数)
 
 
 ## Pytorchインストール
@@ -179,5 +181,23 @@ class EmotionNet(nn.Module):
 
         return x
 ```
+
+## モーデルのトレーニングと検証
+
+### train_epoch関数
+
+訓練用のデータローダー (`train_loader`) を使って、モデルを1エポック訓練します。
+
+- **主な処理:**
+  - `model.train()` でモデルを訓練モードに設定。
+  - `tqdm` を使用してプログレスバーを表示（`progress=True` の場合）。
+  - データとターゲットを指定デバイス（デフォルトは `"cuda"`）に移動。
+  - `optimizer.zero_grad()` で勾配をリセット。
+  - `torch.amp.autocast` を使用して自動混合精度（FP16）を適用（`fp16=True` の場合）。
+  - 損失を計算し、逆伝播（`scaler.scale(loss).backward()` または `loss.backward()`）。
+  - オプティマイザとスケジューラを更新。
+  - 精度（`acc`）と損失（`loss`）を計算し、プログレスバーに表示。
+  - 最終的な訓練精度と平均損失を返す。
+
 
 つつく．．．
