@@ -10,6 +10,7 @@ import argparse
 import logging
 import sys
 from pathlib import Path
+from matplotlib import pyplot as plt
 
 
 def train_epoch(
@@ -87,7 +88,7 @@ def val_epoch(
         if progress:
             loop.set_postfix(loss=val_loss / (i + 1), acc=total_correct / total_num)
     val_loss = val_loss / len(val_loader.dataset)
-    return total_correct / total_num, val_loss
+    return total_correct / total_num, val_loss / (i + 1)
 
 
 def save(model, optimizer, epoch, path):
@@ -102,7 +103,7 @@ def save(model, optimizer, epoch, path):
 
 
 def load(model, optimizer, path):
-    checkpoint = torch.load(path)
+    checkpoint = torch.load(path, map_location="cpu")
     model.load_state_dict(checkpoint["model_state_dict"])
     optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
     epoch = checkpoint["epoch"]
@@ -264,3 +265,27 @@ def get_logger(
         logger.addHandler(file_handler)
 
     return logger
+
+
+def plot(
+    train_acc_list,
+    train_loss_list,
+    val_acc_list,
+    val_loss_list,
+    fig_save_dir="./",
+):
+    fig_save_dir = Path(fig_save_dir)
+    fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(16, 9))
+    axes[0].plot(train_acc_list, label="Train Accuracy")
+    axes[0].plot(val_acc_list, label="Validation Accuracy")
+    axes[0].legend()
+    axes[0].set_title("Accuracy")
+    axes[0].set_xlabel("Epoch")
+    axes[0].set_ylabel("Accuracy")
+    axes[1].plot(train_loss_list, label="Train Loss")
+    axes[1].plot(val_loss_list, label="Validation Loss")
+    axes[1].legend()
+    axes[1].set_title("Loss")
+    axes[1].set_xlabel("Epoch")
+    axes[1].set_ylabel("Loss")
+    fig.savefig(fig_save_dir / "accuracy_and_loss.png", dpi=600)
