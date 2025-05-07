@@ -29,6 +29,7 @@ code の例：[main.ipynb](https://colab.research.google.com/github/lijunjie2232
   - [全体の流れ](#全体の流れ)
   - [主な技術ポイント](#主な技術ポイント)
 - [結果](#結果)
+- [参考資料](#参考資料)
 
 ## Pytorch インストール
 
@@ -352,4 +353,6 @@ for epoch in loop:
 
 ![結果](/assert/dl_pytorch_prct/accuracy_and_loss.png)
 
-つつく．．．
+## 参考資料
+
+- ultralytics: [https://github.com/ultralytics/ultralytics](https://github.com/ultralytics/ultralytics)
