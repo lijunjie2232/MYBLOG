@@ -8,9 +8,14 @@ lang: ja
 
 
 この記事は、画像の顔表情認識に例をして、Pytorchを用いた実践な任務を解説する。
+
 codeの例：[main.ipynb](https://colab.research.google.com/github/lijunjie2232/MYBLOG/blob/master/source/assert/dl_pytorch_prct/main.ipynb)
 
+プロジェクトアドレス：[https://github.com/lijunjie2232/emotion_analyse_pytorch](https://github.com/lijunjie2232/emotion_analyse_pytorch)
 
+
+## 目次
+- [目次](#目次)
 - [Pytorchインストール](#pytorchインストール)
   - [requirements](#requirements)
 - [Tips](#tips)
@@ -174,3 +179,5 @@ class EmotionNet(nn.Module):
 
         return x
 ```
+
+つつく．．．
