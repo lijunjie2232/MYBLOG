@@ -2,7 +2,20 @@
 title: pytorch 実践（一）
 date: 2022-8-12 10:15:00
 categories: [AI]
-tags: [Deep Learning, PyTorch, Python, Computer Vision, 機械学習, AI, 人工知能, 深層学習, 画像処理, 画像認識, 表情認識]
+tags:
+  [
+    Deep Learning,
+    PyTorch,
+    Python,
+    Computer Vision,
+    機械学習,
+    AI,
+    人工知能,
+    深層学習,
+    画像処理,
+    画像認識,
+    表情認識,
+  ]
 lang: ja
 ---
 
@@ -20,6 +33,7 @@ code の例：[main.ipynb](https://colab.research.google.com/github/lijunjie2232
   - [requirements](#requirements)
 - [基本的な任務](#基本的な任務)
 - [データセット情報](#データセット情報)
+- [データの準備と前処理](#データの準備と前処理)
 - [モーデルの作成](#モーデルの作成)
 - [モーデルのトレーニングと検証](#モーデルのトレーニングと検証)
   - [train\_epoch 関数](#train_epoch-関数)
@@ -70,6 +84,60 @@ import kagglehub
 path = kagglehub.dataset_download("aadityasinghal/facial-expression-dataset")
 
 print("Path to dataset files:", path)
+```
+
+## データの準備と前処理
+
+```python
+# ## build data transforms
+train_transformer = transforms.Compose(
+    [
+        transforms.Resize((256, 256)),
+        transforms.RandomCrop(224),  # 224x224
+        transforms.RandomHorizontalFlip(),
+        transforms.RandomRotation(degrees=15),
+        transforms.RandomVerticalFlip(),
+        transforms.ToTensor(),
+        transforms.Normalize(
+            mean=[0.485, 0.456, 0.406],
+            std=[0.229, 0.224, 0.225],
+        ),
+    ]
+)
+val_transformer = transforms.Compose(
+    [
+        transforms.Resize((256, 256)),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        transforms.Normalize(
+            mean=[0.485, 0.456, 0.406],
+            std=[0.229, 0.224, 0.225],
+        ),
+    ]
+)
+# ## build dataset
+train_dataset = ImageFolder(
+    root=data_root / "train" / "train",
+    transform=train_transformer,
+)
+val_dataset = ImageFolder(
+    root=data_root / "test" / "test",
+    transform=val_transformer,
+)
+
+# ## build dataloader
+train_dataloader = DataLoader(
+    train_dataset,
+    batch_size=batch_size,
+    num_workers=num_workers,
+    shuffle=True,
+)
+val_dataloader = DataLoader(
+    val_dataset,
+    batch_size=batch_size,
+    num_workers=num_workers,
+    shuffle=False,
+)
 ```
 
 ## モーデルの作成
