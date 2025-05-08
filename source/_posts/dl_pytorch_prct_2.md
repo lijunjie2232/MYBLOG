@@ -2,7 +2,20 @@
 title: pytorch 実践（二）
 date: 2022-8-12 11:15:00
 categories: [AI]
-tags: [Deep Learning, PyTorch, Python, Computer Vision, 機械学習, AI, 人工知能, 深層学習, 画像処理, 画像認識, 表情認識]
+tags:
+  [
+    Deep Learning,
+    PyTorch,
+    Python,
+    Computer Vision,
+    機械学習,
+    AI,
+    人工知能,
+    深層学習,
+    画像処理,
+    画像認識,
+    表情認識,
+  ]
 lang: ja
 ---
 
@@ -21,6 +34,8 @@ code の例：[main.ipynb](https://colab.research.google.com/github/lijunjie2232
 - [データの transoforms](#データの-transoforms)
   - [主な特徴](#主な特徴)
   - [よく使われるクラス一覧](#よく使われるクラス一覧)
+  - [使用例](#使用例)
+  - [適用方法の例（`ImageFolder`）](#適用方法の例imagefolder)
 
 ## Tips
 
@@ -56,5 +71,64 @@ code の例：[main.ipynb](https://colab.research.google.com/github/lijunjie2232
 | `RandomRotation(degrees)`                        | 画像をランダムに回転させる（角度は `degrees` 以内）            |
 | `RandomAffine(degrees, translate, scale, shear)` | 画像をランダムに回転・平行移動・拡大縮小・傾斜させる           |
 | `RandomCrop(size)`                               | 画像をランダムに切り出す                                       |
+
+### 使用例
+
+```python
+from torchvision import transforms
+
+transform = transforms.Compose([
+    transforms.Resize(256),         # 256x256にリサイズ
+    transforms.CenterCrop(224),     # 中心を224x224に切り抜き
+    transforms.ToTensor(),          # Tensorに変換
+    transforms.Normalize(           # 正規化
+        mean=[0.485, 0.456, 0.406],
+        std=[0.229, 0.224, 0.225]
+    )
+])
+```
+
+このようにして作成した `transform` は、`ImageFolder` や自作の `Dataset` クラスで画像に適用されます。
+
+### 適用方法の例（`ImageFolder`）
+
+```python
+## データ変換の構築
+train_transformer = transforms.Compose(
+    [
+        transforms.Resize((256, 256)),         # 画像を256x256にリサイズ
+        transforms.RandomCrop(224),           # 224x224の範囲でランダムに切り抜き
+        transforms.RandomHorizontalFlip(),    # 水平方向にランダムに反転（データ拡張）
+        transforms.RandomRotation(degrees=15),# 最大15度の範囲でランダムに回転
+        transforms.RandomVerticalFlip(),      # 垂直方向にランダムに反転
+        transforms.ToTensor(),                # PIL画像をテンソルに変換
+        transforms.Normalize(                 # 正規化
+            mean=[0.485, 0.456, 0.406],       # ImageNetの平均値を使用
+            std=[0.229, 0.224, 0.225],        # ImageNetの標準偏差を使用
+        ),
+    ]
+)
+val_transformer = transforms.Compose(
+    [
+        transforms.Resize((256, 256)),         # 画像を256x256にリサイズ
+        transforms.CenterCrop(224),           # 中心を基準に224x224に切り抜き
+        transforms.ToTensor(),                # PIL画像をテンソルに変換
+        transforms.Normalize(                 # 正規化
+            mean=[0.485, 0.456, 0.406],       # ImageNetの平均値を使用
+            std=[0.229, 0.224, 0.225],        # ImageNetの標準偏差を使用
+        ),
+    ]
+)
+
+## データセットの構築
+train_dataset = ImageFolder(
+    root=data_root / "train" / "train",       # 学習用データのルートディレクトリ
+    transform=train_transformer,              # 学習用の変換を適用
+)
+val_dataset = ImageFolder(
+    root=data_root / "test" / "test",         # 検証用データのルートディレクトリ
+    transform=val_transformer,                # 検証用の変換を適用
+)
+```
 
 つつく．．．
