@@ -2,7 +2,7 @@
 title: pytorch 実践（一）
 date: 2022-8-12 10:15:00
 categories: [AI]
-tags: [deep learning, pytorch, python]
+tags: [Deep Learning, PyTorch, Python, Computer Vision, 機械学習, AI, 人工知能, 深層学習, 画像処理, 画像認識, 表情認識]
 lang: ja
 ---
 
@@ -18,7 +18,6 @@ code の例：[main.ipynb](https://colab.research.google.com/github/lijunjie2232
 - [目次](#目次)
 - [Pytorch インストール](#pytorch-インストール)
   - [requirements](#requirements)
-- [Tips](#tips)
 - [基本的な任務](#基本的な任務)
 - [データセット情報](#データセット情報)
 - [モーデルの作成](#モーデルの作成)
@@ -46,8 +45,6 @@ pip install torch torchvision torchaudio
 pip install ultralytics
 pip install kagglehub
 ```
-
-## Tips
 
 ## 基本的な任務
 
