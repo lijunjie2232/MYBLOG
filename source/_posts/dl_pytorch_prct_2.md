@@ -36,6 +36,11 @@ code の例：[main.ipynb](https://colab.research.google.com/github/lijunjie2232
   - [よく使われるクラス一覧](#よく使われるクラス一覧)
   - [使用例](#使用例)
   - [適用方法の例（`ImageFolder`）](#適用方法の例imagefolder)
+- [モデルの保存と読み込み](#モデルの保存と読み込み)
+  - [Pytorchモデルの保存と読み込み](#pytorchモデルの保存と読み込み)
+  - [Pytorch状態辞書の保存と読み込み（推奨）](#pytorch状態辞書の保存と読み込み推奨)
+  - [ベストプラクティス](#ベストプラクティス)
+  - [主な注意点](#主な注意点)
 
 ## Tips
 
@@ -110,8 +115,7 @@ train_transformer = transforms.Compose(
 )
 val_transformer = transforms.Compose(
     [
-        transforms.Resize((256, 256)),         # 画像を256x256にリサイズ
-        transforms.CenterCrop(224),           # 中心を基準に224x224に切り抜き
+        transforms.Resize((224, 224)),         # 画像を224x224にリサイズ
         transforms.ToTensor(),                # PIL画像をテンソルに変換
         transforms.Normalize(                 # 正規化
             mean=[0.485, 0.456, 0.406],       # ImageNetの平均値を使用
@@ -130,5 +134,42 @@ val_dataset = ImageFolder(
     transform=val_transformer,                # 検証用の変換を適用
 )
 ```
+
+## モデルの保存と読み込み
+
+### Pytorchモデルの保存と読み込み
+```python
+# モデル全体（構造＋パラメータ）を保存
+torch.save(model, 'model.pth')
+
+# モデル全体を読み込み
+model = torch.load('model.pth')
+model.eval()  # 推論モードに設定
+```
+
+### Pytorch状態辞書の保存と読み込み（推奨）
+```python
+# パラメータのみ保存
+torch.save(model.state_dict(), 'model_state.pth')
+
+# パラメータを読み込み（事前にモデル定義が必要）
+model = MyModelClass()  # モデルクラスのインスタンス化
+model.load_state_dict(torch.load('model_state.pth'))
+model.eval()
+```
+
+### ベストプラクティス
+- ファイル拡張子: `.pth` または `.pt` を使用
+- 推論時は必ず `model.eval()` を呼び出す
+- デバイス指定の例:
+  ```python
+  # CPUで読み込み
+  model.load_state_dict(torch.load('model_state.pth', map_location='cpu'))
+  ```
+
+### 主な注意点
+- **`state_dict` の利点**: モデル構造の変更に柔軟に対応可能（バージョン管理に適す）
+- **モデル全体保存の制約**: 再現性に依存（同じコード環境でしか使えない）
+
 
 つつく．．．

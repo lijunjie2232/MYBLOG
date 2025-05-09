@@ -52,9 +52,11 @@ def main(local_rank, world_size, args):
     # device = "cuda:1"
     device = "cuda"
 
+    amp = args.amp
     lr = args.lr
     step_size = args.step_size
-    batch_size = args.batch_size
+    use_ckpt = args.use_ckpt
+    batch_size = args.batch_size // world_size
     num_workers = args.num_workers
     epochs = args.epochs
     start_epoch = args.start_epoch
@@ -70,10 +72,13 @@ def main(local_rank, world_size, args):
     torch.backends.cudnn.enabled = True
 
     # ## random seed
-    seed = args.seed + get_rank()
-    torch.manual_seed(seed)
-    np.random.seed(seed)
-    random.seed(seed)
+    if args.seed >= 0:
+        seed = args.seed + get_rank()
+        torch.manual_seed(seed)
+        np.random.seed(seed)
+        random.seed(seed)
+    else:
+        seed = 0
 
     # ## prepare dataset
     # Download latest version
@@ -99,8 +104,7 @@ def main(local_rank, world_size, args):
     )
     val_transformer = transforms.Compose(
         [
-            transforms.Resize((256, 256)),
-            transforms.CenterCrop(224),
+            transforms.Resize((224, 224)),
             transforms.ToTensor(),
             transforms.Normalize(
                 mean=[0.485, 0.456, 0.406],
@@ -125,6 +129,7 @@ def main(local_rank, world_size, args):
     ).cuda()
 
     # ## build loss, optimizer and lr_scheduler
+
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.999))
     scheduler = torch.optim.lr_scheduler.StepLR(
         optimizer,
@@ -134,7 +139,7 @@ def main(local_rank, world_size, args):
     criterion = nn.CrossEntropyLoss()
     scaler = torch.amp.GradScaler()
 
-    if last_checkpoint.is_file():
+    if last_checkpoint.is_file() and use_ckpt:
         ckp_epoch = load(
             model=model,
             optimizer=optimizer,
@@ -151,7 +156,7 @@ def main(local_rank, world_size, args):
     ddp_model = DDP(
         model,
         device_ids=[local_rank],
-        find_unused_parameters=True,
+        # find_unused_parameters=True,
     )
 
     # ## build dataloader
@@ -189,6 +194,7 @@ def main(local_rank, world_size, args):
     best_acc = 0
     patience = train_patience
     for epoch in loop:
+        train_sampler.set_epoch(epoch)
         if local_rank == 0:
             loop.set_description(f"Epoch [{epoch+1}/{epochs}]")
         # torch.distributed.barrier()
@@ -201,6 +207,7 @@ def main(local_rank, world_size, args):
             scaler,
             device=device,
             progress=local_rank == 0,
+            fp16=amp,
         )
         train_acc_list.append(train_acc)
         train_loss_list.append(train_loss)
