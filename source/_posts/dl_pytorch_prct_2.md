@@ -41,6 +41,10 @@ code の例：[main.ipynb](https://colab.research.google.com/github/lijunjie2232
   - [Pytorch状態辞書の保存と読み込み（推奨）](#pytorch状態辞書の保存と読み込み推奨)
   - [ベストプラクティス](#ベストプラクティス)
   - [主な注意点](#主な注意点)
+- [実践的な保存方法](#実践的な保存方法)
+  - [チェックポイントとして保存](#チェックポイントとして保存)
+  - [チェックポイントから読み込み](#チェックポイントから読み込み)
+  - [主な注意点](#主な注意点-1)
 
 ## Tips
 
@@ -171,5 +175,58 @@ model.eval()
 - **`state_dict` の利点**: モデル構造の変更に柔軟に対応可能（バージョン管理に適す）
 - **モデル全体保存の制約**: 再現性に依存（同じコード環境でしか使えない）
 
+
+## 実践的な保存方法
+
+### チェックポイントとして保存
+トレーニング状態を再開するために、モデルとオプティマイザの状態を一緒に保存する場合：
+```python
+# チェックポイント保存例
+checkpoint = {
+    'epoch': epoch,
+    'model_state_dict': model.state_dict(),
+    'optimizer_state_dict': optimizer.state_dict(),
+    'loss': loss,
+}
+torch.save(checkpoint, 'checkpoint.pth')
+```
+
+### チェックポイントから読み込み
+保存したチェックポイントを読み込み、トレーニングを再開する場合：
+```python
+# チェックポイント読み込み
+checkpoint = torch.load('checkpoint.pth')
+
+# モデルとオプティマイザの状態を復元
+model = MyModelClass()  # 事前にモデル定義が必要
+model.load_state_dict(checkpoint['model_state_dict'])
+
+optimizer = torch.optim.Adam(model.parameters())  # オプティマイザを再構築
+optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+
+# その他の情報も復元可能
+epoch = checkpoint['epoch']
+loss = checkpoint['loss']
+```
+
+
+### 主な注意点
+- **オプティマイザの再構築**:  
+  オプティマイザの状態を読み込むには、事前に同じアルゴリズム（例: `Adam`）とパラメータでオプティマイザを再構築する必要があります。
+  
+- **デバイス指定**:  
+  GPUで保存したモデルをCPUで読み込むとGPUのRAMを節約できる：
+  ```python
+  model.load_state_dict(torch.load('checkpoint.pth', map_location='cpu'))
+  ```
+
+- **strict=Falseオプション**:  
+  モデル構造が変更された場合に部分的に読み込み可能にする：
+  ```python
+  model.load_state_dict(checkpoint['model_state_dict'], strict=False)
+  ```
+
+- **学習再開時の注意**:  
+  読み込み後は `model.train()` を呼び出し、学習モードに戻す必要があります。
 
 つつく．．．
