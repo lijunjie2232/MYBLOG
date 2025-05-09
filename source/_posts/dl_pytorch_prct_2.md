@@ -37,8 +37,8 @@ code の例：[main.ipynb](https://colab.research.google.com/github/lijunjie2232
   - [使用例](#使用例)
   - [適用方法の例（`ImageFolder`）](#適用方法の例imagefolder)
 - [モデルの保存と読み込み](#モデルの保存と読み込み)
-  - [Pytorchモデルの保存と読み込み](#pytorchモデルの保存と読み込み)
-  - [Pytorch状態辞書の保存と読み込み（推奨）](#pytorch状態辞書の保存と読み込み推奨)
+  - [Pytorch モデルの保存と読み込み](#pytorch-モデルの保存と読み込み)
+  - [Pytorch 状態辞書の保存と読み込み（推奨）](#pytorch-状態辞書の保存と読み込み推奨)
   - [ベストプラクティス](#ベストプラクティス)
   - [主な注意点](#主な注意点)
 - [実践的な保存方法](#実践的な保存方法)
@@ -141,7 +141,8 @@ val_dataset = ImageFolder(
 
 ## モデルの保存と読み込み
 
-### Pytorchモデルの保存と読み込み
+### Pytorch モデルの保存と読み込み
+
 ```python
 # モデル全体（構造＋パラメータ）を保存
 torch.save(model, 'model.pth')
@@ -151,7 +152,8 @@ model = torch.load('model.pth')
 model.eval()  # 推論モードに設定
 ```
 
-### Pytorch状態辞書の保存と読み込み（推奨）
+### Pytorch 状態辞書の保存と読み込み（推奨）
+
 ```python
 # パラメータのみ保存
 torch.save(model.state_dict(), 'model_state.pth')
@@ -163,6 +165,7 @@ model.eval()
 ```
 
 ### ベストプラクティス
+
 - ファイル拡張子: `.pth` または `.pt` を使用
 - 推論時は必ず `model.eval()` を呼び出す
 - デバイス指定の例:
@@ -172,14 +175,16 @@ model.eval()
   ```
 
 ### 主な注意点
+
 - **`state_dict` の利点**: モデル構造の変更に柔軟に対応可能（バージョン管理に適す）
 - **モデル全体保存の制約**: 再現性に依存（同じコード環境でしか使えない）
-
 
 ## 実践的な保存方法
 
 ### チェックポイントとして保存
+
 トレーニング状態を再開するために、モデルとオプティマイザの状態を一緒に保存する場合：
+
 ```python
 # チェックポイント保存例
 checkpoint = {
@@ -192,7 +197,9 @@ torch.save(checkpoint, 'checkpoint.pth')
 ```
 
 ### チェックポイントから読み込み
+
 保存したチェックポイントを読み込み、トレーニングを再開する場合：
+
 ```python
 # チェックポイント読み込み
 checkpoint = torch.load('checkpoint.pth')
@@ -209,19 +216,20 @@ epoch = checkpoint['epoch']
 loss = checkpoint['loss']
 ```
 
-
 ### 主な注意点
+
 - **オプティマイザの再構築**:  
   オプティマイザの状態を読み込むには、事前に同じアルゴリズム（例: `Adam`）とパラメータでオプティマイザを再構築する必要があります。
-  
 - **デバイス指定**:  
-  GPUで保存したモデルをCPUで読み込むとGPUのRAMを節約できる：
+  GPU で保存したモデルを CPU で読み込むと GPU の RAM を節約できる：
+
   ```python
   model.load_state_dict(torch.load('checkpoint.pth', map_location='cpu'))
   ```
 
-- **strict=Falseオプション**:  
+- **strict=False オプション**:  
   モデル構造が変更された場合に部分的に読み込み可能にする：
+
   ```python
   model.load_state_dict(checkpoint['model_state_dict'], strict=False)
   ```
