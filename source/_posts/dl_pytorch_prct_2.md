@@ -31,6 +31,8 @@ code の例：[main.ipynb](https://colab.research.google.com/github/lijunjie2232
 - [目次](#目次)
 - [Tips](#tips)
 - [基本的な任務](#基本的な任務)
+- [データセットの割当り](#データセットの割当り)
+  - [testsetとvalidationsetの違い](#testsetとvalidationsetの違い)
 - [データの transoforms](#データの-transoforms)
   - [主な特徴](#主な特徴)
   - [よく使われるクラス一覧](#よく使われるクラス一覧)
@@ -50,6 +52,8 @@ code の例：[main.ipynb](https://colab.research.google.com/github/lijunjie2232
   - [優位性](#優位性)
   - [使用方法](#使用方法)
   - [注意点](#注意点)
+- [Early Stopping](#early-stopping)
+  - [概要](#概要-1)
 
 ## Tips
 
@@ -61,6 +65,27 @@ code の例：[main.ipynb](https://colab.research.google.com/github/lijunjie2232
 2. モデルアーキテクチャ設計
 3. モデルトレーニング
 4. モデル推論
+
+## データセットの割当り
+
+データセットは、通常に以下の3つに分かれます。
+1. 訓練用(train)データセット
+    - モデルの学習に使用するデータ
+    - 通常に 8割〜9割のデータを訓練用として使用する。
+
+2. 検証用(validation)データセット
+    - モデルの性能を評価するデータ
+    - 通常に 1割〜2割のデータを検証用として使用する。
+
+3. テスト用(test)データセット（可選択）
+    - テスト用データセット
+    - 通常に 1割〜2割のデータをテスト用として使用する。
+    - 通常に最後の評価として使用する。
+
+### testsetとvalidationsetの違い
+
+
+
 
 ## データの transoforms
 
@@ -288,5 +313,14 @@ for data, target in dataloader:
 - **サポートされるハードウェア**: AMP は NVIDIA GPU（Tensor Cores 対応）で最大限の効果を発揮します。
 - **数値不安定性**: FP16 ではオーバーフロー/アンダーフローが発生する可能性があるため、`GradScaler` が必要です。
 - **非対応操作**: 一部の演算（例: 損失関数の log など）は FP32 で実行されるため、パフォーマンス改善の効果が限定的な場合があります。
+
+## Early Stopping
+
+### 概要
+
+Early Stopping は、過学習（Overfitting）を防止するためのテクニックで、検証データ（Validation Data）の性能が改善しなくなった時点でトレーニングを自動的に停止します。
+通常、検証損失（Validation Loss）や精度（Accuracy）を監視し、一定のエポック数（patience）改善が見られなければトレーニングを終了します。
+
+
 
 つつく．．．
