@@ -65,6 +65,8 @@ code の例：[main.ipynb](https://colab.research.google.com/github/lijunjie2232
     - [初期化](#初期化)
     - [各エポックでの処理](#各エポックでの処理)
     - [コード例](#コード例)
+  - [主な注意点](#主な注意点-2)
+  - [pytorchlighting の応用](#pytorchlighting-の応用)
 
 ## Tips
 
@@ -460,6 +462,24 @@ for epoch in range(100):
     if counter >= patience:
         print(f"Early Stopping at epoch {epoch+1}")
         break
+```
+
+### 主な注意点
+
+- **`patience`の設定**: 小さすぎると学習が早すぎる段階で停止する可能性があり、大きすぎると過学習のリスクが生じます。
+- **検証指標の選定**: 検証損失ではなく精度や F1 スコアなど、タスクに合った指標を使用することも可能です。
+- **モデル保存のタイミング**: 最良のモデルを保存しておき、推論時に読み込みます。
+- **ランダム性の影響**: シード値（Seed）を固定することで再現性を確保。
+
+### pytorchlighting の応用
+
+[PyTorch Lightning](https://www.pytorchlightning.ai/) や [ignite](https://pytorch.org/ignite/) には組み込みの Early Stopping 機能があります。
+
+```python
+# PyTorch Lightningの例
+from pytorch_lightning.callbacks import EarlyStopping
+early_stop = EarlyStopping(monitor="val_loss", patience=5)
+trainer = Trainer(callbacks=[early_stop])
 ```
 
 つつく．．．
