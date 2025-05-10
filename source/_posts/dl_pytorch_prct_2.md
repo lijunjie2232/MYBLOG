@@ -48,6 +48,8 @@ code の例：[main.ipynb](https://colab.research.google.com/github/lijunjie2232
 - [AMP を使った学習](#amp-を使った学習)
   - [概要](#概要)
   - [優位性](#優位性)
+  - [使用方法](#使用方法)
+  - [注意点](#注意点)
 
 ## Tips
 
@@ -258,6 +260,31 @@ PyTorch では `torch.cuda.amp` モジュールが提供されており、以下
 - **高速化**: GPU の Tensor Cores を活用し、行列演算が高速化されます。
 - **エネルギー効率向上**: 計算量の削減により消費電力が低下。
 
+### 使用方法
 
+以下は典型的な AMP トレーニングのコード例です：
+
+```python
+from torch.cuda.amp import autocast, GradScaler
+
+scaler = GradScaler()  # グラジエントスケーラーを初期化
+
+for data, target in dataloader:
+    optimizer.zero_grad()
+
+    with autocast():  # autocastコンテキスト内で順伝播
+        output = model(data)
+        loss = loss_fn(output, target)
+
+    scaler.scale(loss).backward()  # スケーリングされた損失で逆伝播
+    scaler.step(optimizer)         # オプティマイザのステップ
+    scaler.update()                # スケーラーの更新
+```
+
+### 注意点
+
+- **サポートされるハードウェア**: AMP は NVIDIA GPU（Tensor Cores 対応）で最大限の効果を発揮します。
+- **数値不安定性**: FP16 ではオーバーフロー/アンダーフローが発生する可能性があるため、`GradScaler` が必要です。
+- **非対応操作**: 一部の演算（例: 損失関数の log など）は FP32 で実行されるため、パフォーマンス改善の効果が限定的な場合があります。
 
 つつく．．．
