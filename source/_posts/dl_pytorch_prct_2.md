@@ -59,6 +59,8 @@ code の例：[main.ipynb](https://colab.research.google.com/github/lijunjie2232
   - [注意点](#注意点-1)
 - [Early Stopping](#early-stopping)
   - [概要](#概要-1)
+  - [概要](#概要-2)
+  - [優位性](#優位性-1)
 
 ## Tips
 
@@ -375,7 +377,16 @@ for data, target in dataloader:
 
 ### 概要
 
-Early Stopping は、過学習（Overfitting）を防止するためのテクニックで、検証データ（Validation Data）の性能が改善しなくなった時点でトレーニングを自動的に停止します。
-通常、検証損失（Validation Loss）や精度（Accuracy）を監視し、一定のエポック数（patience）改善が見られなければトレーニングを終了します。
+### 概要
+
+Early Stopping は、過学習（Overfitting）を防止するためのテクニックで、**検証データ（Validation Data）の性能が改善しなくなった時点でトレーニングを自動的に停止**します。  
+通常、検証損失（Validation Loss）や精度（Accuracy）を監視し、一定のエポック数（`patience`）改善が見られなければトレーニングを終了します。
+
+### 優位性
+
+- **過学習の防止**: 検証データの性能が悪化した時点で停止し、モデルの汎化性能を維持。
+- **リソース効率化**: 無駄なエポックを実行せず、計算時間とメモリを節約。
+- **最適なモデル選択**: 最良の検証性能を達成した時点のモデルを保存可能。
+
 
 つつく．．．
