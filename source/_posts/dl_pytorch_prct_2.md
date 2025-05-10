@@ -221,7 +221,7 @@ loss = checkpoint['loss']
 - **オプティマイザの再構築**:  
   オプティマイザの状態を読み込むには、事前に同じアルゴリズム（例: `Adam`）とパラメータでオプティマイザを再構築する必要があります。
 - **デバイス指定**:  
-  GPU で保存したモデルを CPU で読み込むと GPU の RAM を節約できる：
+  `map_location='cpu'`で保存したモデルを CPU で読み込むと、GPU の RAM を節約できる：
 
   ```python
   model.load_state_dict(torch.load('checkpoint.pth', map_location='cpu'))
