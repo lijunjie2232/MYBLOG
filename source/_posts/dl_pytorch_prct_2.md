@@ -267,12 +267,14 @@ PyTorch では `torch.cuda.amp` モジュールが提供されており、以下
 ```python
 from torch.cuda.amp import autocast, GradScaler
 
+USE_AMP = True  # AMP を使用するかどうかのフラグ
+
 scaler = GradScaler()  # グラジエントスケーラーを初期化
 
 for data, target in dataloader:
     optimizer.zero_grad()
 
-    with autocast():  # autocastコンテキスト内で順伝播
+    with autocast(enabled=USE_AMP):  # autocastコンテキスト内で順伝播
         output = model(data)
         loss = loss_fn(output, target)
 
