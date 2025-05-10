@@ -2,18 +2,18 @@
 title: Transformer
 date: 2022-8-15 10:17:00
 categories: [AI]
-tags: [deep learning, transformer]
+tags: [Deep Learning, transformer, 機械学習, AI, 人工知能, 深層学習]
 lang: ja
 ---
 
-Transformerは、RNNやCNNを用いたモデルの代わりに、Attentionを用いたモデルです。
+Transformer は、RNN や CNN を用いたモデルの代わりに、Attention を用いたモデルです。
 
 - [Attention](#attention)
   - [基本的な概念](#基本的な概念)
-  - [Attentionの計算式](#attentionの計算式)
+  - [Attention の計算式](#attention-の計算式)
   - [計算式の仕組み](#計算式の仕組み)
-    - [Query,Key,Valueの計算](#querykeyvalueの計算)
-    - [Attentionスコアの計算](#attentionスコアの計算)
+    - [Query,Key,Value の計算](#querykeyvalue-の計算)
+    - [Attention スコアの計算](#attention-スコアの計算)
     - [スケーリングと正規化](#スケーリングと正規化)
     - [重み付き和の計算](#重み付き和の計算)
 - [Casual Mask](#casual-mask)
@@ -28,12 +28,11 @@ Transformerは、RNNやCNNを用いたモデルの代わりに、Attentionを用
     - [Decoder](#decoder)
     - [TransformerBlock](#transformerblock)
   - [技術的詳細](#技術的詳細)
-    - [ポジションワイズFFN](#ポジションワイズffn)
+    - [ポジションワイズ FFN](#ポジションワイズ-ffn)
     - [残差接続と正規化](#残差接続と正規化)
     - [アテンション機構](#アテンション機構)
   - [主要な革新点](#主要な革新点)
   - [性能優位性](#性能優位性)
-
 
 ## Attention
 
@@ -46,20 +45,24 @@ Transformerは、RNNやCNNを用いたモデルの代わりに、Attentionを用
 - Value (V): 入力の特徴量に関連する情報を表します。
 - softmax: ソフトマックス関数
 
-### Attentionの計算式
+### Attention の計算式
 
-元の論文に、Attentionは"Scaled Dot-Product Attention"
+元の論文に、Attention は"Scaled Dot-Product Attention"
 
 <center>$\text{Attention} = \text{softmax} \left( \frac{Q K^T}{\sqrt{d_k}} \right)V$</center>
 
 ![Scaled Dot-Product Attention](/assert/transformer/image/attention_original.png)
 
 ### 計算式の仕組み
+
 ![The attention mechanism](/assert/transformer/image/attention_calc.png)
-#### Query,Key,Valueの計算
+
+#### Query,Key,Value の計算
+
 入力データから Query, Key, Value を計算します。通常、これらは線形変換（行列乗算）によって生成されます。
 
-#### Attentionスコアの計算
+#### Attention スコアの計算
+
 <center>$\text{Attention Score} = Q \cdot K^T$</center>
 
 Query と Key の間の関連性を計算します。これは一般的に内積（Dot Product）を使用して行われます。
@@ -70,19 +73,20 @@ Attention Score (scaled):
 
 <center>$\text{Scores} = \frac{Q K^T}{\sqrt{d_k}}$</center>
 
-softmax正規化:
+softmax 正規化:
 
 <center>$A_{i,j} = \text{softmax} \left( \frac{Q K^T}{\sqrt{d_k}} \right) = \frac{exp(Scores_{i,j})}{\sum_{k=1}^{n}exp(Scores_{i,k})}$</center>
 
-Attentionスコアはスケーリング（通常は Key の次元数の平方根で割る）と正規化（ソフトマックス関数を適用）によって調整されます。
-
+Attention スコアはスケーリング（通常は Key の次元数の平方根で割る）と正規化（ソフトマックス関数を適用）によって調整されます。
 
 #### 重み付き和の計算
+
 <center>$\text{Output} = \text{A} \cdot V$</center>
 
 Attention Weights を Value に適用し、重み付き和を計算します。
 
 ###　コード
+
 ```python
 import torch
 import torch.nn as nn
@@ -122,7 +126,7 @@ $
 </center>
 
 エンコーダーでは、全ての位置の情報が利用できますが、デコーダーでは未来の位置の情報が利用できないようにするため、因果掩码が使用されます。
-因果掩码は、未来の位置のスコアを $-\infty$ に設定し、Softmax後の重みを0にします。
+因果掩码は、未来の位置のスコアを $-\infty$ に設定し、Softmax 後の重みを 0 にします。
 
 ## Multi-Head Attention
 
@@ -131,11 +135,12 @@ Multi-Head Attention は、複数の Head を結合したものを表します�
 <center>$head_i = Attention(QW^Q_i, KW^K_i, VW^V_i)$</center>
 <center>$MultiHead(Q, K, V ) = Concat(head_1, ..., head_h)W^O$</center>
 
-- ここで、Headの数は$h$です。
+- ここで、Head の数は$h$です。
 
 ![Multi-Head Attention](/assert/transformer/image/multi_head_attention.png)
 
 ### コード
+
 ```python
 import torch.nn as nn
 import torch.nn.functional as F
@@ -187,7 +192,7 @@ FNN(Feed-Forward Network)は、入力から出力を計算する非線形関数�
 
 ## Positional Encoding
 
-Transformerモデルは、再帰や畳み込みを使用しないため、モデルがシーケンスの順序を利用できるように位置情報を組み込む必要があります。そのため、エンコーダとデコーダのスタックの入力埋め込みに "位置エンコーディング" を追加します。位置エンコーディングは、埋め込みと同じ次元 $ d_{\text{model}} $ を持つため、二つを足し合わせることができます。
+Transformer モデルは、再帰や畳み込みを使用しないため、モデルがシーケンスの順序を利用できるように位置情報を組み込む必要があります。そのため、エンコーダとデコーダのスタックの入力埋め込みに "位置エンコーディング" を追加します。位置エンコーディングは、埋め込みと同じ次元 $ d\_{\text{model}} $ を持つため、二つを足し合わせることができます。
 
 位置エンコーディングには学習型と固定型の選択肢がありますが、この研究では正弦とコサイン関数を使用します。これらの関数は異なる周波数を持ちます：
 
@@ -202,7 +207,7 @@ $PE_{(pos, 2i+1)} = cos(pos / 10000^{2i / d_{model}})$
 - $\text{PE}_{(pos, 2i+1)}$ は奇数次元の位置エンコーディング
 - $pos$ はシーケンス内の位置
 - $i$ は次元のインデックス
-- $d_{\text{model}}$ はモデルの次元数（通常は512など）
+- $d_{\text{model}}$ はモデルの次元数（通常は 512 など）
 
 ここで、$ \text{pos} $ は位置、$ i $ は次元です。つまり、位置エンコーディングの各次元は異なる周波数を持つ正弦波に対応します。波長は $ 2\pi $ から $ 10000 \cdot 2\pi $ までの幾何級数を形成します。
 
@@ -220,19 +225,18 @@ $PE_{(pos, 2i+1)} = cos(pos / 10000^{2i / d_{model}})$
 
 ## Transformer
 
-Transformerモデルは、Self-Attentionメカニズムを用いてシーケンスデータを処理します
-
+Transformer モデルは、Self-Attention メカニズムを用いてシーケンスデータを処理します
 
 ![Transformer Architecture](/assert/transformer/image/transformer.svg)
 
-- **エンコーダ・デコーダ構造**：古典的なseq2seqフレームワークを改良
-- **中核的イノベーション**：RNN/CNNを完全に排除しアテンション機構に基づく
+- **エンコーダ・デコーダ構造**：古典的な seq2seq フレームワークを改良
+- **中核的イノベーション**：RNN/CNN を完全に排除しアテンション機構に基づく
 - **並列処理能力**：逐次計算の制限を打破
-
 
 ### 主要コンポーネント
 
 #### Encoder
+
 ```python
 class TransformerEncoder(d2l.Encoder):
     def __init__(self, vocab_size, num_hiddens, ...):
@@ -242,10 +246,11 @@ class TransformerEncoder(d2l.Encoder):
 ```
 
 - **階層構造**：
-  - **N個の同一層**を積層（典型値：N=6）
+
+  - **N 個の同一層**を積層（典型値：N=6）
   - 各層の構成：
     1. **マルチヘッド・セルフアテンション**
-    2. **ポジションワイズFFN**
+    2. **ポジションワイズ FFN**
     3. **残差接続** + **レイヤー正規化**
 
 - **データ処理フロー**：
@@ -253,6 +258,7 @@ class TransformerEncoder(d2l.Encoder):
   2. 層ごとの処理：`for blk in blks: X = blk(X, valid_lens)`
 
 #### Decoder
+
 ```python
 class TransformerDecoder(d2l.AttentionDecoder):
     def __init__(self, vocab_size, num_hiddens, ...):
@@ -260,21 +266,21 @@ class TransformerDecoder(d2l.AttentionDecoder):
 ```
 
 - **階層構造**：
-  - **N個の同一層**を積層（エンコーダと同数）
+
+  - **N 個の同一層**を積層（エンコーダと同数）
   - 各層の構成：
     1. **マスク付きセルフアテンション**
     2. **エンコーダ・デコーダ間アテンション**
-    3. **ポジションワイズFFN**
+    3. **ポジションワイズ FFN**
     4. **残差接続** + **レイヤー正規化**（各サブ層後）
 
 - **重要技術**：
   - **自己回帰マスク**：生成時は過去のトークンのみ参照可能
   - **状態キャッシュ**：`state[2][self.i]`に生成履歴を保存
 
-
 #### TransformerBlock
 
-Transformer Blockは、**Multi-Head Attention**と**Position-Wise Feed-Forward Networks**を組み合わせ、TransformerEncoderBlockとTransformerDecoderBlockの両方で使用されるレイヤーです。
+Transformer Block は、**Multi-Head Attention**と**Position-Wise Feed-Forward Networks**を組み合わせ、TransformerEncoderBlock と TransformerDecoderBlock の両方で使用されるレイヤーです。
 
 ```python
 class TransformerBlock(nn.Module, ABC):
@@ -326,10 +332,10 @@ class TransformerBlock(nn.Module, ABC):
         return future_mask
 ```
 
-
 ### 技術的詳細
 
-#### ポジションワイズFFN
+#### ポジションワイズ FFN
+
 ```python
 class PositionWiseFFN(nn.Module):
     def __init__(self, ffn_num_hiddens, ffn_num_outputs):
@@ -337,18 +343,21 @@ class PositionWiseFFN(nn.Module):
         self.relu = nn.ReLU()         # 活性化関数
         self.dense2 = nn.Linear(...)  # 第2全結合層
 ```
+
 - **特徴**：
-  - 全位置で同一のMLPを適用
+  - 全位置で同一の MLP を適用
   - 次元調整：入力次元 → 隠れ層 → 出力次元
   - 数式表現：
     <center>$\text{FFN}(x) = \text{ReLU}(xW_1 + b_1)W_2 + b_2$</center>
 
 #### 残差接続と正規化
+
 ```python
 class AddNorm(nn.Module):
     def forward(self, X, Y):
         return self.ln(self.dropout(Y) + X)  # 残差接続+正規化
 ```
+
 - **設計思想**：
   - 勾配消失問題の緩和
   - 安定した深層学習を実現
@@ -357,9 +366,11 @@ class AddNorm(nn.Module):
     - バッチ正規化：バッチ次元で正規化（画像処理向け）
 
 #### アテンション機構
-- **3種類のアテンション**：
+
+- **3 種類のアテンション**：
+
   1. **エンコーダ自己注意**：Q=K=V=前層エンコーダ出力
-  2. **デコーダ自己注意**：マスク付きQ=K=V=前層デコーダ出力
+  2. **デコーダ自己注意**：マスク付き Q=K=V=前層デコーダ出力
   3. **エンコーダ-デコーダ注意**：Q=デコーダ状態，K=V=エンコーダ出力
 
 - **マスク実装**：
@@ -370,16 +381,16 @@ class AddNorm(nn.Module):
 
 ### 主要な革新点
 
-| 技術                     | 役割                   | 利点              |
-| ------------------------ | ---------------------- | ----------------- |
-| マルチヘッドアテンション | 多様な関連性の並列抽出 | 表現力向上        |
-| 位置エンコーディング     | 順序情報の付与         | RNN不要の位置認識 |
-| 残差接続                 | 勾配伝播の最適化       | 深層化可能        |
-| レイヤー正規化           | 学習安定化             | 収束速度向上      |
+| 技術                     | 役割                   | 利点               |
+| ------------------------ | ---------------------- | ------------------ |
+| マルチヘッドアテンション | 多様な関連性の並列抽出 | 表現力向上         |
+| 位置エンコーディング     | 順序情報の付与         | RNN 不要の位置認識 |
+| 残差接続                 | 勾配伝播の最適化       | 深層化可能         |
+| レイヤー正規化           | 学習安定化             | 収束速度向上       |
 
 ### 性能優位性
-1. **並列計算**：全トークンを同時処理（RNNの逐次処理を打破）
+
+1. **並列計算**：全トークンを同時処理（RNN の逐次処理を打破）
 2. **長距離依存**：任意の位置間の関連性を直接モデル化
 3. **拡張性**：層の追加で容易にモデル容量増加
 4. **汎用性**：翻訳・要約・生成など多様なタスクに適用
-
