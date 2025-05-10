@@ -35,6 +35,9 @@ code の例：[main.ipynb](https://colab.research.google.com/github/lijunjie2232
   - [testset と validationset の違い](#testset-と-validationset-の違い)
     - [目的の違い](#目的の違い)
     - [データの扱いの違い](#データの扱いの違い)
+  - [実装例](#実装例)
+    - [注意点](#注意点)
+    - [実践的なワークフロー](#実践的なワークフロー)
 - [データの transoforms](#データの-transoforms)
   - [主な特徴](#主な特徴)
   - [よく使われるクラス一覧](#よく使われるクラス一覧)
@@ -53,7 +56,7 @@ code の例：[main.ipynb](https://colab.research.google.com/github/lijunjie2232
   - [概要](#概要)
   - [優位性](#優位性)
   - [使用方法](#使用方法)
-  - [注意点](#注意点)
+  - [注意点](#注意点-1)
 - [Early Stopping](#early-stopping)
   - [概要](#概要-1)
 
@@ -107,6 +110,39 @@ code の例：[main.ipynb](https://colab.research.google.com/github/lijunjie2232
 - **Test Set**:
   - 学習プロセスに一切関与しない。
   - 最終評価のみに使用されるため、「未知のデータ」として完全に独立している必要がある。
+
+### 実装例
+
+```python
+# データセットの分割例（train/val/test）
+from torch.utils.data import random_split
+
+# 全データを8:1:1に分割
+train_size = int(0.8 * len(dataset))
+val_size = int(0.1 * len(dataset))
+test_size = len(dataset) - train_size - val_size
+
+train_dataset, val_dataset, test_dataset = random_split(dataset, [train_size, val_size, test_size])
+
+# データローダーの構築
+train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
+val_loader = DataLoader(val_dataset, batch_size=32)
+test_loader = DataLoader(test_dataset, batch_size=32)
+```
+
+#### 注意点
+
+- **データリークの防止**:
+  - Test Set は**学習・検証プロセスで絶対に使用しない**。リークすると評価結果が過剰に楽観視される。
+- **サイズの目安**:
+  - Validation Set: 全データの 10〜20%程度。
+  - Test Set: 同様に 10〜20%程度（タスクによって調整）。
+
+#### 実践的なワークフロー
+
+1. **学習**: Train Set でモデルを学習。
+2. **検証**: Val Set でハイパーパラメータ調整や Early Stopping の判定。
+3. **評価**: Test Set で最終的な性能を測定（例: Accuracy, F1 Score）。
 
 ## データの transoforms
 
