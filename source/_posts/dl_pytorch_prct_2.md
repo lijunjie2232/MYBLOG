@@ -73,6 +73,8 @@ code の例：[main.ipynb](https://colab.research.google.com/github/lijunjie2232
     - [分散環境の初期化](#分散環境の初期化)
     - [モデルのラップ](#モデルのラップ)
     - [データローダーの設定](#データローダーの設定)
+    - [学習ループ](#学習ループ)
+    - [終了処理](#終了処理)
 
 ## Tips
 
@@ -538,5 +540,26 @@ sampler = DistributedSampler(dataset)
 train_loader = DataLoader(dataset, batch_size=32, sampler=sampler)
 ```
 
+#### 学習ループ
 
-つつく．．．
+```python
+for epoch in range(epochs):
+    model.train()
+    for inputs, labels in train_loader:
+        inputs, labels = inputs.cuda(), labels.cuda()
+        outputs = model(inputs)
+        loss = loss_fn(outputs, labels)
+
+        # 勾配計算と更新
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+```
+
+#### 終了処理
+
+```python
+# 分散プロセスグループの終了
+dist.destroy_process_group()
+```
+
