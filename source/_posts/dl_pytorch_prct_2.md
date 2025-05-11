@@ -42,10 +42,10 @@ code の例：[main.ipynb](https://colab.research.google.com/github/lijunjie2232
   - [主な特徴](#主な特徴)
   - [よく使われるクラス一覧](#よく使われるクラス一覧)
   - [使用例](#使用例)
-  - [適用方法の例（`ImageFolder`）](#適用方法の例imagefolder)
+  - [適用方法の例](#適用方法の例)
 - [モデルの保存と読み込み](#モデルの保存と読み込み)
   - [Pytorch モデルの保存と読み込み](#pytorch-モデルの保存と読み込み)
-  - [Pytorch 状態辞書の保存と読み込み（推奨）](#pytorch-状態辞書の保存と読み込み推奨)
+  - [Pytorch 状態辞書の保存と読み込み](#pytorch-状態辞書の保存と読み込み)
   - [ベストプラクティス](#ベストプラクティス)
   - [主な注意点](#主な注意点)
   - [実践的な保存方法](#実践的な保存方法)
@@ -59,7 +59,6 @@ code の例：[main.ipynb](https://colab.research.google.com/github/lijunjie2232
   - [注意点](#注意点-1)
 - [Early Stopping](#early-stopping)
   - [概要](#概要-1)
-  - [概要](#概要-2)
   - [優位性](#優位性-1)
   - [実装手順](#実装手順)
     - [初期化](#初期化)
@@ -205,7 +204,7 @@ transform = transforms.Compose([
 
 このようにして作成した `transform` は、`ImageFolder` や自作の `Dataset` クラスで画像に適用されます。
 
-### 適用方法の例（`ImageFolder`）
+### 適用方法の例
 
 ```python
 ## データ変換の構築
@@ -258,7 +257,9 @@ model = torch.load('model.pth')
 model.eval()  # 推論モードに設定
 ```
 
-### Pytorch 状態辞書の保存と読み込み（推奨）
+### Pytorch 状態辞書の保存と読み込み
+
+モデルのパラメータ（重みとバイアス）を保存する際の推奨方法。モデル構造が変わった場合でも、同じ構造の新しいモデルにパラメータを読み込むことが可能になる。
 
 ```python
 # パラメータのみ保存
@@ -391,8 +392,6 @@ for data, target in dataloader:
 - **非対応操作**: 一部の演算（例: 損失関数の log など）は FP32 で実行されるため、パフォーマンス改善の効果が限定的な場合があります。
 
 ## Early Stopping
-
-### 概要
 
 ### 概要
 
