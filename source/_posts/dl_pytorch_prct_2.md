@@ -489,6 +489,8 @@ trainer = Trainer(callbacks=[early_stop])
 
 - PyTorch の `DistributedDataParallel` (DDP) は、複数の GPU または複数ノードでモデルを分散して学習するためのフレームワークです。データ並列処理を実現し、大規模なモデルやデータセットの学習を効率化します。
 
+- `DataParallel`と`DistributedDataParallel`もは，GPUを利用してモデルを並列処理するためのフレームワークですが、主な違いは、通信のオーバーヘッドや分散学習の設定方法にあります。通常、大規模システムで複数ノードを使用する場合
+
 
 
 
