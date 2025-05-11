@@ -75,7 +75,9 @@ code の例：[main.ipynb](https://colab.research.google.com/github/lijunjie2232
     - [データローダーの設定](#データローダーの設定)
     - [学習ループ](#学習ループ)
     - [終了処理](#終了処理)
-    - [torchrunを使用した実行](#torchrunを使用した実行)
+    - [torchrun を使用した実行](#torchrun-を使用した実行)
+      - [主なオプション](#主なオプション)
+      - [実行例:](#実行例)
 
 ## Tips
 
@@ -564,10 +566,23 @@ for epoch in range(epochs):
 dist.destroy_process_group()
 ```
 
-#### torchrunを使用した実行
+#### torchrun を使用した実行
 
-torchrunを使用することで、PyTorchのモデルを分散プロセスグループで実行することができます。以下はtorchrunを使用してモデルを実行するための基本的なコマンドの例です。
+torchrun を使用することで、PyTorch のモデルを分散プロセスグループで実行することができます。以下は torchrun を使用してモデルを実行するための基本的なコマンドの例です。
+
+##### 主なオプション
+
+- `--nproc_per_node`: 1 ノードあたりのプロセス数を指定。
+- `--nnodes`: 使用するノード数を指定。
+- `--start_method`: プロセスの起動方法を指定、デフォルトは spawn、fork はプロセスを fork する方法で起動します。
+- `--log_dir`: ログ出力先のディレクトリを指定。
+- `--master_addr`: マスターノードのアドレスを指定。
+- `--master_port`: マスターノードのポートを指定。
+- `--monitor_interval`: ログの出力間隔を秒単位で指定。
+- `--run_path`: 実行ファイルのパスを指定。
+
+##### 実行例:
 
 ```bash
-torchrun --nproc_per_node=2 train.py
+torchrun --nproc_per_node=2 --master_port=23450 train.py --batch_size=32 --epochs=100 --lr=0.001
 ```
