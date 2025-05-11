@@ -75,6 +75,7 @@ code の例：[main.ipynb](https://colab.research.google.com/github/lijunjie2232
     - [データローダーの設定](#データローダーの設定)
     - [学習ループ](#学習ループ)
     - [終了処理](#終了処理)
+    - [torchrunを使用した実行](#torchrunを使用した実行)
 
 ## Tips
 
@@ -563,3 +564,10 @@ for epoch in range(epochs):
 dist.destroy_process_group()
 ```
 
+#### torchrunを使用した実行
+
+torchrunを使用することで、PyTorchのモデルを分散プロセスグループで実行することができます。以下はtorchrunを使用してモデルを実行するための基本的なコマンドの例です。
+
+```bash
+torchrun --nproc_per_node=2 train.py
+```
