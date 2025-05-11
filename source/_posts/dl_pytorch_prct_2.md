@@ -494,7 +494,16 @@ trainer = Trainer(callbacks=[early_stop])
 
 ### DDPを使用したモデルの並列化
 
-今回の実装例は、`DDP`を使用して複数GPUでモデルを並列化する。
+今回の実装例は、`DDP`を使用して複数GPUでモデルを並列化するため、`torch.nn.parallel.DistributedDataParallel`を説明、ほかのてんは別の文章で説明する．
+
+- **目的**:  
+  複数の GPU/ノードでモデルの並列化を行い、学習速度の高速化とメモリ負荷の分散を実現。  
+- **特徴**:  
+  - 各 GPU に独立したプロセスを生成し、データを分割して並列処理。  
+  - 勾配の同期（AllReduce）により、分散環境でも正確な更新を行う。  
+  - `torch.distributed` パッケージを基盤に動作。  
+
+
 
 
 
