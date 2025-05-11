@@ -68,6 +68,7 @@ code の例：[main.ipynb](https://colab.research.google.com/github/lijunjie2232
   - [主な注意点](#主な注意点-2)
   - [pytorchlighting の応用](#pytorchlighting-の応用)
 - [トレニングの並行化](#トレニングの並行化)
+  - [DDPを使用したモデルの並列化](#ddpを使用したモデルの並列化)
 
 ## Tips
 
@@ -490,6 +491,13 @@ trainer = Trainer(callbacks=[early_stop])
 - PyTorch の `DistributedDataParallel` (DDP) は、複数の GPU または複数ノードでモデルを分散して学習するためのフレームワークです。データ並列処理を実現し、大規模なモデルやデータセットの学習を効率化します。
 
 - `DataParallel`と`DistributedDataParallel`もは，GPUを利用してモデルを並列処理するためのフレームワークですが、主な違いは、通信のオーバーヘッドや分散学習の設定方法にあります。通常、大規模システムで複数ノードを使用する場合
+
+### DDPを使用したモデルの並列化
+
+今回の実装例は、`DDP`を使用して複数GPUでモデルを並列化する。
+
+
+
 
 
 
