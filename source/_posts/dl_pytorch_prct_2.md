@@ -67,6 +67,7 @@ code の例：[main.ipynb](https://colab.research.google.com/github/lijunjie2232
     - [コード例](#コード例)
   - [主な注意点](#主な注意点-2)
   - [pytorchlighting の応用](#pytorchlighting-の応用)
+- [トレニングの並行化](#トレニングの並行化)
 
 ## Tips
 
@@ -481,5 +482,13 @@ from pytorch_lightning.callbacks import EarlyStopping
 early_stop = EarlyStopping(monitor="val_loss", patience=5)
 trainer = Trainer(callbacks=[early_stop])
 ```
+
+## トレニングの並行化
+
+PyTorch の `DistributedDataParallel` (DDP) は、複数の GPU または複数ノードでモデルを分散して学習するためのフレームワークです。データ並列処理を実現し、大規模なモデルやデータセットの学習を効率化します。  
+
+
+
+
 
 つつく．．．
