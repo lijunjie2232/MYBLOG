@@ -68,7 +68,9 @@ code の例：[main.ipynb](https://colab.research.google.com/github/lijunjie2232
   - [主な注意点](#主な注意点-2)
   - [pytorchlighting の応用](#pytorchlighting-の応用)
 - [トレニングの並行化](#トレニングの並行化)
-  - [DDPを使用したモデルの並列化](#ddpを使用したモデルの並列化)
+  - [DDP を使用したモデルの並列化](#ddp-を使用したモデルの並列化)
+  - [使う手順](#使う手順)
+    - [分散環境の初期化](#分散環境の初期化)
 
 ## Tips
 
@@ -490,25 +492,30 @@ trainer = Trainer(callbacks=[early_stop])
 
 - PyTorch の `DistributedDataParallel` (DDP) は、複数の GPU または複数ノードでモデルを分散して学習するためのフレームワークです。データ並列処理を実現し、大規模なモデルやデータセットの学習を効率化します。
 
-- `DataParallel`と`DistributedDataParallel`もは，GPUを利用してモデルを並列処理するためのフレームワークですが、主な違いは、通信のオーバーヘッドや分散学習の設定方法にあります。通常、大規模システムで複数ノードを使用する場合
+- `DataParallel`と`DistributedDataParallel`もは，GPU を利用してモデルを並列処理するためのフレームワークですが、主な違いは、通信のオーバーヘッドや分散学習の設定方法にあります。通常、大規模システムで複数ノードを使用する場合
 
-### DDPを使用したモデルの並列化
+### DDP を使用したモデルの並列化
 
-今回の実装例は、`DDP`を使用して複数GPUでモデルを並列化するため、`torch.nn.parallel.DistributedDataParallel`を説明、ほかのてんは別の文章で説明する．
+今回の実装例は、`DDP`を使用して複数 GPU でモデルを並列化するため、`torch.nn.parallel.DistributedDataParallel`を説明、ほかのてんは別の文章で説明する．
 
 - **目的**:  
-  複数の GPU/ノードでモデルの並列化を行い、学習速度の高速化とメモリ負荷の分散を実現。  
-- **特徴**:  
-  - 各 GPU に独立したプロセスを生成し、データを分割して並列処理。  
-  - 勾配の同期（AllReduce）により、分散環境でも正確な更新を行う。  
-  - `torch.distributed` パッケージを基盤に動作。  
+  複数の GPU/ノードでモデルの並列化を行い、学習速度の高速化とメモリ負荷の分散を実現。
+- **特徴**:
+  - 各 GPU に独立したプロセスを生成し、データを分割して並列処理。
+  - 勾配の同期（AllReduce）により、分散環境でも正確な更新を行う。
+  - `torch.distributed` パッケージを基盤に動作。
 
+### 使う手順
 
+#### 分散環境の初期化
 
+```python
+import torch.distributed as dist
 
-
-
-
+# 分散プロセスグループの初期化
+dist.init_process_group(backend='nccl')  # backend は 'nccl' または 'gloo' など
+# nccl は NVIDIA GPU 用、gloo は CPU/多種の環境用、mpi もあります．
+```
 
 
 つつく．．．
