@@ -71,6 +71,7 @@ code の例：[main.ipynb](https://colab.research.google.com/github/lijunjie2232
   - [DDP を使用したモデルの並列化](#ddp-を使用したモデルの並列化)
   - [使う手順](#使う手順)
     - [分散環境の初期化](#分散環境の初期化)
+    - [モデルのラップ](#モデルのラップ)
 
 ## Tips
 
@@ -515,6 +516,15 @@ import torch.distributed as dist
 # 分散プロセスグループの初期化
 dist.init_process_group(backend='nccl')  # backend は 'nccl' または 'gloo' など
 # nccl は NVIDIA GPU 用、gloo は CPU/多種の環境用、mpi もあります．
+```
+
+#### モデルのラップ
+
+```python
+from torch.nn.parallel import DistributedDataParallel as DDP
+
+# モデルを DDP でラップ
+model = DDP(model, device_ids=[local_rank])  # local_rank は GPU のローカル ID
 ```
 
 
