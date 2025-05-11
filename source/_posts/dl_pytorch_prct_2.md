@@ -72,6 +72,7 @@ code の例：[main.ipynb](https://colab.research.google.com/github/lijunjie2232
   - [使う手順](#使う手順)
     - [分散環境の初期化](#分散環境の初期化)
     - [モデルのラップ](#モデルのラップ)
+    - [データローダーの設定](#データローダーの設定)
 
 ## Tips
 
@@ -525,6 +526,16 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 
 # モデルを DDP でラップ
 model = DDP(model, device_ids=[local_rank])  # local_rank は GPU のローカル ID
+```
+
+#### データローダーの設定
+
+```python
+from torch.utils.data.distributed import DistributedSampler
+
+# 分散用サンプラーを使用
+sampler = DistributedSampler(dataset)
+train_loader = DataLoader(dataset, batch_size=32, sampler=sampler)
 ```
 
 
