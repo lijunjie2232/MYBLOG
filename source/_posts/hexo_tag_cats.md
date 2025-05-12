@@ -4,6 +4,9 @@ date: 2022-7-6 21:40:00
 categories: [blog]
 tags: [hexo, blog, server]
 lang: ja
+
+description: Hexoでカテゴリとタグの追加方法を解説します。カテゴリページ、タグページの生成から記事へのcategories属性・tags属性の追加まで網羅しています。
+
 ---
 
 - [カテゴリの作成](#カテゴリの作成)
