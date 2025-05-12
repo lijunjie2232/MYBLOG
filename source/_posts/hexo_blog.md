@@ -4,6 +4,10 @@ date: 2022-7-6 17:36:00
 categories: [blog]
 tags: [hexo, blog, server]
 lang: ja
+
+description: 
+  GitHub Pagesへの再デプロイを機に、Hexoをブログフレームワークとして採用しました。
+  HexoはNode.jsベースの高速でシンプルな静的ブログ生成ツールです。詳細な使い方を解説します。
 ---
 
 GitHub Pagesへの再デプロイを機に、Hexoをブログフレームワークとして採用しました。  
