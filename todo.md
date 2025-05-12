@@ -1,12 +1,22 @@
 # framework
 
-[ ] pytorch base
+[x] pytorch base
 
-[ ] pytorch project
+[x] pytorch project
 
 [ ] dp and ddp
 
+[ ] torch distributed
+
+[ ] AMP and autocast
+
 [ ] pytorch lightning
+
+[ ] warmup and cosine annealing
+
+[ ] timm
+
+[ ] transformers
 
 # base model
 
@@ -22,6 +32,10 @@
 
 [ ] convnext
 
+[ ] CLIP
+
+[ ] whisper
+
 # lightning model
 
 [ ] mobilenet
@@ -33,6 +47,8 @@
 [ ] starnet CNN
 
 [ ] fastvit
+
+[ ] onnx
 
 # object detection
 
