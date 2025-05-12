@@ -1,6 +1,6 @@
 ---
 title: pytorchで並列的に学習を行う方法
-date: 2022-8-12 11:15:00
+date: 2022-9-23 11:15:00
 categories: [AI]
 tags:
   [
@@ -24,3 +24,5 @@ lang: ja
 ![Data Parallelism](/assert/dp_and_ddp/data_pa.png)
 
 ### モデル並列
+モデル並列では、モデルはスライスされ、完全なデータが各トレーニングノードに送られ、そこでスライスされたモデルに対して実行され、複数のノードからの結果がマージされる。
+![Model Parallelism](/assert/dp_and_ddp/model_pa.png)
