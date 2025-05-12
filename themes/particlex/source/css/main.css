@@ -360,6 +360,11 @@
     line-height: 1.7;
 }
 
+.home-post-tags {
+    margin: 12px 4px;
+    text-align: center;
+}
+
 #home-posts .post-title {
     color: #66afef;
     text-align: center;

@@ -41,18 +41,7 @@
         </span>
         <% } %>
     </div>
-    <div class="description">
-        <div class="content" v-pre>
-            <% if (typeof post.description !== "undefined") { %>
-            <%- markdown(post.description) %>
-            <% } else if (post.excerpt) { %>
-            <%- post.excerpt %>
-            <% } else { %>
-            <%- post.content %>
-            <% } %>
-        </div>
-    </div>
-    <div class="post-tags">
+    <div class="post-tags home-post-tags">
         <% if (post.tags.data.length !== 0) { %>
         <span class="icon">
             <i class="fa-solid fa-tags fa-fw"></i>
@@ -69,6 +58,17 @@
             <a href="<%- url_for(tag.path) %>" style="color: <%- colors[id] %>"><%= tag.name %></a>
         </span>
         <% }); %>
+    </div>
+    <div class="description">
+        <div class="content" v-pre>
+            <% if (typeof post.description !== "undefined") { %>
+            <%- markdown(post.description) %>
+            <% } else if (post.excerpt) { %>
+            <%- post.excerpt %>
+            <% } else { %>
+            <%- post.content %>
+            <% } %>
+        </div>
     </div>
     <a href="<%- url_for(post.path) %>" class="go-post">続きを読む</a>
 </div>
