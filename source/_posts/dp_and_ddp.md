@@ -121,3 +121,33 @@ lang: ja
 1. 各 GPU でローカル勾配を計算
 2. Allreduce で総和を取得
 3. 全 GPU で同一の更新済みモデルを保証
+
+### 主要集合通信ライブラリの特徴
+
+#### Open MPI
+
+- **HPC（ハイパフォーマンスコンピューティング）分野の標準 MPI 実装**
+- 学術・産業界の共同開発で高性能な通信を提供。
+- 多様なハードウェア（CPU/GPU）とネットワーク（InfiniBand/Ethernet）に対応。
+
+#### NCCL（NVIDIA Collective Communications Library）
+
+- **NVIDIA GPU 最適化型ライブラリ**
+  - PCIe/NVLink 高速バスを活用し、**高帯域幅・低遅延**を実現。
+  - Allreduce/Allgather/Broadcast などの基本操作を GPU 向けに最適化。
+- **主な用途**：
+  - PyTorch/TensorFlow の分散トレーニングバックエンドとして利用可能。
+  - NVIDIA DGX シリーズやクラウド GPU インスタンスで高パフォーマンスを発揮。
+
+#### Gloo（Facebook 開発）
+
+- **機械学習特化の集合通信ライブラリ**
+  - CPU/GPU 両対応で、**Barrier/Broadcast/Allreduce**をサポート。
+  - ユーザーレベルの柔軟性が高く、軽量な実装で組み込みに適す。
+
+#### Horovod（分散トレーニングの共通レイヤー）
+
+- **複数フレームワーク（PyTorch/TensorFlow/MXNet）に対応**
+  - Open MPI/NCCL/Gloo をラップし、統一インターフェースを提供。
+  - **Allreduce 性能の最適化**と、学習コードの簡潔化を実現。
+  - フレームワークの差異を吸収し、分散設定を容易にします。
