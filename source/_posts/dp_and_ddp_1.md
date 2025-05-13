@@ -6,6 +6,35 @@ tags: [Deep Learning, PyTorch, Python, 機械学習, AI, 人工知能, 深層学
 lang: ja
 ---
 
+目次
+
+- [並列の種類](#並列の種類)
+  - [データ並列](#データ並列)
+    - [なぜデータ並列が必要か](#なぜデータ並列が必要か)
+    - [線形加速比の具体例](#線形加速比の具体例)
+    - [実際の課題](#実際の課題)
+  - [モデル並列](#モデル並列)
+    - [なぜモデル並列が必要か？](#なぜモデル並列が必要か)
+    - [具体例](#具体例)
+- [分布式計算と集合通信概要](#分布式計算と集合通信概要)
+  - [集合通信（Collective Communication）の基礎](#集合通信collective-communicationの基礎)
+    - [代表的な通信操作](#代表的な通信操作)
+    - [Allreduce の重要性](#allreduce-の重要性)
+  - [主要集合通信ライブラリの特徴](#主要集合通信ライブラリの特徴)
+    - [Open MPI](#open-mpi)
+    - [NCCL（NVIDIA Collective Communications Library）](#ncclnvidia-collective-communications-library)
+    - [Gloo（Facebook 開発）](#gloofacebook-開発)
+    - [Horovod（分散トレーニングの共通レイヤー）](#horovod分散トレーニングの共通レイヤー)
+  - [データ並列](#データ並列-1)
+    - [DataParallel](#dataparallel)
+      - [DataParallel の計算手順](#dataparallel-の計算手順)
+      - [通信ステップの詳細](#通信ステップの詳細)
+    - [DistributedDataParallel](#distributeddataparallel)
+      - [DDP の基本構造](#ddp-の基本構造)
+  - [DDP の訓練プロセス](#ddp-の訓練プロセス)
+    - [DP と DDP の区別](#dp-と-ddp-の区別)
+  - [補足説明](#補足説明)
+
 ## 並列の種類
 
 1 台のマシンに 1 枚のカードの場合、情報はすべて 1 台のマシンにあり、分散はない。
@@ -202,7 +231,7 @@ DP では 1 回のトレーニングステップで **4 回の通信** が発生
 
 DDP (DistributedDataParallel) は **複数マシン** での分散学習を実現する手法。性能を最適化するために、DDP では全減算処理についてより詳細な設計が行われている。 勾配計算プロセスとプロセス間通信プロセスは、それぞれ一定の時間を消費します。 DDP のバックエンドにおける通信は、CPP によって記述された様々なプロトコルでサポートされており、プロトコルによって通信オペレータのサポートが異なるため、開発時の要件に応じて選択することができます。
 
-##### **DDP の基本構造**
+##### DDP の基本構造
 
 - **マルチプロセス・マルチスレッド**
   - 各 GPU に専用プロセスを割り当て、Python の GIL（グローバルインタプリタロック）を回避。
@@ -211,9 +240,9 @@ DDP (DistributedDataParallel) は **複数マシン** での分散学習を実�
   - **AllReduce** を利用した分散型同期（勾配総和）を実現。
   - NCCL/Gloo/Open MPI などの集合通信ライブラリをバックエンドとしてサポート。
 
-### **DDP の訓練プロセス**
+### DDP の訓練プロセス
 
-![DDP](assert/dp_and_ddp/ddp.png)
+![DDP](/assert/dp_and_ddp/ddp.png)
 
 1. **初期化**
    - `rank=0` のプロセスからモデルパラメータを全プロセスにブロードキャスト（初期重み同期）。

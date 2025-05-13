@@ -18,6 +18,12 @@
 
 [ ] transformers
 
+[ ] Tensor Parallelism
+
+[ ] deepspeed
+
+[ ] FSDP
+
 # base model
 
 [ ] vit
