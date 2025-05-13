@@ -158,8 +158,7 @@ lang: ja
 
 pytorch には、分散学習の実現方法として DataParallel と DistributedDataParallel（DDP）があります。
 
-
-### DPとDDPの区別
+### DP と DDP の区別
 
 以下に DP（DataParallel）と DDP（DistributedDataParallel）の主な違いを表形式でまとめます。
 
