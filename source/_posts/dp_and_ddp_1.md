@@ -4,6 +4,7 @@ date: 2022-9-23 11:15:00
 categories: [AI]
 tags: [Deep Learning, PyTorch, Python, 機械学習, AI, 人工知能, 深層学習]
 lang: ja
+description: 並列学習の種類、分散計算と集合通信概要、DataParallel と DistributedDataParallel の違いについて解説します。
 ---
 
 目次
