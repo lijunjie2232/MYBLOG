@@ -158,7 +158,47 @@ lang: ja
 
 pytorch には、分散学習の実現方法として DataParallel と DistributedDataParallel（DDP）があります。
 
-### DP と DDP の区別
+#### DataParallel
+
+- **DP(DataParallel)** は **単一マシン** 内で複数 GPU を使用するための並列化手法。
+- **シングルプロセス・マルチスレッド** で動作し、Python の **GIL（グローバルインタプリタロック）** に制限される。
+- **データ並列** を実現するが、分散訓練（マルチノード）には対応しない。
+
+##### DataParallel の計算手順
+
+1. **入力データの分散（Scatter）**
+   - **主 GPU（GPU0）** から各 GPU にミニバッチデータを配布。
+2. **モデルの複製（Replication）**
+   - 主 GPU のモデルを全 GPU に複製（各 GPU に同じ構造のモデルを配置）。
+3. **順伝播（Forward Pass）**
+   - 各 GPU で独立して順伝播を実行し、出力結果（`outputs`）を生成。
+4. **出力の収集（Gather）**
+   - 各 GPU の出力を主 GPU に集約。
+5. **損失計算（Loss Calculation）**
+   - 主 GPU で損失関数（`loss`）を計算し、損失の勾配（`loss.grad`）を取得。
+6. **損失の分散（Scatter）**
+   - 損失の勾配を各 GPU に再分散。
+7. **逆伝播（Backward Pass）**
+   - 各 GPU で独立して逆伝播を実行し、パラメータの勾配（`grad`）を計算。
+8. **勾配の収集（Gather）**
+   - 各 GPU の勾配を主 GPU に集約。
+9. **パラメータ更新（Optimizer Step）**
+   - 主 GPU で勾配を平均化し、モデルの重みを更新。
+10. **モデルの同期（Broadcast）**
+    - 更新後のモデルを全 GPU にブロードキャスト。
+
+このプロセスをエポック数分繰り返します。
+
+##### 通信ステップの詳細
+
+DP では 1 回のトレーニングステップで **4 回の通信** が発生：
+
+1. **出力収集**：各 GPU の順伝播出力を主 GPU に集約（`Gather`）。
+2. **損失分散**：主 GPU の損失勾配を各 GPU に分散（`Scatter`）。
+3. **勾配収集**：各 GPU の勾配を主 GPU に集約（`Gather`）。
+4. **モデル同期**：更新済みモデルを全 GPU にブロードキャスト（`Broadcast`）。
+
+#### DP と DDP の区別
 
 以下に DP（DataParallel）と DDP（DistributedDataParallel）の主な違いを表形式でまとめます。
 
