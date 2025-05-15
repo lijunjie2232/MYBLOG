@@ -13,8 +13,11 @@ lang: ja
   - [コード](#コード)
   - [主な手順](#主な手順)
 - [DDP の実装](#ddp-の実装)
-  - [実装手順](#実装手順)
+  - [モデル並列実装手順](#モデル並列実装手順)
     - [プロセスグループの初期化](#プロセスグループの初期化)
+    - [モデルの定義と GPU への分割配置](#モデルの定義と-gpu-への分割配置)
+    - [DDP でモデルをラップ](#ddp-でモデルをラップ)
+    - [データローダーの設定](#データローダーの設定)
 
 ## DP の実装
 
@@ -85,9 +88,10 @@ for epoch in range(10):
 
 - **DistributedDataParallel (DDP)** は、複数 GPU や複数ノードで分散学習を行うための PyTorch 公式推奨手法です。
 - **モデル並列**では、モデルの各層を異なる GPU に分割配置し、データを順次処理します。
-- DDP は、モデル分割・勾配同期・データ分配を自動化し、効率的な分散学習を実現します。
+- DDP モデル並列の場合は、モデル分割・勾配同期・データ分配を自動化し、効率的な分散学習を実現します。
+- DDP データ並列の場合は、各プロセスが異なるデータを処理し、勾配同期を行います。
 
-### 実装手順
+### モデル並列実装手順
 
 #### プロセスグループの初期化
 
@@ -107,9 +111,59 @@ def setup(rank, world_size):
 def cleanup():
     dist.destroy_process_group()  # 通信終了
 ```
-ここで、`rank` は現在のプロセスのID、`world_size` は総プロセス数です。
-`init_process_group` 関数は、プロセス間の通信を初期化します。`nccl` は NCCL 通信バックエンドを指定します。`rank` は現在のプロセスのID、`world_size` は総プロセス数を指定します。
+
+ここで、`rank` は現在のプロセスの ID、`world_size` は総プロセス数です。
+`init_process_group` 関数は、プロセス間の通信を初期化します。`nccl` は NCCL 通信バックエンドを指定します。`rank` は現在のプロセスの ID、`world_size` は総プロセス数を指定します。
 `torch.cuda.set_device(rank)` は、現在のプロセスが使用する GPU デバイスを設定します。
 
+#### モデルの定義と GPU への分割配置
+
+モデルの各層を異なる GPU に配置します。
+
+```python
+import torch
+import torch.nn as nn
+
+class MyModel(nn.Module):
+    def __init__(self, rank):
+        super(MyModel, self).__init__()
+        self.part1 = nn.Linear(10, 10).to(rank*2)        # GPU0に配置
+        self.part2 = nn.Linear(10, 5).to(rank*2 + 1)    # GPU1に配置
+
+    def forward(self, x):
+        x = self.part1(x)
+        x = x.to(rank + 1)  # データをGPU1に転送
+        return self.part2(x)
+
+model = MyModel(rank=0)  # rank=0のGPUにモデルを初期配置
+```
+
+ここで、`MyModel` クラスの `forward` メソッドでデータを異なる GPU 間で転送します。
+
+#### DDP でモデルをラップ
+
+モデルを `DistributedDataParallel` でラップし、分散学習を有効化します。
+
+```python
+model = nn.parallel.DistributedDataParallel(model, device_ids=[0, 1])
+```
+
+- `device_ids`: 使用する GPU の ID を指定（例: `[0, 1]`）。
+
+#### データローダーの設定
+
+`DistributedSampler` を使用してデータを均等に分配します。
+
+```python
+from torch.utils.data import DataLoader, DistributedSampler
+from torchvision.datasets import TensorDataset
+
+# データセットの作成
+dataset = TensorDataset(torch.randn(100, 10), torch.randn(100, 5))
+
+# 分散サンプラー
+sampler = DistributedSampler(dataset, num_replicas=4, rank=0)
+data_loader = DataLoader(dataset, batch_size=10, sampler=sampler)
+```
 
 つつく．．．
