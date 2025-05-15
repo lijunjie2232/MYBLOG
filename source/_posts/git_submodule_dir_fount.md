@@ -31,4 +31,4 @@ or you are unsure what this means choose another name with the '--name' option.
 
 # 原因
 
-前回の`git submodule add`で追加しでも、ダウンロードは完全しなく、途中で中断した可能性がある。こうして、`.git/modules`に`volantis`フォルダが残っても、目標のフォルダ`themes/volantis`が作成されなかった。
+前回の`git submodule add`で追加しでも、ダウンロードは完全しなく、途中で中断した可能性がある。こうして、`.git/modules`に`themes/volantis`フォルダがキャッシュとして残っても、目標のフォルダ`themes/volantis`が作成されなかった。
