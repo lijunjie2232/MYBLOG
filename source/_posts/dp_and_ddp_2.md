@@ -18,6 +18,10 @@ lang: ja
     - [モデルの定義と GPU への分割配置](#モデルの定義と-gpu-への分割配置)
     - [DDP でモデルをラップ](#ddp-でモデルをラップ)
     - [データローダーの設定](#データローダーの設定)
+    - [学習ループ](#学習ループ)
+    - [リソースの解放](#リソースの解放)
+
+<!-- more -->
 
 ## DP の実装
 
@@ -165,5 +169,28 @@ dataset = TensorDataset(torch.randn(100, 10), torch.randn(100, 5))
 sampler = DistributedSampler(dataset, num_replicas=4, rank=0)
 data_loader = DataLoader(dataset, batch_size=10, sampler=sampler)
 ```
+
+
+#### 学習ループ
+各プロセスが割り当てられたデータで学習を行います。  
+```python
+optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
+criterion = nn.MSELoss()
+
+for data, target in data_loader:
+    optimizer.zero_grad()
+    output = model(data.cuda(0))  # GPU0で入力データを処理
+    loss = criterion(output, target.cuda(0))  # GPU0で損失計算
+    loss.backward()  # 勾配計算
+    optimizer.step()  # パラメータ更新
+```
+
+#### リソースの解放
+学習終了時にプロセスグループを破棄します。  
+```python
+cleanup()
+```
+
+
 
 つつく．．．
