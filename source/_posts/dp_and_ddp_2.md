@@ -32,7 +32,7 @@ lang: ja
   - [起動コマンド](#%E8%B5%B7%E5%8B%95%E3%82%B3%E3%83%9E%E3%83%B3%E3%83%89)
     - [torch.distributed.launch を使用](#torchdistributedlaunch-%E3%82%92%E4%BD%BF%E7%94%A8)
     - [torchrun を使用](#torchrun-%E3%82%92%E4%BD%BF%E7%94%A8)
-  - [オプション説明](#%E3%82%AA%E3%83%97%E3%82%B7%E3%83%A7%E3%83%B3%E8%AA%AC%E6%98%8E)
+    - [オプション説明](#%E3%82%AA%E3%83%97%E3%82%B7%E3%83%A7%E3%83%B3%E8%AA%AC%E6%98%8E)
 
 <!-- more -->
 
@@ -352,7 +352,7 @@ if dist.get_rank() == 0:
   torchrun --nnodes=2 --node_rank=1 --master_addr="192.168.0.10" --master_port=12345 --nproc_per_node=2 train_ddp.py --batch_size=64 --lr=0.01
   ```
 
-### オプション説明
+#### オプション説明
 
 - `--nproc_per_node`: 1 ノードあたりのプロセス数。
 - `--nnodes`: ノード数。
