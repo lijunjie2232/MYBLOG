@@ -10,9 +10,15 @@ lang: ja
 目次
 
 - [DP の実装](#dp-の実装)
+  - [コード](#コード)
   - [主な手順](#主な手順)
+- [DDP の実装](#ddp-の実装)
+  - [実装手順](#実装手順)
+    - [プロセスグループの初期化](#プロセスグループの初期化)
 
 ## DP の実装
+
+### コード
 
 ```python
 import torch
@@ -74,3 +80,36 @@ for epoch in range(10):
   ```python
   model = nn.DataParallel(model, device_ids=device_ids)
   ```
+
+## DDP の実装
+
+- **DistributedDataParallel (DDP)** は、複数 GPU や複数ノードで分散学習を行うための PyTorch 公式推奨手法です。
+- **モデル並列**では、モデルの各層を異なる GPU に分割配置し、データを順次処理します。
+- DDP は、モデル分割・勾配同期・データ分配を自動化し、効率的な分散学習を実現します。
+
+### 実装手順
+
+#### プロセスグループの初期化
+
+各プロセス間の通信を設定します。
+
+```python
+import torch.distributed as dist
+
+def setup(rank, world_size):
+    dist.init_process_group(
+        "nccl",              # NCCL通信バックエンド
+        rank=rank,           # 現在のプロセスID
+        world_size=world_size  # 総プロセス数
+    )
+    torch.cuda.set_device(rank)  # GPUデバイスを設定
+
+def cleanup():
+    dist.destroy_process_group()  # 通信終了
+```
+ここで、`rank` は現在のプロセスのID、`world_size` は総プロセス数です。
+`init_process_group` 関数は、プロセス間の通信を初期化します。`nccl` は NCCL 通信バックエンドを指定します。`rank` は現在のプロセスのID、`world_size` は総プロセス数を指定します。
+`torch.cuda.set_device(rank)` は、現在のプロセスが使用する GPU デバイスを設定します。
+
+
+つつく．．．
