@@ -282,12 +282,69 @@ for epoch in range(num_epochs):
   - `optimizer.step()` で AllReduce により勾配総和を同期。
 
 #### モデルの保存
-プロセス0のみでモデルを保存します。  
+
+プロセス 0 のみでモデルを保存します。
+
 ```python
 if dist.get_rank() == 0:
     torch.save(model.module.state_dict(), "model.pt")  # model.moduleでラップ解除
 ```
+
 ここで、`model.module` は DDP ラップ解除後のモデルへの参照です。
 
+#### DDP のデータ並列の特徴
+
+| 特徴                 | 説明                                                                      |
+| -------------------- | ------------------------------------------------------------------------- |
+| **プロセス構造**     | 各 GPU に独立したプロセスを割り当て（マルチプロセス）、GIL の影響を回避。 |
+| **通信方式**         | NCCL バックエンドによる AllReduce で勾配総和を同期。                      |
+| **データ分配**       | `DistributedSampler`でデータを均等に分割（重複なし）。                    |
+| **勾配同期**         | バケット単位の AllReduce で通信と計算を並列化（パイプライン処理）。       |
+| **メモリ効率**       | 勾配バケット化により通信と計算を最適化。                                  |
+| **スケーラビリティ** | GPU 数増加時でも通信コストが固定に近い（固定オーバーヘッド）。            |
+
+### 起動コマンド
+
+#### torch.distributed.launch を使用
+
+- **単一ノードの場合**:
+  ```bash
+  CUDA_VISIBLE_DEVICES="0,1" python -m torch.distributed.launch --nproc_per_node 2 train_ddp.py
+  ```
+- **複数ノードの場合**:
+
+  ```bash
+  # ノード0(ip=192.168.0.10):
+  CUDA_VISIBLE_DEVICES="0,1" python -m torch.distributed.launch --nnodes=2 --master_addr="192.168.0.10" --master_port=12345 --nproc_per_node=2 --use_env train_ddp.py --batch_size=64 --lr=0.01
+
+  # ノード1(ip=192.168.0.11):
+  CUDA_VISIBLE_DEVICES="0,1" python -m torch.distributed.launch --nnodes=2 --master_addr="192.168.0.10" --master_port=12345 --nproc_per_node=2 --use_env train_ddp.py --batch_size=64 --lr=0.01
+  ```
+
+#### torchrun を使用
+
+- **単一ノードの場合**:
+
+  ```bash
+  torchrun --nnodes=1 --nproc_per_node=2 train_ddp.py --batch_size=64 --lr=0.01
+  ```
+
+- **複数ノードの場合**:
+
+  ```bash
+  # ノード0(ip=192.168.0.10):
+  torchrun --nnodes=2 --node_rank=0 --master_addr="192.168.0.10" --master_port=12345 --nproc_per_node=2 train_ddp.py --batch_size=64 --lr=0.01
+
+  # ノード1(ip=192.168.0.11):
+  torchrun --nnodes=2 --node_rank=1 --master_addr="192.168.0.10" --master_port=12345 --nproc_per_node=2 train_ddp.py --batch_size=64 --lr=0.01
+  ```
+
+### オプション説明
+
+- `--nproc_per_node`: 1 ノードあたりのプロセス数。
+- `--nnodes`: ノード数。
+- `--master_addr`: マスターノードの IP アドレス。
+- `--master_port`: マスターノードのポート番号。
+- `--use_env`: 環境変数を参照してプロセスを起動する。(torchrun は必要ではない)
 
 つつく．．．
