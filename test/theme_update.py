@@ -48,7 +48,7 @@ def theme_handler(args):
         assert url.startswith("https://github.com/")
         # get the latest update date of the theme
         update_date = get_github_update_time(url)
-        return {"name": name, "url": url, "update_date": update_date}
+        return {"name": name, "url": url, "update_date": update_date, "stars": -1}
     except:
         print(traceback.format_exc())
         return {}
