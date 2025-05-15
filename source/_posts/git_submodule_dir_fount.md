@@ -1,7 +1,7 @@
 ---
-title: git: A git directory for 'xxxx' is found locally with remote(s)
+title: "git: A git directory for 'xxxx' is found locally with remote(s)"
 
-date: 2022-11-7 12:00:00
+date: 2023-1-7 12:00:00
 categories: [AI]
 tags: [git]
 lang: ja
