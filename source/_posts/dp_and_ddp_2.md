@@ -90,12 +90,11 @@ for epoch in range(10):
 
 ## DDP の実装
 
+### モデル並列実装手順
+
 - **DistributedDataParallel (DDP)** は、複数 GPU や複数ノードで分散学習を行うための PyTorch 公式推奨手法です。
 - **モデル並列**では、モデルの各層を異なる GPU に分割配置し、データを順次処理します。
 - DDP モデル並列の場合は、モデル分割・勾配同期・データ分配を自動化し、効率的な分散学習を実現します。
-- DDP データ並列の場合は、各プロセスが異なるデータを処理し、勾配同期を行います。
-
-### モデル並列実装手順
 
 #### プロセスグループの初期化
 
@@ -215,5 +214,80 @@ cleanup()
   DDP によりパラメータ更新が自動同期されるが、中間データの転送（例: `x.to(rank+1)`）は手動で管理。
 - **マルチノード対応**  
   複数ノードでの実行にはネットワーク設定（例: IP アドレス・ポート番号）が必要。
+
+### データ並列化の実装手順
+
+- **DistributedDataParallel (DDP)** は、複数 GPU や複数ノードで分散学習を行うための PyTorch 公式推奨手法です。
+- **データ並列**では、各プロセスが**完全なモデルコピー**を持ち、**異なるデータサブセット**で独立して学習します。
+- プロセス間で勾配を同期（AllReduce）することで、モデルパラメータを統一します。
+
+#### プロセスグループの初期化
+
+各プロセス間の通信を設定します。
+
+```python
+import torch.distributed as dist
+
+def setup(local_rank):
+    dist.init_process_group(backend='nccl')  # NCCLバックエンドで通信を初期化
+    torch.cuda.set_device(local_rank)        # 現在のプロセスが使用するGPUを設定
+```
+
+- `local_rank`: 現在のプロセスが使用する GPU のローカル ID（例: 0, 1）。
+- `backend='nccl'`: NVIDIA GPU 向けの高速通信ライブラリ NCCL を使用。
+
+#### モデルの定義と DDP ラップ
+
+モデルを各 GPU に配置し、DDP でラップします。
+
+```python
+model = SimpleModel(n_dim).to(local_rank)  # モデルをGPUに配置
+model = DDP(model, device_ids=[local_rank], output_device=local_rank)  # DDPでラップ
+```
+
+- `device_ids`: 使用する GPU の ID を指定（例: `[0, 1]`）。
+- `output_device`: 出力のデバイスを指定（通常、`local_rank`と同じ）。
+
+#### データローダーの設定
+
+`DistributedSampler` を使用してデータを均等に分配します。
+
+```python
+sampler = torch.utils.data.distributed.DistributedSampler(dataset)  # 分散サンプラー
+data_loader = DataLoader(dataset, batch_size=batch_size, sampler=sampler)
+```
+
+- **DistributedSampler の役割**:
+  - 各プロセスが重複しないデータサブセットを取得。
+  - シャッフル時にプロセス間で同じ乱数シードを維持。
+
+#### 学習ループ
+
+各プロセスが割り当てられたデータで学習を行い、勾配同期を行います。
+
+```python
+for epoch in range(num_epochs):
+    data_loader.sampler.set_epoch(epoch)  # シャッフルのシード同期
+    for data, label in data_loader:
+        data, label = data.to(local_rank), label.to(local_rank)
+        optimizer.zero_grad()
+        prediction = model(data)
+        loss = loss_func(prediction, label.unsqueeze(1))
+        loss.backward()  # 勾配計算（各プロセスで独立）
+        optimizer.step()  # 勾配同期（AllReduce）後に更新
+```
+
+- **勾配同期の仕組み**:
+  - 各プロセスが逆伝播で勾配を計算。
+  - `optimizer.step()` で AllReduce により勾配総和を同期。
+
+#### モデルの保存
+プロセス0のみでモデルを保存します。  
+```python
+if dist.get_rank() == 0:
+    torch.save(model.module.state_dict(), "model.pt")  # model.moduleでラップ解除
+```
+ここで、`model.module` は DDP ラップ解除後のモデルへの参照です。
+
 
 つつく．．．
