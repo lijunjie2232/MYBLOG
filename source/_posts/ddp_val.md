@@ -11,11 +11,22 @@ description: torch.distributedの通信操作(broadcast, all_reduce, all_gather,
 
 # 目次
 
+- [目次](#%E7%9B%AE%E6%AC%A1)
+- [単一ノード(DataParallel)](#%E5%8D%98%E4%B8%80%E3%83%8E%E3%83%BC%E3%83%89dataparallel)
+  - [DataParallel の使用](#dataparallel-%E3%81%AE%E4%BD%BF%E7%94%A8)
+  - [結果の評価](#%E7%B5%90%E6%9E%9C%E3%81%AE%E8%A9%95%E4%BE%A1)
+- [分散環境(DistributedDataParallel)](#%E5%88%86%E6%95%A3%E7%92%B0%E5%A2%83distributeddataparallel)
+  - [DistributedDataParallel の使用](#distributeddataparallel-%E3%81%AE%E4%BD%BF%E7%94%A8)
+  - [推論 dataloader](#%E6%8E%A8%E8%AB%96-dataloader)
+  - [推論](#%E6%8E%A8%E8%AB%96)
+  - [結果の手動集約](#%E7%B5%90%E6%9E%9C%E3%81%AE%E6%89%8B%E5%8B%95%E9%9B%86%E7%B4%84)
+
+
 ---
 
-## 単一ノード
+# 単一ノード(DataParallel)
 
-### DataParallel の使用
+## DataParallel の使用
 
 - **特徴**: 簡単に並列化可能（シングルノード限定）。
 - **自動集約**: 各 GPU の出力が自動でメイン GPU に統合される。
@@ -26,7 +37,7 @@ description: torch.distributedの通信操作(broadcast, all_reduce, all_gather,
       outputs = model(inputs)  # outputs は全GPUの結果を含む
   ```
 
-### 結果の評価
+## 結果の評価
 
 - **自動集約済みのため、通常の評価処理で OK**:
   ```python
@@ -34,9 +45,9 @@ description: torch.distributedの通信操作(broadcast, all_reduce, all_gather,
   accuracy = (predicted == labels).sum().item() / len(labels)
   ```
 
-## 分散環境 (DistributedDataParallel)
+# 分散環境(DistributedDataParallel)
 
-### DistributedDataParallel の使用
+## DistributedDataParallel の使用
 
 - **特徴**: 多ノード環境で高性能（手動で初期化・同期が必要）。
 - **初期化**:
@@ -45,7 +56,7 @@ description: torch.distributedの通信操作(broadcast, all_reduce, all_gather,
   model = nn.parallel.DistributedDataParallel(model, device_ids=[local_rank])
   ```
 
-### 推論 dataloader
+## 推論 dataloader
 
 - 多 GPU 推論の場合は、各 GPU にデータを割り当てる DistributedSampler を使用。
 
@@ -53,3 +64,46 @@ description: torch.distributedの通信操作(broadcast, all_reduce, all_gather,
 sampler = DistributedSampler(val_dataset, rank=rank, drop_last=False)
 val_dataloader = DataLoader(val_dataset, batch_size=batch_size//world_size, sampler=sampler, num_workers=num_workers)
 ```
+
+## 推論
+
+- 推論は各プロシースに普通的に実行。結果の統合は別途必要。
+
+```python
+correct = 0
+total = 0
+
+model.eval()  # 推論モードへ切り替え
+
+with torch.no_grad():
+    for inputs, labels in val_dataloader:
+        inputs, labels = inputs.to(device), labels.to(device)
+
+        # 推論実行
+        outputs = model(inputs)
+
+        # 当プロシースのデータの精度計算
+        _, predicted = torch.max(outputs, 1)
+        total += labels.size(0)
+        correct += (predicted == labels).sum().item()
+
+```
+
+## 結果の手動集約
+
+- **集約方法**: `torch.distributed.all_reduce` で各 GPU の結果を合計。
+- **コード例**:
+
+  ```python
+  # 各GPUの値をテンソルに変換
+  correct_tensor = torch.tensor(correct, device='cuda')
+  total_tensor = torch.tensor(total, device='cuda')
+
+  # 全GPUの値を集約
+  dist.all_reduce(correct_tensor, op=dist.ReduceOp.SUM)
+  dist.all_reduce(total_tensor, op=dist.ReduceOp.SUM)
+
+  if rank == 0:  # 主プロシースのみ精度計算
+    accuracy = correct_tensor.item() / total_tensor.item()
+    print(f'Accuracy: {accuracy * 100:.2f}%')
+  ```
