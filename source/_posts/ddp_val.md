@@ -15,9 +15,10 @@ description: torch.distributedの通信操作(broadcast, all_reduce, all_gather,
 
 ## 単一ノード
 
-### DataParallelの使用
+### DataParallel の使用
+
 - **特徴**: 簡単に並列化可能（シングルノード限定）。
-- **自動集約**: 各GPUの出力が自動でメインGPUに統合される。
+- **自動集約**: 各 GPU の出力が自動でメイン GPU に統合される。
 - **コード例**:
   ```python
   model = nn.DataParallel(model).to(device)  # 自動でデータ分割＋結果統合
@@ -26,9 +27,29 @@ description: torch.distributedの通信操作(broadcast, all_reduce, all_gather,
   ```
 
 ### 結果の評価
-- **自動集約済みのため、通常の評価処理でOK**:
+
+- **自動集約済みのため、通常の評価処理で OK**:
   ```python
   _, predicted = torch.max(outputs, 1)
   accuracy = (predicted == labels).sum().item() / len(labels)
   ```
 
+## 分散環境 (DistributedDataParallel)
+
+### DistributedDataParallel の使用
+
+- **特徴**: 多ノード環境で高性能（手動で初期化・同期が必要）。
+- **初期化**:
+  ```python
+  dist.init_process_group(backend='nccl')  # 分散環境初期化
+  model = nn.parallel.DistributedDataParallel(model, device_ids=[local_rank])
+  ```
+
+### 推論 dataloader
+
+- 多 GPU 推論の場合は、各 GPU にデータを割り当てる DistributedSampler を使用。
+
+```python
+sampler = DistributedSampler(val_dataset, rank=rank, drop_last=False)
+val_dataloader = DataLoader(val_dataset, batch_size=batch_size//world_size, sampler=sampler, num_workers=num_workers)
+```
