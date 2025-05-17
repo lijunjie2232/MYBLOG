@@ -5,6 +5,8 @@ date: 2022-10-6 12:00:00
 categories: [AI]
 tags: [Deep Learning, PyTorch, Python, 機械学習, AI, 人工知能, 深層学習]
 lang: ja
+
+description: PyTorch での分散学習（Distributed Data Parallel, DDP）の実装方法について解説します。分散学習は、GPU の計算リソースを並列化してモデルの学習を高速化する手法です。分散学習には、モデル並列とデータ並列の 2 つの方法があります。この記事では、PyTorch の分散学習機能（DP/DDP）を使用して、これらの実現方法について説明します。
 ---
 
 目次
@@ -33,9 +35,9 @@ lang: ja
     - [torch.distributed.launch を使用](#torchdistributedlaunch-%E3%82%92%E4%BD%BF%E7%94%A8)
     - [torchrun を使用](#torchrun-%E3%82%92%E4%BD%BF%E7%94%A8)
     - [オプション説明](#%E3%82%AA%E3%83%97%E3%82%B7%E3%83%A7%E3%83%B3%E8%AA%AC%E6%98%8E)
-  - [init\_process\_group](#initprocessgroup)
-    - [init\_process\_group 関数の引数](#initprocessgroup-%E9%96%A2%E6%95%B0%E3%81%AE%E5%BC%95%E6%95%B0)
-    - [init\_method の詳細](#initmethod-%E3%81%AE%E8%A9%B3%E7%B4%B0)
+  - [init process group](#init-process-group)
+    - [init process group 関数の引数](#init-process-group-%E9%96%A2%E6%95%B0%E3%81%AE%E5%BC%95%E6%95%B0)
+    - [init method の詳細](#init-method-%E3%81%AE%E8%A9%B3%E7%B4%B0)
     - [初期化後の情報取得](#%E5%88%9D%E6%9C%9F%E5%8C%96%E5%BE%8C%E3%81%AE%E6%83%85%E5%A0%B1%E5%8F%96%E5%BE%97)
     - [注意点](#%E6%B3%A8%E6%84%8F%E7%82%B9)
     - [参考](#%E5%8F%82%E8%80%83)
@@ -366,9 +368,9 @@ if dist.get_rank() == 0:
 - `--master_port`: マスターノードのポート番号。
 - `--use_env`: 環境変数を参照してプロセスを起動する。(torchrun は必要ではない)
 
-### init_process_group
+### init process group
 
-#### init_process_group 関数の引数
+#### init process group 関数の引数
 
 ```python
 torch.distributed.init_process_group(backend=None, init_method=None, timeout=None, world_size=-1, rank=-1, store=None, group_name='', pg_options=None, device_id=None)
@@ -384,7 +386,7 @@ torch.distributed.init_process_group(backend=None, init_method=None, timeout=Non
 | `store`       | 接続情報を共有するストア（`init_method`と排他使用）。                                                   |
 | `device_id`   | 特定デバイス（例: GPU）にプロセスをバインド（バックエンド最適化用）。                                   |
 
-#### init_method の詳細
+#### init method の詳細
 
 プロセス間の接続情報を共有する方法を指定。以下のいずれかを使用。
 
