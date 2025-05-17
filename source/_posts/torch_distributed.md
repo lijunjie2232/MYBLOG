@@ -36,6 +36,7 @@ description: torch.distributedの通信操作(broadcast, all_reduce, all_gather,
     - [dist.barrier()](#distbarrier)
     - [dist.monitored\_barrier(timeout=10)](#distmonitoredbarriertimeout10)
 - [まとめ](#%E3%81%BE%E3%81%A8%E3%82%81)
+- [Tip](#tip)
 - [参考](#%E5%8F%82%E8%80%83)
 
 ---
@@ -195,6 +196,18 @@ dist.init_process_group(
 | **配布**             | `scatter`, `scatter_object_list`     | データ分散（源プロセス → 全プロセス）   |
 | **複合操作**         | `reduce_scatter`, `all_to_all`       | 高度な並列化（モデル/パイプライン並列） |
 | **同期**             | `barrier`, `monitored_barrier`       | プロセス同期                            |
+
+# Tip
+
+1. `torch.distributed.all_reduce` は**ブロッキング（阻害的）操作**です
+
+    ```python
+    dist.all_reduce(tensor, op=dist.ReduceOp.SUM)
+    ```
+
+    この呼び出しは**ブロッキング処理**として実行されます。
+
+    つまり、通信が**完了するまで関数は戻りません（待機状態）**。
 
 # 参考
 
