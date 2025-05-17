@@ -6,7 +6,7 @@
 
 [x] dp and ddp
 
-[ ] torch distributed
+[x] torch distributed
 
 [ ] AMP and autocast
 
