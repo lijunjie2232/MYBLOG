@@ -19,8 +19,8 @@ description: torch.distributedの通信操作(broadcast, all_reduce, all_gather,
   - [DistributedDataParallel の使用](#distributeddataparallel-%E3%81%AE%E4%BD%BF%E7%94%A8)
   - [推論 dataloader](#%E6%8E%A8%E8%AB%96-dataloader)
   - [推論](#%E6%8E%A8%E8%AB%96)
-  - [結果の手動集約](#%E7%B5%90%E6%9E%9C%E3%81%AE%E6%89%8B%E5%8B%95%E9%9B%86%E7%B4%84)
-
+  - [結果の集約](#%E7%B5%90%E6%9E%9C%E3%81%AE%E9%9B%86%E7%B4%84)
+- [参考](#%E5%8F%82%E8%80%83)
 
 ---
 
@@ -89,7 +89,7 @@ with torch.no_grad():
 
 ```
 
-## 結果の手動集約
+## 結果の集約
 
 - **集約方法**: `torch.distributed.all_reduce` で各 GPU の結果を合計。
 - **コード例**:
@@ -107,3 +107,8 @@ with torch.no_grad():
     accuracy = correct_tensor.item() / total_tensor.item()
     print(f'Accuracy: {accuracy * 100:.2f}%')
   ```
+
+# 参考
+
+- [PyTorch Distributed Documentation](https://pytorch.org/docs/stable/distributed.html)
+- [torch.distributed の通信](/2022/10/08/torch_distributed/)
