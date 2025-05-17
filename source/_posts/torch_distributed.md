@@ -1,5 +1,5 @@
 ---
-title: torch.distributedの通信と実装に運用
+title: torch.distributedの通信
 
 date: 2022-10-8 12:00:00
 categories: [AI]
@@ -35,6 +35,8 @@ description:
   - [同期操作](#%E5%90%8C%E6%9C%9F%E6%93%8D%E4%BD%9C)
     - [dist.barrier()](#distbarrier)
     - [dist.monitored\_barrier(timeout=10)](#distmonitoredbarriertimeout10)
+- [まとめ](#%E3%81%BE%E3%81%A8%E3%82%81)
+- [参考](#%E5%8F%82%E8%80%83)
 
 ---
 
@@ -182,3 +184,18 @@ dist.init_process_group(
 ### dist.monitored_barrier(timeout=10)
 
 - **機能**: タイムアウト付き同期（デバッグ時有効）。
+
+# まとめ
+
+| 機能                 | 対象                                 | 用途                                    |
+| -------------------- | ------------------------------------ | --------------------------------------- |
+| **ブロードキャスト** | `broadcast`, `broadcast_object_list` | データ配信（全プロセス）                |
+| **集約**             | `all_reduce`, `reduce`               | 勾配同期、結果集約                      |
+| **収集**             | `all_gather`, `gather`               | データ統合（全プロセス/特定プロセス）   |
+| **配布**             | `scatter`, `scatter_object_list`     | データ分散（源プロセス → 全プロセス）   |
+| **複合操作**         | `reduce_scatter`, `all_to_all`       | 高度な並列化（モデル/パイプライン並列） |
+| **同期**             | `barrier`, `monitored_barrier`       | プロセス同期                            |
+
+# 参考
+
+- [PyTorch Distributed Documentation](https://pytorch.org/docs/stable/distributed.html)
