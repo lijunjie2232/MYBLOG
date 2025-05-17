@@ -328,10 +328,10 @@ if dist.get_rank() == 0:
 
   ```bash
   # ノード0(ip=192.168.0.10):
-  CUDA_VISIBLE_DEVICES="0,1" python -m torch.distributed.launch --nnodes=2 --master_addr="192.168.0.10" --master_port=12345 --nproc_per_node=2 --use_env train_ddp.py --batch_size=64 --lr=0.01
+  CUDA_VISIBLE_DEVICES="0,1" python -m torch.distributed.launch --nnodes=2 --node_rank=0 --master_addr="192.168.0.10" --master_port=12345 --nproc_per_node=2 --use_env train_ddp.py --batch_size=64 --lr=0.01
 
   # ノード1(ip=192.168.0.11):
-  CUDA_VISIBLE_DEVICES="0,1" python -m torch.distributed.launch --nnodes=2 --master_addr="192.168.0.10" --master_port=12345 --nproc_per_node=2 --use_env train_ddp.py --batch_size=64 --lr=0.01
+  CUDA_VISIBLE_DEVICES="0,1" python -m torch.distributed.launch --nnodes=2 --node_rank=1 --master_addr="192.168.0.10" --master_port=12345 --nproc_per_node=2 --use_env train_ddp.py --batch_size=64 --lr=0.01
   ```
 
 #### torchrun を使用

@@ -4,7 +4,7 @@
 
 [x] pytorch project
 
-[ ] dp and ddp
+[x] dp and ddp
 
 [ ] torch distributed
 
