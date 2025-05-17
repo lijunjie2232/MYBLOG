@@ -1,18 +1,18 @@
 ---
-title:
+title: AMP と Autocast
 
-date: 2022-10-8 12:00:00
+date: 2022-10-11 12:00:00
 categories: [AI]
 tags: [Deep Learning, PyTorch, Python, 機械学習, AI, 人工知能, 深層学習]
 lang: ja
 
-description:
+description: AMP（Automatic Mixed Precision）とは、モデルの計算をFP32（単精度）とFP16（半精度）で切り替えて実行する技術。これにより訓練速度向上やGPUメモリ使用量削減が期待できます。Autocast 機能は、この技術を簡単に実装できるように設計されています。この記事では AMP の基本と `autocast` 機能の使い方について解説します。また、`GradScaler` を使用することで、精度の低下を回避できます。
 ---
 
 ## 目次
 
 - [目次](#%E7%9B%AE%E6%AC%A1)
-- [AMP（Automatic Mixed Precision）とは](#ampautomatic-mixed-precision%E3%81%A8%E3%81%AF)
+- [Automatic Mixed Precision とは](#automatic-mixed-precision-%E3%81%A8%E3%81%AF)
 - [`torch.cuda.amp.autocast` 機能概要](#torchcudaampautocast-%E6%A9%9F%E8%83%BD%E6%A6%82%E8%A6%81)
   - [役割](#%E5%BD%B9%E5%89%B2)
   - [基本的な使い方](#%E5%9F%BA%E6%9C%AC%E7%9A%84%E3%81%AA%E4%BD%BF%E3%81%84%E6%96%B9)
@@ -32,7 +32,17 @@ description:
 
 ---
 
-## AMP（Automatic Mixed Precision）とは
+<!--more-->
+
+## Automatic Mixed Precision とは
+
+デフォルトでは、ほとんどのディープラーニングフレームワークは 32 ビット浮動小数点アルゴリズムを使用してトレーニングされる。
+
+2017 年、NVIDIA は、ネットワークをトレーニングする際に単精度（FP32）と半精度（FP16）を組み合わせ、FP32 とほぼ同じ精度を達成するために同じハイパーパラメータを使用する混合精度トレーニングの方法を研究した。
+
+FP16 は半精度とも呼ばれ、コンピュータで使用される 2 進数の浮動小数点データ型で、2 バイトのストレージを使用する。 そして FLOAT は FP32 である。
+
+![Automatic Mixed Precision](/assert/amp_autocast/amp.png)
 
 - **定義**:  
   モデルの計算を**FP32（単精度）**と**FP16（半精度）**で効率的に切り替えて実行することで、**パフォーマンス向上**と**メモリ削減**を実現する技術。
@@ -67,7 +77,7 @@ with autocast():
   3. 出力は必要に応じて元の精度に戻す。
 
 - **適用範囲**:
-  - 多くの PyTorch 演算（例: `Linear`, [Conv](file://d:\code\MYBLOG\source\assert\dl_pytorch_prct\layers.py#L16-L76), `Matmul`）が対象。
+  - 多くの PyTorch 演算が対象。
   - GPU でのみ利用可能（CUDA サポートが必要）。
 
 ## `GradScaler` との併用
