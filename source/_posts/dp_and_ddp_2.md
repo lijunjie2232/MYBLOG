@@ -35,6 +35,7 @@ lang: ja
     - [オプション説明](#%E3%82%AA%E3%83%97%E3%82%B7%E3%83%A7%E3%83%B3%E8%AA%AC%E6%98%8E)
   - [init\_process\_group](#initprocessgroup)
     - [init\_process\_group 関数の引数](#initprocessgroup-%E9%96%A2%E6%95%B0%E3%81%AE%E5%BC%95%E6%95%B0)
+    - [**init\_method の詳細**](#initmethod-%E3%81%AE%E8%A9%B3%E7%B4%B0)
 
 <!-- more -->
 
@@ -379,3 +380,51 @@ torch.distributed.init_process_group(backend=None, init_method=None, timeout=Non
 | `rank`        | 現在のプロセスの ID（0 から`world_size-1`まで）。                                                       |
 | `store`       | 接続情報を共有するストア（`init_method`と排他使用）。                                                   |
 | `device_id`   | 特定デバイス（例: GPU）にプロセスをバインド（バックエンド最適化用）。                                   |
+
+#### **init_method の詳細**
+
+プロセス間の接続情報を共有する方法を指定。以下のいずれかを使用。
+
+1. **環境変数 (`env://`)**
+
+   - 主に使用される方法。
+   - 環境変数 `MASTER_ADDR`（マスターノードの IP）と `MASTER_PORT`（ポート番号）を設定。
+   - サンプルコード:
+     ```python
+     import os
+     os.environ['MASTER_ADDR'] = 'localhost'
+     os.environ['MASTER_PORT'] = '12345'
+     torch.distributed.init_process_group(backend='nccl', init_method='env://')
+     ```
+
+2. **TCP (`tcp://<ip>:<port>`)**
+
+   - マスターノードの IP とポートを直接指定。
+   - サンプル:
+     ```python
+     torch.distributed.init_process_group(
+         backend='nccl',
+         init_method='tcp://10.1.1.20:23456'
+     )
+     ```
+
+3. **共有ファイルシステム (`file://<path>`)**
+
+   - 共有ディレクトリ内のファイルを使用して接続情報を交換。
+   - サンプル:
+     ```python
+     torch.distributed.init_process_group(
+         backend='nccl',
+         init_method='file:///mnt/nfs/sharedfile'
+     )
+     ```
+
+4. **MPI (`mpi://`)**
+   - MPI ランタイム環境を利用する（`mpi`バックエンド専用）。
+   - サンプル:
+     ```python
+     torch.distributed.init_process_group(
+         backend='mpi',
+         init_method='mpi://'
+     )
+     ```
