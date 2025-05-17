@@ -35,7 +35,10 @@ lang: ja
     - [オプション説明](#%E3%82%AA%E3%83%97%E3%82%B7%E3%83%A7%E3%83%B3%E8%AA%AC%E6%98%8E)
   - [init\_process\_group](#initprocessgroup)
     - [init\_process\_group 関数の引数](#initprocessgroup-%E9%96%A2%E6%95%B0%E3%81%AE%E5%BC%95%E6%95%B0)
-    - [**init\_method の詳細**](#initmethod-%E3%81%AE%E8%A9%B3%E7%B4%B0)
+    - [init\_method の詳細](#initmethod-%E3%81%AE%E8%A9%B3%E7%B4%B0)
+    - [初期化後の情報取得](#%E5%88%9D%E6%9C%9F%E5%8C%96%E5%BE%8C%E3%81%AE%E6%83%85%E5%A0%B1%E5%8F%96%E5%BE%97)
+    - [注意点](#%E6%B3%A8%E6%84%8F%E7%82%B9)
+    - [参考](#%E5%8F%82%E8%80%83)
 
 <!-- more -->
 
@@ -381,7 +384,7 @@ torch.distributed.init_process_group(backend=None, init_method=None, timeout=Non
 | `store`       | 接続情報を共有するストア（`init_method`と排他使用）。                                                   |
 | `device_id`   | 特定デバイス（例: GPU）にプロセスをバインド（バックエンド最適化用）。                                   |
 
-#### **init_method の詳細**
+#### init_method の詳細
 
 プロセス間の接続情報を共有する方法を指定。以下のいずれかを使用。
 
@@ -428,3 +431,22 @@ torch.distributed.init_process_group(backend=None, init_method=None, timeout=Non
          init_method='mpi://'
      )
      ```
+
+#### 初期化後の情報取得
+
+初期化後、以下の関数でプロセス情報を取得可能:
+
+- `dist.get_rank()`: 現在のプロセスのランク（ID）を取得。
+- `dist.get_world_size()`: プロセス総数を取得。
+- `dist.get_backend()`: 使用中のバックエンドを取得。
+- `os.getpid()`: 現在のプロセスの PID を取得。
+
+#### 注意点
+
+- `init_method` と `backend` は全プロセスで**同一の設定**が必要。
+- 初期化後は PyTorch 内部でプロセスグループを管理するため、明示的な返り値はなし。
+- デバッグ時はタイムアウト時間を短く設定（例: `timeout=datetime.timedelta(seconds=30)`）。
+
+#### 参考
+
+- 公式ドキュメント: [PyTorch Distributed](https://pytorch.org/docs/stable/distributed.html)
