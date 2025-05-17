@@ -6,7 +6,7 @@ categories: [AI]
 tags: [Deep Learning, PyTorch, Python, 機械学習, AI, 人工知能, 深層学習]
 lang: ja
 
-description:
+description: torch.distributedの通信操作(broadcast, all_reduce, all_gather, reduce_scatter, scatter, gather, reduceなど)について解説します。通信の種類や用途、実装方法などを紹介します。
 ---
 
 # 目次
