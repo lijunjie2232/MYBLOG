@@ -33,6 +33,8 @@ lang: ja
     - [torch.distributed.launch を使用](#torchdistributedlaunch-%E3%82%92%E4%BD%BF%E7%94%A8)
     - [torchrun を使用](#torchrun-%E3%82%92%E4%BD%BF%E7%94%A8)
     - [オプション説明](#%E3%82%AA%E3%83%97%E3%82%B7%E3%83%A7%E3%83%B3%E8%AA%AC%E6%98%8E)
+  - [init\_process\_group](#initprocessgroup)
+    - [init\_process\_group 関数の引数](#initprocessgroup-%E9%96%A2%E6%95%B0%E3%81%AE%E5%BC%95%E6%95%B0)
 
 <!-- more -->
 
@@ -359,3 +361,21 @@ if dist.get_rank() == 0:
 - `--master_addr`: マスターノードの IP アドレス。
 - `--master_port`: マスターノードのポート番号。
 - `--use_env`: 環境変数を参照してプロセスを起動する。(torchrun は必要ではない)
+
+### init_process_group
+
+#### init_process_group 関数の引数
+
+```python
+torch.distributed.init_process_group(backend=None, init_method=None, timeout=None, world_size=-1, rank=-1, store=None, group_name='', pg_options=None, device_id=None)
+```
+
+| パラメータ名  | 説明                                                                                                    |
+| ------------- | ------------------------------------------------------------------------------------------------------- |
+| `backend`     | 通信バックエンド (`nccl`, `gloo`, `mpi`, `ucc`) を指定。GPU なら`nccl`が推奨。                          |
+| `init_method` | プロセス間接続の初期化方法 (`env://`, `tcp://<ip>:<port>`, `file://<path>`, `mpi://`)。                 |
+| `timeout`     | 通信操作のタイムアウト時間（デフォルト: NCCL は 10 分）。                                               |
+| `world_size`  | 参加プロセス総数（例: [4](file://d:\code\MYBLOG\themes\next\scripts\tags\group-pictures.js#L18-L23)）。 |
+| `rank`        | 現在のプロセスの ID（0 から`world_size-1`まで）。                                                       |
+| `store`       | 接続情報を共有するストア（`init_method`と排他使用）。                                                   |
+| `device_id`   | 特定デバイス（例: GPU）にプロセスをバインド（バックエンド最適化用）。                                   |
