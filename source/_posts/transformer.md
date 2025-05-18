@@ -1,6 +1,6 @@
 ---
 title: Transformer
-date: 2022-8-15 10:17:00
+date: 2023-8-15 10:17:00
 categories: [AI]
 tags: [Deep Learning, transformer, 機械学習, AI, 人工知能, 深層学習]
 lang: ja

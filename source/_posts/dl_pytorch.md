@@ -1,6 +1,6 @@
 ---
 title: pytorch フレームワーク　基本的な使い方
-date: 2022-8-3 15:10:00
+date: 2023-8-3 15:10:00
 categories: [AI]
 tags: [Deep Learning, PyTorch, Python, 機械学習, AI, 人工知能, 深層学習]
 lang: ja

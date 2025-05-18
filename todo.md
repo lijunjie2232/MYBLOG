@@ -14,7 +14,7 @@
 
 [x] AMP and autocast
 
-[ ] pytorch lightning
+[x] pytorch lightning
 
 [ ] warmup and cosine annealing
 

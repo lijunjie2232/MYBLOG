@@ -1,12 +1,12 @@
 ---
 title: Pytorch Lightning の使い方
 
-date: 2022-10-18 12:00:00
+date: 2023-10-18 12:00:00
 categories: [AI]
 tags: [Deep Learning, PyTorch, Python, 機械学習, AI, 人工知能, 深層学習]
 lang: ja
 
-description:
+description: PyTorch Lightning を使用して、PyTorch モデルを簡単に構築、トレーニング、およびデプロイする方法について説明します。
 ---
 
 ## 目次

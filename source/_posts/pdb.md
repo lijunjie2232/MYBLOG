@@ -1,7 +1,7 @@
 ---
 title: pdbでデバッグする方法
 
-date: 2022-10-15 12:00:00
+date: 2023-10-15 12:00:00
 categories: [Python]
 tags: [Python]
 lang: ja

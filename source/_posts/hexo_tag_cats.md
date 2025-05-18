@@ -1,6 +1,6 @@
 ---
 title: Hexoでカテゴリとタグの追加
-date: 2022-7-6 21:40:00
+date: 2023-7-6 21:40:00
 categories: [blog]
 tags: [hexo, blog, server]
 lang: ja

@@ -1,6 +1,6 @@
 ---
 title: pytorch 実践（一）
-date: 2022-8-12 10:15:00
+date: 2023-8-12 10:15:00
 categories: [AI]
 tags:
   [
