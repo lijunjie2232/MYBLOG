@@ -14,7 +14,6 @@ description: Pytorch で Warm up と Cosine Annealing の組み合わせの実�
 - [目次](#%E7%9B%AE%E6%AC%A1)
 - [Linear Warmup とは](#linear-warmup-%E3%81%A8%E3%81%AF)
   - [なぜ Warmup が必要](#%E3%81%AA%E3%81%9C-warmup-%E3%81%8C%E5%BF%85%E8%A6%81)
-  - [基本的な Warmup 実装方法](#%E5%9F%BA%E6%9C%AC%E7%9A%84%E3%81%AA-warmup-%E5%AE%9F%E8%A3%85%E6%96%B9%E6%B3%95)
   - [コード例](#%E3%82%B3%E3%83%BC%E3%83%89%E4%BE%8B)
 - [Cosine Annealing とは](#cosine-annealing-%E3%81%A8%E3%81%AF)
   - [基本の更新式](#%E5%9F%BA%E6%9C%AC%E3%81%AE%E6%9B%B4%E6%96%B0%E5%BC%8F)
@@ -31,15 +30,6 @@ description: Pytorch で Warm up と Cosine Annealing の組み合わせの実�
 
 - 学習初期に重みが不安定なため、大きな学習率を使うと発散しやすい
 - 学習率を徐々に増加させることで、安定して収束する
-
-### 基本的な Warmup 実装方法
-
-| クラス名                                               | 説明                                                                    |
-| ------------------------------------------------------ | ----------------------------------------------------------------------- |
-| `torch.optim.lr_scheduler.LambdaLR`                    | カスタム関数で学習率を変更できる（warmup 実装に最適）                   |
-| `torch.optim.lr_scheduler.LinearLR`                    | 初期学習率から線形的に伸ばす（v1.12+）                                  |
-| `torch.optim.lr_scheduler.ConstantLRWithWarmup`        | 初期期間は一定の学習率を使用（HuggingFace Transformers などで使われる） |
-| `torch.optim.lr_scheduler.CosineAnnealingWarmRestarts` | 余弦退火＋再スタート＋ warmup 的挙動                                    |
 
 ### コード例
 
