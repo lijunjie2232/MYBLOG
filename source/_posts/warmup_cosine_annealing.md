@@ -1,15 +1,25 @@
 ---
-title: Pytorch で Warm up と Cosine Anneal LR の組み合わせ
+title: Pytorch で Warm up と Cosine Annealing の組み合わせ
 
 date: 2023-10-21 12:00:00
 categories: [AI]
 tags: [Deep Learning, PyTorch, Python, 機械学習, AI, 人工知能, 深層学習]
 lang: ja
 
-description: あ
+description: Pytorch で Warm up と Cosine Annealing の組み合わせの実装方法について解説します。
 ---
 
 ## 目次
+
+- [目次](#%E7%9B%AE%E6%AC%A1)
+- [Linear Warmup とは](#linear-warmup-%E3%81%A8%E3%81%AF)
+  - [なぜ Warmup が必要](#%E3%81%AA%E3%81%9C-warmup-%E3%81%8C%E5%BF%85%E8%A6%81)
+  - [基本的な Warmup 実装方法](#%E5%9F%BA%E6%9C%AC%E7%9A%84%E3%81%AA-warmup-%E5%AE%9F%E8%A3%85%E6%96%B9%E6%B3%95)
+  - [コード例](#%E3%82%B3%E3%83%BC%E3%83%89%E4%BE%8B)
+- [Cosine Annealing とは](#cosine-annealing-%E3%81%A8%E3%81%AF)
+  - [基本の更新式](#%E5%9F%BA%E6%9C%AC%E3%81%AE%E6%9B%B4%E6%96%B0%E5%BC%8F)
+- [LambdaLR で warmup と cosine annealing を組合](#lambdalr-%E3%81%A7-warmup-%E3%81%A8-cosine-annealing-%E3%82%92%E7%B5%84%E5%90%88)
+- [参考リンク](#%E5%8F%82%E8%80%83%E3%83%AA%E3%83%B3%E3%82%AF)
 
 ---
 
@@ -17,12 +27,12 @@ description: あ
 
 - **Linear Warmup**: 学習開始時に学習率を 0 から徐々に増加させる手法。初期の大きな更新による不安定性を軽減。
 
-## なぜ Warmup が必要
+### なぜ Warmup が必要
 
 - 学習初期に重みが不安定なため、大きな学習率を使うと発散しやすい
 - 学習率を徐々に増加させることで、安定して収束する
 
-## 基本的な Warmup 実装方法
+### 基本的な Warmup 実装方法
 
 | クラス名                                               | 説明                                                                    |
 | ------------------------------------------------------ | ----------------------------------------------------------------------- |
@@ -31,7 +41,7 @@ description: あ
 | `torch.optim.lr_scheduler.ConstantLRWithWarmup`        | 初期期間は一定の学習率を使用（HuggingFace Transformers などで使われる） |
 | `torch.optim.lr_scheduler.CosineAnnealingWarmRestarts` | 余弦退火＋再スタート＋ warmup 的挙動                                    |
 
-## コード例
+### コード例
 
 ```python
 import torch
@@ -51,6 +61,8 @@ def get_warmup_scheduler(optimizer, warmup_steps):
 ## Cosine Annealing とは
 
 - **Cosine Annealing**: 学習率をコサイン関数のように減少させながら最適解に近づく手法。周期的に復活させる `SGDR`（Stochastic Gradient Descent with Warm Restarts）としても知られる。
+
+![Cosine Annealing](/assert/warmup_cosine_annealing/cosine_annealing.png)
 
 ### 基本の更新式
 
@@ -112,6 +124,6 @@ for epoch in range(50):	# 学習エポックのループ
     scheduler.step()	# スケジューラを更新
 ```
 
-## 📚 参考リンク
+## 参考リンク
 
 - [PyTorch CosineAnnealingLR](https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.CosineAnnealingLR.html)

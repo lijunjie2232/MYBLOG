@@ -16,7 +16,7 @@
 
 [x] pytorch lightning
 
-[ ] warmup and cosine annealing
+[x] warmup and cosine annealing
 
 [ ] timm
 
