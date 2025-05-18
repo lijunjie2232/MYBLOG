@@ -1,3 +1,7 @@
+# Python
+
+[ ] pdb
+
 # framework
 
 [x] pytorch base
@@ -8,7 +12,7 @@
 
 [x] torch distributed
 
-[ ] AMP and autocast
+[x] AMP and autocast
 
 [ ] pytorch lightning
 
