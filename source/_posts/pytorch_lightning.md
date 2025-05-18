@@ -24,6 +24,10 @@ description:
   - [主な引数一覧](#%E4%B8%BB%E3%81%AA%E5%BC%95%E6%95%B0%E4%B8%80%E8%A6%A7)
   - [主なメソッド](#%E4%B8%BB%E3%81%AA%E3%83%A1%E3%82%BD%E3%83%83%E3%83%89)
   - [コードの例](#%E3%82%B3%E3%83%BC%E3%83%89%E3%81%AE%E4%BE%8B)
+- [pretrained model を使う](#pretrained-model-%E3%82%92%E4%BD%BF%E3%81%86)
+  - [torch.load を使う場合](#torchload-%E3%82%92%E4%BD%BF%E3%81%86%E5%A0%B4%E5%90%88)
+  - [LightningModule の関数を使う場合](#lightningmodule-%E3%81%AE%E9%96%A2%E6%95%B0%E3%82%92%E4%BD%BF%E3%81%86%E5%A0%B4%E5%90%88)
+- [参考リンク](#%E5%8F%82%E8%80%83%E3%83%AA%E3%83%B3%E3%82%AF)
 
 ---
 
@@ -51,7 +55,7 @@ conda install lightning -c conda-forge
 import pytorch_lightning as pl
 
 # LightningModule を継承したクラス定義
-class LightningModule(L.LightningModule):
+class MyLightningModule(L.LightningModule):
     def __init__(self, model, criterion, lr):
         super().__init__()
         self.model = model      # モデル
@@ -250,7 +254,45 @@ trainer.test(model, test_dataloader)
 
 - ここで、EarlyStopping とは、モデルのパラメータを保存するためのコールバックです。EarlyStopping は、指定したエポック数以上にモデルのパラメータが更新されない場合、モデルのパラメータを保存します。つまり、EarlyStopping は、モデルのパラメータを保存するためのコールバックです。
 - ここで、ModelCheckpoint とは、モデリングのパラメータを保存するためのコールバックです。ModelCheckpoint は、指定したエポック数以上にモデルのパラメータが更新される場合、モデルのパラメータを保存します。
-- `monitor="val_acc"` は、EarlyStopping と ModelCheckpoint が監視する指標を指定します。"val_acc"は、検証精度を指し、`LightningModule`に定義した`validation_step()`に`self.log("val_acc", acc, prog_bar=True)`で記録した検証精度を監視します。
+- `monitor="val_acc"` は、EarlyStopping と ModelCheckpoint が監視する指標を指定します。"val_acc"は、検証精度を指し、`MyLightningModule`に定義した`validation_step()`に`self.log("val_acc", acc, prog_bar=True)`で記録した検証精度を監視します。
 - `trainer.fit`は、モデルの`training_step`を呼び、もし`val_dataloader`が指定されていれば`validation_step`も呼びます。つまり、モデルの`training_step`と`validation_step`が定義べきです。
 - `trainer.validate`は、モデルの`validation_step`を呼びます。
 - `trainer.test`は、モデルの`test_step`を呼びます。
+- `default_root_dir`は、チェックポイントとログを保存するディレクトリです。
+
+## pretrained model を使う
+
+### torch.load を使う場合
+
+チェックポイントをロードするには、`torch.load`を使います。
+
+```python
+import torch
+model = EmotionNet(nc=len(train_dataset.classes))
+model.load_state_dict(torch.load('checkpoint.pth', map_location='cpu'))
+model = MyLightningModule(model, 1e-3, criterion)
+```
+
+### LightningModule の関数を使う場合
+
+1. load_from_checkpoint
+   ```python
+   model = MyLightningModule.load_from_checkpoint(
+        "./checkpoint.pth",
+        map_location=torch.device("cpu"),
+        hparams_file=None,
+        model=EmotionNet(nc=len(train_dataset.classes)),
+        lr=1e-3,
+        criterion=criterion,
+    )
+   ```
+2. load_state_dict
+   ```python
+   model = MyLightningModule(EmotionNet(nc=len(train_dataset.classes)), 1e-3, criterion)
+   model.load_state_dict(torch.load('checkpoint.pth', map_location='cpu'))
+   ```
+
+## 参考リンク
+
+- [PyTorch Lightning 公式ドキュメント](https://pytorch-lightning.readthedocs.io/en/latest/)
+- [PyTorch Lightning Trainer](https://pytorch-lightning.readthedocs.io/en/latest/common/trainer.html)
