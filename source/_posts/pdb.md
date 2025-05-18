@@ -6,7 +6,7 @@ categories: [AI]
 tags: [Deep Learning, PyTorch, Python, 機械学習, AI, 人工知能, 深層学習]
 lang: ja
 
-description:
+description: Pythonのpdbを使ってデバッグする方法について解説します。pdbは、Pythonに標準で含まれているデバッガです。これを使用すると、コードをステップ実行したり、変数の値を確認したり、ブレイクポイントを設定してプログラムの動作を詳細に確認できます。
 ---
 
 ## 目次
@@ -65,4 +65,3 @@ python -m pdb script.py
 | u/up             | スタックの上へ移動                      |
 | q/exit           | pdb を終了                              |
 | help             | pdb のコマンド一覧を表示                |
-
