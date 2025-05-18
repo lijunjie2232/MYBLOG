@@ -30,6 +30,7 @@ conda install lightning -c conda-forge
 ```
 
 ## モデルの定義
+
 `LightningModule` を継承してモデルを定義します。以下は簡単な例です:
 
 ```python
@@ -76,3 +77,78 @@ class LightningModule(L.LightningModule):
         )
         return [optimizer], [scheduler]
 ```
+
+## データセットとデータローダーの準備
+
+### pytorch の dataloader を使う場合
+
+```python
+# ## build dataset
+train_dataset = ImageFolder(
+    root=data_root / train_data_path,
+    transform=train_transformer,
+)
+val_dataset = ImageFolder(
+    root=data_root / val_data_path,
+    transform=val_transformer,
+)
+
+# ## build dataloader
+train_dataloader = DataLoader(
+    train_dataset,
+    batch_size=batch_size,
+    num_workers=num_workers,
+    shuffle=True,
+)
+val_dataloader = DataLoader(
+    val_dataset,
+    batch_size=batch_size,
+    num_workers=num_workers,
+    shuffle=False,
+)
+```
+
+### LightningDataModule を使う場合
+
+```python
+from pytorch_lightning import LightningDataModule
+from torch.utils.data import DataLoader, random_split
+from torchvision import transforms
+from torchvision.datasets import MNIST
+
+class MyDataModule(LightningDataModule):
+    def __init__(self, batch_size=32):
+        super().__init__()
+        self.batch_size = batch_size
+        self.transform = transforms.ToTensor()
+
+    def prepare_data(self):
+        # データのダウンロードなど、1回だけ実行される処理
+        MNIST(root='./data', train=True, download=True)
+        MNIST(root='./data', train=False, download=True)
+
+    def setup(self, stage=None):
+        # データセットの分割や前処理を定義
+        full_dataset = MNIST(root='./data', train=True, transform=self.transform)
+        self.train_dataset, self.val_dataset = random_split(full_dataset, [55000, 5000])
+        self.test_dataset = MNIST(root='./data', train=False, transform=self.transform)
+
+    def train_dataloader(self):
+        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True)
+
+    def val_dataloader(self):
+        return DataLoader(self.val_dataset, batch_size=self.batch_size)
+
+    def test_dataloader(self):
+        return DataLoader(self.test_dataset, batch_size=self.batch_size)
+```
+
+#### 🔁 各メソッドの役割
+
+| メソッド名           | 説明                                                                               |
+| -------------------- | ---------------------------------------------------------------------------------- |
+| `prepare_data()`     | データのダウンロードなど、1 度だけ実行される処理（マルチ GPU 環境でも 1 回のみ）   |
+| `setup()`            | 学習/検証/テストデータセットの作成・分割を行う（分散環境では各ワーカーで呼ばれる） |
+| `train_dataloader()` | 学習用のデータローダーを返す                                                       |
+| `val_dataloader()`   | 検証用のデータローダーを返す                                                       |
+| `test_dataloader()`  | テスト用のデータローダーを返す                                                     |
