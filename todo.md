@@ -1,6 +1,6 @@
 # Python
 
-[ ] pdb
+[x] pdb
 
 # framework
 

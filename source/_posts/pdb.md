@@ -1,9 +1,9 @@
 ---
 title: pdbでデバッグする方法
 
-date: 2022-10-11 12:00:00
-categories: [AI]
-tags: [Deep Learning, PyTorch, Python, 機械学習, AI, 人工知能, 深層学習]
+date: 2022-10-15 12:00:00
+categories: [Python]
+tags: [Python]
 lang: ja
 
 description: Pythonのpdbを使ってデバッグする方法について解説します。pdbは、Pythonに標準で含まれているデバッガです。これを使用すると、コードをステップ実行したり、変数の値を確認したり、ブレイクポイントを設定してプログラムの動作を詳細に確認できます。
