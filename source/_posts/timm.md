@@ -56,6 +56,11 @@ description: timm
   - [AugMixDataset](#augmixdataset)
     - [主な特徴](#%E4%B8%BB%E3%81%AA%E7%89%B9%E5%BE%B4-1)
     - [使用例](#%E4%BD%BF%E7%94%A8%E4%BE%8B-4)
+    - [source code](#source-code)
+    - [AugMix とは](#augmix-%E3%81%A8%E3%81%AF)
+      - [特徴](#%E7%89%B9%E5%BE%B4)
+    - [AugMix を使った訓練コード](#augmix-%E3%82%92%E4%BD%BF%E3%81%A3%E3%81%9F%E8%A8%93%E7%B7%B4%E3%82%B3%E3%83%BC%E3%83%89)
+- [参考](#%E5%8F%82%E8%80%83)
 
 ---
 
@@ -531,14 +536,14 @@ from timm.data import ImageDataset
 from torch.utils.data import DataLoader
 
 dataset = ImageDataset(
-    'path/to/train'
-    reader=None,
-    split='train',
-    class_map=None,
-    load_bytes=False,
-    input_img_mode='RGB',
-    transform=None,
-    target_transform=None,
+    'path/to/train', # データセットのパス
+    reader=None, # データを読み込む関数
+    split='train', # 'train', 'valid', 'test' などの分割方法
+    class_map=None, # クラス名のマッピング
+    load_bytes=False, # バイト列として読み込むかどうか
+    input_img_mode='RGB', # 入力画像のモード
+    transform=None, # データを変換する関数
+    target_transform=None, # ラベルを変換する関数
 )
 loader = DataLoader(dataset, batch_size=32, shuffle=True)
 ```
@@ -561,24 +566,23 @@ loader = DataLoader(dataset, batch_size=32, shuffle=True)
 from timm.data import IterableImageDataset
 
 dataset = IterableImageDataset(
-    'path/to/train',
-    reader=None,
-    split='train',
-    class_map=None,
-    is_training=False,
-    batch_size=1,
-    num_samples=None,
-    seed=42,
-    repeats=0,
-    download=False,
-    input_img_mode='RGB',
-    input_key=None,
-    target_key=None,
-    transform=None,
-    target_transform=None,
-    max_steps=None,
+    'path/to/train', #  データセットのパス
+    reader=None, #  データを読み込む関数
+    split='train', #  'train', 'valid', 'test' などの分割方法
+    class_map=None, #  クラス名のマッピング
+    is_training=False, #   学習データか検証データかを指定
+    batch_size=1, #  バッチサイズ
+    num_samples=None, #  データセットのサンプル数
+    seed=42, # サンプリングのシード
+    repeats=0, #   データセットの繰り返し回数
+    download=False, #   データをダウンロードするかどうか
+    input_img_mode='RGB', #   入力画像のモード
+    input_key=None, #   入力画像のキー
+    target_key=None, #   ターゲット画像のキー
+    transform=None, #   入力画像の変換
+    target_transform=None, #  ターゲット画像の変換
+    max_steps=None, #  データセットのステップ数
 )
-loader = DataLoader(dataset, batch_size=32)
 ```
 
 ### AugMixDataset
@@ -590,7 +594,6 @@ loader = DataLoader(dataset, batch_size=32)
 
 - 各バッチに対して、複数回の拡張（augmented copies）を生成し、それらを組み合わせて入力とする
 - `__getitem__` ではなく `__iter__` によってデータを返す（PyTorch の `IterableDataset` と似た挙動）
-
 
 #### 使用例
 
@@ -608,3 +611,98 @@ loader = DataLoader(augmix_dataset, batch_size=32)
 
 ```
 
+#### source code
+
+```python
+class AugMixDataset(torch.utils.data.Dataset):
+    """Dataset wrapper to perform AugMix or other clean/augmentation mixes"""
+
+    def __init__(self, dataset, num_splits=2):
+        self.augmentation = None
+        self.normalize = None
+        self.dataset = dataset
+        if self.dataset.transform is not None:
+            self._set_transforms(self.dataset.transform)
+        self.num_splits = num_splits
+
+    def _set_transforms(self, x):
+        assert isinstance(x, (list, tuple)) and len(x) == 3, 'Expecting a tuple/list of 3 transforms'
+        self.dataset.transform = x[0]
+        self.augmentation = x[1]
+        self.normalize = x[2]
+
+    @property
+    def transform(self):
+        return self.dataset.transform
+
+    @transform.setter
+    def transform(self, x):
+        self._set_transforms(x)
+
+    def _normalize(self, x):
+        return x if self.normalize is None else self.normalize(x)
+
+    def __getitem__(self, i):
+        x, y = self.dataset[i]  # all splits share the same dataset base transform
+        x_list = [self._normalize(x)]  # first split only normalizes (this is the 'clean' split)
+        # run the full augmentation on the remaining splits
+        for _ in range(self.num_splits - 1):
+            x_list.append(self._normalize(self.augmentation(x)))
+        return tuple(x_list), y
+
+    def __len__(self):
+        return len(self.dataset)
+```
+
+- `num_splits` は AugMix の分割数を指定。通常 2 または 3 が使用される。
+
+#### AugMix とは
+
+AugMix は、ICML 2020 で提案された、**複数のデータ拡張パスを混合して使用することで、ノイズ・汚れ・ぼかしなどに対するモデルの堅牢性を高める手法**です。
+
+##### 特徴
+
+- 拡張パスを複数（デフォルトで 2 つ）作成し、その結果をランダムウェイトで合成
+- 合成画像 + 元画像 から損失関数で一貫性制約を課すことで、汎化性能を向上
+
+#### AugMix を使った訓練コード
+
+```python
+import timm
+from timm.data import ImageDataset, IterableImageDataset, AugMixDataset, create_loader
+import torch.nn as nn
+import torch.optim as optim
+
+dataset = ImageDataset('../../imagenet1K/')
+dataset = AugMixDataset(dataset, num_splits=2)
+
+# AugMix を使うためのデータローダー
+loader_train = create_loader(
+    dataset,
+    input_size=(3, 224, 224), # モデルの入力サイズ
+    batch_size=8, # バッチサイズ
+    is_training=True, # 学習モード
+    scale=[0.08, 1.], # 画像のスケール
+    ratio=[0.75, 1.33], # 画像のアスペクト比
+    num_aug_splits=2 # AugMixの分割数
+)
+
+# モデル・損失関数・オプティマイザ
+model = timm.create_model('resnet50', pretrained=True, num_classes=1000)
+criterion = nn.CrossEntropyLoss()
+optimizer = optim.Adam(model.parameters(), lr=0.001)
+
+# 訓練ループ
+for inputs, targets in loader_train:
+    print(inputs.shape) # >> torch.Size([16, 3, 224, 224]), 16=batch_size*num_splits
+    output1 = model(inputs)
+    loss = criterion(output, targets)
+    optimizer.zero_grad()
+    loss.backward()
+    optimizer.step()
+```
+
+## 参考
+
+- **AugMix 論文**: [AugMix: A Simple Data Processing Method to Improve Robustness and Uncertainty](https://arxiv.org/abs/1912.02781)
+- **timm のドキュメント**: [https://huggingface.co/docs/timm/](https://huggingface.co/docs/timm/)
