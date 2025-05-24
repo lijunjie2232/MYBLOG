@@ -117,6 +117,7 @@ ensemble = ModelEnsemble([model1, model2])
 timm.create_model は、指定したモデル名のモデルをロードし、そのモデルを返す関数。
 
 ###　ソースコード
+
 ```python
 def create_model(
         model_name: str,                  # モデル名（例: 'resnet50', 'vit_base_patch16_224'）
@@ -194,5 +195,41 @@ def create_model(
         load_checkpoint(model, checkpoint_path)  # チェックポイントをロード
 
     return model
+```
+
+### 主なパラメータの説明
+
+| パラメータ        | 説明                                                   |
+| :---------------- | :----------------------------------------------------- |
+| `model_name`      | モデル名（例: `'resnet50'`, `'vit_base_patch16_224'`） |
+| `pretrained`      | 事前学習済み重みを使用するか（`True`/`False`）         |
+| `num_classes`     | 分類クラス数の変更（例: `num_classes=10`）             |
+| `pretrained_cfg`  | 外部の事前学習設定を指定                               |
+| `checkpoint_path` | 事後チェックポイントファイルをロード                   |
+| `drop_rate`       | ドロップアウト率（過学習防止用）                       |
+| `drop_path_rate`  | ストーク astic depth のドロップ率                      |
+| `global_pool`     | グローバルプーリングタイプ（例: `'avg'`, `'max'`）     |
+
+### 使い方
+
+```python
+>>> from timm import create_model
+
+>>> # 事前学習なしの MobileNetV3-Large モデル作成
+>>> model = create_model('mobilenetv3_large_100')
+
+>>> # 事前学習ありの MobileNetV3-Large モデル作成
+>>> model = create_model('mobilenetv3_large_100', pretrained=True)
+>>> model.num_classes
+1000
+
+>>> # 事前学習ありで分類層を10クラスに変更
+>>> model = create_model('mobilenetv3_large_100', pretrained=True, num_classes=10)
+>>> model.num_classes
+10
+
+>>> # Dinov2 モデルの重みをカスタムディレクトリに保存
+>>> model = create_model('vit_small_patch14_dinov2.lvd142m', pretrained=True, cache_dir="/data/my-models")
+>>> # データ保存先: `/data/my-models/models--timm--vit_small_patch14_dinov2.lvd142m/`
 ```
 
