@@ -47,6 +47,15 @@ description: timm
   - [使用例](#%E4%BD%BF%E7%94%A8%E4%BE%8B-1)
     - [Vision Transformer をロードし、カスタムクラス数で事前学習済み重みをロード](#vision-transformer-%E3%82%92%E3%83%AD%E3%83%BC%E3%83%89%E3%81%97%E3%82%AB%E3%82%B9%E3%82%BF%E3%83%A0%E3%82%AF%E3%83%A9%E3%82%B9%E6%95%B0%E3%81%A7%E4%BA%8B%E5%89%8D%E5%AD%A6%E7%BF%92%E6%B8%88%E3%81%BF%E9%87%8D%E3%81%BF%E3%82%92%E3%83%AD%E3%83%BC%E3%83%89)
     - [グレースケール画像用に調整してロード](#%E3%82%B0%E3%83%AC%E3%83%BC%E3%82%B9%E3%82%B1%E3%83%BC%E3%83%AB%E7%94%BB%E5%83%8F%E7%94%A8%E3%81%AB%E8%AA%BF%E6%95%B4%E3%81%97%E3%81%A6%E3%83%AD%E3%83%BC%E3%83%89)
+- [timm.data](#timmdata)
+  - [ImageDataset](#imagedataset)
+    - [使用例](#%E4%BD%BF%E7%94%A8%E4%BE%8B-2)
+  - [IterableImageDataset](#iterableimagedataset)
+    - [主な特徴](#%E4%B8%BB%E3%81%AA%E7%89%B9%E5%BE%B4)
+    - [使用例](#%E4%BD%BF%E7%94%A8%E4%BE%8B-3)
+  - [AugMixDataset](#augmixdataset)
+    - [主な特徴](#%E4%B8%BB%E3%81%AA%E7%89%B9%E5%BE%B4-1)
+    - [使用例](#%E4%BD%BF%E7%94%A8%E4%BE%8B-4)
 
 ---
 
@@ -506,3 +515,96 @@ timm.models.load_pretrained(model, pretrained_cfg=model.default_cfg, num_classes
 model = create_model('resnet50', in_chans=1, num_classes=10)
 timm.models.load_pretrained(model, pretrained_cfg=model.default_cfg, in_chans=1)
 ```
+
+## timm.data
+
+### ImageDataset
+
+- **標準的な画像分類用データセット**を構築するためのクラス。
+- ファイル構造に基づいて画像とラベルを読み込む（例: ImageNet 形式のフォルダ構造）。
+- シンプルな使い方で、学習・検証用のデータローダーを作成可能。
+
+#### 使用例
+
+```python
+from timm.data import ImageDataset
+from torch.utils.data import DataLoader
+
+dataset = ImageDataset(
+    'path/to/train'
+    reader=None,
+    split='train',
+    class_map=None,
+    load_bytes=False,
+    input_img_mode='RGB',
+    transform=None,
+    target_transform=None,
+)
+loader = DataLoader(dataset, batch_size=32, shuffle=True)
+```
+
+### IterableImageDataset
+
+- **大規模データセット**や **ストリーミングデータ** を扱うためのイテラブル型データセット。
+- メモリ効率が高く、データ量が非常に多い場合に有効。
+- `torch.utils.data.IterableDataset` を継承している。
+
+#### 主な特徴
+
+- **全データをメモリに載せずに逐次読み込み**
+- 分散環境（DistributedDataParallel など）との親和性が高い
+- サブセット（サブサンプリング）にも対応
+
+#### 使用例
+
+```python
+from timm.data import IterableImageDataset
+
+dataset = IterableImageDataset(
+    'path/to/train',
+    reader=None,
+    split='train',
+    class_map=None,
+    is_training=False,
+    batch_size=1,
+    num_samples=None,
+    seed=42,
+    repeats=0,
+    download=False,
+    input_img_mode='RGB',
+    input_key=None,
+    target_key=None,
+    transform=None,
+    target_transform=None,
+    max_steps=None,
+)
+loader = DataLoader(dataset, batch_size=32)
+```
+
+### AugMixDataset
+
+- **AugMix** というデータ拡張手法をサポートしたラッパーデータセット。
+- AugMix は、複数の合成拡張経路を混ぜたデータ拡張を行い、モデルの堅牢性（robustness）を向上させます。
+
+#### 主な特徴
+
+- 各バッチに対して、複数回の拡張（augmented copies）を生成し、それらを組み合わせて入力とする
+- `__getitem__` ではなく `__iter__` によってデータを返す（PyTorch の `IterableDataset` と似た挙動）
+
+
+#### 使用例
+
+```python
+from timm.data import ImageDataset, AugMixDataset
+from torch.utils.data import DataLoader
+
+# 通常の ImageDataset をベースにする
+base_dataset = ImageDataset('path/to/train')
+
+augmix_dataset = AugMixDataset(base_dataset, num_splits=2)
+
+# データローダーに登録
+loader = DataLoader(augmix_dataset, batch_size=32)
+
+```
+
