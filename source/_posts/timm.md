@@ -12,6 +12,42 @@ description: timm
 
 ## 目次
 
+- [目次](#%E7%9B%AE%E6%AC%A1)
+- [概要](#%E6%A6%82%E8%A6%81)
+- [主な機能](#%E4%B8%BB%E3%81%AA%E6%A9%9F%E8%83%BD)
+- [インストール](#%E3%82%A4%E3%83%B3%E3%82%B9%E3%83%88%E3%83%BC%E3%83%AB)
+- [基本的な使い方](#%E5%9F%BA%E6%9C%AC%E7%9A%84%E3%81%AA%E4%BD%BF%E3%81%84%E6%96%B9)
+  - [モデルのロード](#%E3%83%A2%E3%83%87%E3%83%AB%E3%81%AE%E3%83%AD%E3%83%BC%E3%83%89)
+  - [データ前処理](#%E3%83%87%E3%83%BC%E3%82%BF%E5%89%8D%E5%87%A6%E7%90%86)
+  - [画像分類の訓練例 (CIFAR-10)](#%E7%94%BB%E5%83%8F%E5%88%86%E9%A1%9E%E3%81%AE%E8%A8%93%E7%B7%B4%E4%BE%8B-cifar-10)
+- [高度な機能](#%E9%AB%98%E5%BA%A6%E3%81%AA%E6%A9%9F%E8%83%BD)
+  - [特徴抽出](#%E7%89%B9%E5%BE%B4%E6%8A%BD%E5%87%BA)
+  - [モデルアンサンブル](#%E3%83%A2%E3%83%87%E3%83%AB%E3%82%A2%E3%83%B3%E3%82%B5%E3%83%B3%E3%83%96%E3%83%AB)
+- [timm.create\_model](#timmcreatemodel)
+  - [主なパラメータの説明](#%E4%B8%BB%E3%81%AA%E3%83%91%E3%83%A9%E3%83%A1%E3%83%BC%E3%82%BF%E3%81%AE%E8%AA%AC%E6%98%8E)
+  - [使い方](#%E4%BD%BF%E3%81%84%E6%96%B9)
+    - [事前学習なしの MobileNetV3-Large モデル作成](#%E4%BA%8B%E5%89%8D%E5%AD%A6%E7%BF%92%E3%81%AA%E3%81%97%E3%81%AE-mobilenetv3-large-%E3%83%A2%E3%83%87%E3%83%AB%E4%BD%9C%E6%88%90)
+    - [事前学習ありの MobileNetV3-Large モデル作成](#%E4%BA%8B%E5%89%8D%E5%AD%A6%E7%BF%92%E3%81%82%E3%82%8A%E3%81%AE-mobilenetv3-large-%E3%83%A2%E3%83%87%E3%83%AB%E4%BD%9C%E6%88%90)
+    - [事前学習ありで分類層を 10 クラスに変更](#%E4%BA%8B%E5%89%8D%E5%AD%A6%E7%BF%92%E3%81%82%E3%82%8A%E3%81%A7%E5%88%86%E9%A1%9E%E5%B1%A4%E3%82%92-10-%E3%82%AF%E3%83%A9%E3%82%B9%E3%81%AB%E5%A4%89%E6%9B%B4)
+    - [Dinov2 モデルの重みをカスタムディレクトリに保存](#dinov2-%E3%83%A2%E3%83%87%E3%83%AB%E3%81%AE%E9%87%8D%E3%81%BF%E3%82%92%E3%82%AB%E3%82%B9%E3%82%BF%E3%83%A0%E3%83%87%E3%82%A3%E3%83%AC%E3%82%AF%E3%83%88%E3%83%AA%E3%81%AB%E4%BF%9D%E5%AD%98)
+    - [モデル作成と重みロード](#%E3%83%A2%E3%83%87%E3%83%AB%E4%BD%9C%E6%88%90%E3%81%A8%E9%87%8D%E3%81%BF%E3%83%AD%E3%83%BC%E3%83%89)
+      - [**features\_only**](#featuresonly)
+      - [**output\_stride**](#outputstride)
+      - [**out\_indices**](#outindices)
+- [timm.list\_models](#timmlistmodels)
+  - [ソースコード](#%E3%82%BD%E3%83%BC%E3%82%B9%E3%82%B3%E3%83%BC%E3%83%89)
+  - [パラメータの説明](#%E3%83%91%E3%83%A9%E3%83%A1%E3%83%BC%E3%82%BF%E3%81%AE%E8%AA%AC%E6%98%8E)
+  - [使用例](#%E4%BD%BF%E7%94%A8%E4%BE%8B)
+    - [基本的な使用法](#%E5%9F%BA%E6%9C%AC%E7%9A%84%E3%81%AA%E4%BD%BF%E7%94%A8%E6%B3%95)
+    - [事前学習済みモデルのみ取得](#%E4%BA%8B%E5%89%8D%E5%AD%A6%E7%BF%92%E6%B8%88%E3%81%BF%E3%83%A2%E3%83%87%E3%83%AB%E3%81%AE%E3%81%BF%E5%8F%96%E5%BE%97)
+    - [特定のサブモジュールに絞る](#%E7%89%B9%E5%AE%9A%E3%81%AE%E3%82%B5%E3%83%96%E3%83%A2%E3%82%B8%E3%83%A5%E3%83%BC%E3%83%AB%E3%81%AB%E7%B5%9E%E3%82%8B)
+    - [フィルタ + 除外条件付き](#%E3%83%95%E3%82%A3%E3%83%AB%E3%82%BF--%E9%99%A4%E5%A4%96%E6%9D%A1%E4%BB%B6%E4%BB%98%E3%81%8D)
+- [load\_pretrained](#loadpretrained)
+  - [パラメータの説明](#%E3%83%91%E3%83%A9%E3%83%A1%E3%83%BC%E3%82%BF%E3%81%AE%E8%AA%AC%E6%98%8E-1)
+  - [使用例](#%E4%BD%BF%E7%94%A8%E4%BE%8B-1)
+    - [Vision Transformer をロードし、カスタムクラス数で事前学習済み重みをロード](#vision-transformer-%E3%82%92%E3%83%AD%E3%83%BC%E3%83%89%E3%81%97%E3%82%AB%E3%82%B9%E3%82%BF%E3%83%A0%E3%82%AF%E3%83%A9%E3%82%B9%E6%95%B0%E3%81%A7%E4%BA%8B%E5%89%8D%E5%AD%A6%E7%BF%92%E6%B8%88%E3%81%BF%E9%87%8D%E3%81%BF%E3%82%92%E3%83%AD%E3%83%BC%E3%83%89)
+    - [グレースケール画像用に調整してロード](#%E3%82%B0%E3%83%AC%E3%83%BC%E3%82%B9%E3%82%B1%E3%83%BC%E3%83%AB%E7%94%BB%E5%83%8F%E7%94%A8%E3%81%AB%E8%AA%BF%E6%95%B4%E3%81%97%E3%81%A6%E3%83%AD%E3%83%BC%E3%83%89)
+
 ---
 
 ## 概要
@@ -436,3 +472,37 @@ def load_pretrained(
     """
 ```
 
+### パラメータの説明
+
+| パラメータ       | 型                   | 説明                                                     |
+| ---------------- | -------------------- | -------------------------------------------------------- |
+| `model`          | `nn.Module`          | 重みをロードする対象の PyTorch モデル                    |
+| `pretrained_cfg` | `Optional[Dict]`     | 事前学習済み重みやデータセットに関する設定情報           |
+| `num_classes`    | `int`                | 対象モデルの分類クラス数（デフォルト：ImageNet の 1000） |
+| `in_chans`       | `int`                | 入力画像のチャネル数（デフォルト：RGB 画像の 3）         |
+| `filter_fn`      | `Optional[Callable]` | state_dict をロード前に加工するフィルタ関数              |
+| `strict`         | `bool`               | モデルと state_dict が一致しないときにエラーを出すか     |
+| `cache_dir`      | `str or Path`        | チェックポイントファイルを保存するディレクトリ           |
+
+### 使用例
+
+#### Vision Transformer をロードし、カスタムクラス数で事前学習済み重みをロード
+
+```python
+import timm
+from timm.models import create_model
+
+# ViT Base モデルを作成
+model = create_model('vit_base_patch16_224', num_classes=10)
+
+# 事前学習済み重みをロード
+timm.models.load_pretrained(model, pretrained_cfg=model.default_cfg, num_classes=10)
+```
+
+#### グレースケール画像用に調整してロード
+
+```python
+# グレースケール画像（1チャネル）用に調整
+model = create_model('resnet50', in_chans=1, num_classes=10)
+timm.models.load_pretrained(model, pretrained_cfg=model.default_cfg, in_chans=1)
+```
