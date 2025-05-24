@@ -114,7 +114,7 @@ ensemble = ModelEnsemble([model1, model2])
 
 ## timm.create_model
 
-timm.create_model は、指定したモデル名のモデルをロードし、そのモデルを返す関数。
+`timm.create_model` は、指定したモデル名のモデルをロードし、そのモデルを返す関数。
 
 ###　ソースコード
 
@@ -213,23 +213,197 @@ def create_model(
 ### 使い方
 
 ```python
->>> from timm import create_model
+from timm import create_model
+```
 
->>> # 事前学習なしの MobileNetV3-Large モデル作成
+#### 事前学習なしの MobileNetV3-Large モデル作成
+
+```python
 >>> model = create_model('mobilenetv3_large_100')
+```
 
->>> # 事前学習ありの MobileNetV3-Large モデル作成
+#### 事前学習ありの MobileNetV3-Large モデル作成
+
+```python
 >>> model = create_model('mobilenetv3_large_100', pretrained=True)
 >>> model.num_classes
 1000
+```
 
->>> # 事前学習ありで分類層を10クラスに変更
+#### 事前学習ありで分類層を 10 クラスに変更
+
+```python
 >>> model = create_model('mobilenetv3_large_100', pretrained=True, num_classes=10)
 >>> model.num_classes
 10
-
->>> # Dinov2 モデルの重みをカスタムディレクトリに保存
->>> model = create_model('vit_small_patch14_dinov2.lvd142m', pretrained=True, cache_dir="/data/my-models")
->>> # データ保存先: `/data/my-models/models--timm--vit_small_patch14_dinov2.lvd142m/`
 ```
 
+#### Dinov2 モデルの重みをカスタムディレクトリに保存
+
+```python
+# データ保存先: `/data/my-models/models--timm--vit_small_patch14_dinov2.lvd142m/`
+model = create_model('vit_small_patch14_dinov2.lvd142m', pretrained=True, cache_dir="/data/my-models")
+```
+
+#### モデル作成と重みロード
+
+```python
+m = timm.create_model(
+    'ecaresnet101d',
+    features_only=True,
+    output_stride=8,
+    out_indices=(0,1,2,3, 4),
+    pretrained=True
+)
+```
+
+##### **features_only**
+
+- **意味**: 特徴抽出モードを有効にするオプション。
+- **説明**: このフラグを `True` に設定すると、モデルの最終的な分類器（Classifier）を除いた部分のみが出力されます。つまり、特徴マップ（feature maps）だけを取得したい場合に使用します。
+- **注意**: `output_stride` や `out_indices` を指定する際には、必ず `features_only=True` とする必要があります。
+
+```python
+# 例: 特徴抽出モードでResNet50をロード
+model = timm.create_model('resnet50', features_only=True, pretrained=True)
+```
+
+##### **output_stride**
+
+- **意味**: 出力ストライド（出力特徴マップのスケーリング率）
+- **説明**: 入力画像に対して、最終的な特徴マップが何倍のダウンサンプリングされているかを制御します。特にセマンティックセグメンテーションや物体検出などのタスクで重要です。
+- **サポート**: 一部のネットワークでは `output_stride=32` のみサポートされています。小さめの値（例: 8 や 16）に設定することで、より高解像度な特徴マップを得られます。
+
+```python
+# 例: output_stride=8 で特徴抽出モデルを作成
+model = timm.create_model('resnet50', features_only=True, output_stride=8, pretrained=True)
+```
+
+##### **out_indices**
+
+- **意味**: 取得したい特徴層のインデックス番号
+- **説明**: モデル内のどの層から特徴を出力するかを指定します。複数のスケール（マルチスケール）の特徴が必要な場合（例：FPN、U-Net など）に便利です。
+- **例**: `(0, 1, 2, 3, 4)` → 5 つの異なるレイヤーの特徴をリスト形式で返す
+
+```python
+# 例: 0〜4層目の特徴を抽出
+model = timm.create_model(
+    'resnet50',
+    features_only=True,
+    out_indices=(0, 1, 2, 3, 4),
+    pretrained=True
+)
+```
+
+## timm.list_models
+
+`timm.list_models` は、利用可能なモデル名の一覧を取得する関数です。  
+ワイルドカードによるフィルタリングや、特定のサブモジュール（例：`vision_transformer`）に絞り込むことが可能です。
+
+### ソースコード
+
+```python
+def list_models(
+    filter: Union[str, List[str]] = '',
+    module: Union[str, List[str]] = '',
+    pretrained: bool = False,
+    exclude_filters: Union[str, List[str]] = '',
+    name_matches_cfg: bool = False,
+    include_tags: Optional[bool] = None,
+) -> List[str]:
+    """
+    利用可能なモデル名一覧を取得する関数。アルファベット順にソートして返す。
+
+    Args:
+        filter (str or List[str]): ワイルドカードによるフィルタリング（例: 'resnet*'）
+        module (str or List[str]): 特定サブモジュール内のモデルのみ表示（例: 'vision_transformer'）
+        pretrained (bool): True のとき、事前学習済みモデルのみ表示
+        exclude_filters (str or List[str]): フィルタ後に除外したいパターン
+        name_matches_cfg (bool): モデル名が設定ファイルと一致するもののみ表示
+        include_tags (Optional[bool]): モデル名に事前学習タグ（例：.in1k）を含めるか
+
+    Returns:
+        models (List[str]): ソート済みモデル名一覧
+
+    Example:
+        model_list('gluon_resnet*') -- 'gluon_resnet' から始まるすべてのモデルを取得
+        model_list('*resnext*', 'resnet') -- 'resnext' を含む 'resnet' モジュールのモデルを取得
+    """
+```
+
+1. **初期フィルタ適用**:
+
+   - `filter` に指定されたワイルドカード（例：`'resnet*'`）でモデル名を絞り込み。
+
+2. **サブモジュール制限**:
+
+   - `module` が指定されていれば、そのサブモジュールに所属するモデルのみ選択。
+
+3. **非推奨モデル除去**:
+
+   - `_deprecated_models` に登録されている非推奨モデルは自動的に除外。
+
+4. **事前学習タグの追加（オプション）**:
+
+   - `include_tags=True` の場合、モデル名に `.in1k` などのタグも含めて表示。
+
+5. **除外フィルタ適用**:
+
+   - `exclude_filters` で指定されたパターンに合致するモデルを最終的に除外。
+
+6. **事前学習ありのみ抽出**:
+
+   - `pretrained=True` 時、`_model_has_pretrained` に含まれるモデルのみ残す。
+
+7. **設定名とのマッチング**:
+
+   - `name_matches_cfg=True` 時、`_model_pretrained_cfgs` と名前が一致するモデルのみ残す。
+
+8. **自然順ソートして返却**:
+   - 数字も正しく並べ替わるよう、`_natural_key` 関数でソート。
+
+### パラメータの説明
+
+| パラメータ         | 型                   | 説明                                                     |
+| ------------------ | -------------------- | -------------------------------------------------------- |
+| `filter`           | `str` or `List[str]` | ワイルドカードでフィルタ（例：`'resnet*'`）              |
+| `module`           | `str` or `List[str]` | 特定のサブモジュールに限定（例：`'vision_transformer'`） |
+| `pretrained`       | `bool`               | `True` のとき、事前学習済み重みがあるモデルのみ表示      |
+| `exclude_filters`  | `str` or `List[str]` | フィルタ後に除外したいパターン（例：`'*efficientnet*'`） |
+| `name_matches_cfg` | `bool`               | モデル名が設定ファイルと一致するもののみ表示             |
+| `include_tags`     | `Optional[bool]`     | モデル名に事前学習タグ（例：`.in1k`）を含めるか          |
+
+### 使用例
+
+#### 基本的な使用法
+
+```python
+# 'gluon_resnet' から始まるすべてのモデルを取得
+model_list = timm.list_models('gluon_resnet*')
+```
+
+```python
+# 'resnext' を含む 'resnet' サブモジュールのモデルを取得
+model_list = timm.list_models('*resnext*', 'resnet')
+```
+
+#### 事前学習済みモデルのみ取得
+
+```python
+# 事前学習済みのResNet系モデルのみ取得
+model_list = timm.list_models('resnet*', pretrained=True)
+```
+
+#### 特定のサブモジュールに絞る
+
+```python
+# Vision Transformer 系モデルのみ取得
+model_list = timm.list_models(module='vision_transformer')
+```
+
+#### フィルタ + 除外条件付き
+
+```python
+# EfficientNet-B0系だが、lite版は除外
+model_list = timm.list_models('tf_efficientnet_b0*', exclude_filters='*lite*')
+```
