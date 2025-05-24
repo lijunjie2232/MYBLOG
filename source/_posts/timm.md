@@ -407,3 +407,32 @@ model_list = timm.list_models(module='vision_transformer')
 # EfficientNet-B0系だが、lite版は除外
 model_list = timm.list_models('tf_efficientnet_b0*', exclude_filters='*lite*')
 ```
+
+## load_pretrained
+
+`timm.models.load_pretrained` は、事前学習済みモデルの重み（チェックポイント）を PyTorch モデルにロードするための関数です。  
+カスタム設定（入力チャネル数、クラス数など）に応じて柔軟に適応させることができます。
+
+```python
+def load_pretrained(
+        model: nn.Module,
+        pretrained_cfg: Optional[Dict] = None,
+        num_classes: int = 1000,
+        in_chans: int = 3,
+        filter_fn: Optional[Callable] = None,
+        strict: bool = True,
+        cache_dir: Optional[Union[str, Path]] = None,
+):
+    """ Load pretrained checkpoint
+
+    Args:
+        model: 重みをロードしたいPyTorchモデル（例：ResNet、Vision Transformerなど）
+        pretrained_cfg: 事前学習設定情報
+        num_classes: 対象モデルの分類クラス数。デフォルトはImageNetの1000クラス。異なる場合は自動調整される
+        in_chans: 入力画像のチャネル数（RGBなら3、グレースケールなら1）。異なる場合、重みを調整してロード
+        filter_fn: state_dict をロード前に加工する関数（例：特定層だけ除外、変更など）
+        strict: ロード時にstate_dictとモデル構造が一致していないときにエラーを出すかどうか（True: 一致必須 / False: 柔軟にロード）
+        cache_dir: チェックポイントファイルを保存するディレクトリ
+    """
+```
+
