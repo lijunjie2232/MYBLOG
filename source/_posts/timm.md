@@ -1,13 +1,12 @@
 ---
 title: timmライブラリ入門 - PyTorch Image Models (timm) ライブラリの紹介と使い方
 
-date: 2023-10-18 12:00:00
+date: 2023-11-18 12:00:00
 categories: [AI]
-tags:
-  [Deep Learning, PyTorch, Lightning, Python, 機械学習, AI, 人工知能, 深層学習]
+tags: [Deep Learning, timm, Python, 機械学習, AI, 人工知能, 深層学習]
 lang: ja
 
-description: timm
+description: timm (PyTorch Image Models) ライブラリの紹介と使い方。画像分類、物体検出、特徴抽出などの機能を提供。
 ---
 
 ## 目次
@@ -604,11 +603,10 @@ from torch.utils.data import DataLoader
 # 通常の ImageDataset をベースにする
 base_dataset = ImageDataset('path/to/train')
 
-augmix_dataset = AugMixDataset(base_dataset, num_splits=2)
+augmix_dataset = AugMixDataset(base_dataset, num_splits=3)
 
 # データローダーに登録
-loader = DataLoader(augmix_dataset, batch_size=32)
-
+loader = create_loader(augmix_dataset, batch_size=8, num_aug_splits=2)
 ```
 
 #### source code
