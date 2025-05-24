@@ -7,3 +7,12 @@
 [submodule "themes/volantis"]
 	path = themes/volantis
 	url = https://github.com/volantis-x/hexo-theme-volantis
+[submodule "themes/solitude"]
+	path = themes/solitude
+	url = https://github.com/everfu/hexo-theme-solitude
+[submodule "themes/rebirth"]
+	path = themes/rebirth
+	url = https://github.com/Candinya/Kratos-Rebirth
+[submodule "themes/redefine"]
+	path = themes/redefine
+	url = https://github.com/EvanNotFound/hexo-theme-redefine
