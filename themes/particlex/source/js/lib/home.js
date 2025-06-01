@@ -23,12 +23,8 @@ mixins.home = {
                 // Blur increases as homePostsWrap reaches the top
                 let blurValue = Math.min(offsetFromTop, maxBlur);
                 background.style.filter = `blur(${blurValue}px)`;
-                console.log(offsetFromTop);
-                console.log(rect.top);
             });
         }
-        console.log(homePostsWrap);
-        console.log(background);
     },
     methods: {
         homeClick() {
