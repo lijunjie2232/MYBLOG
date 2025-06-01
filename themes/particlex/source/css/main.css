@@ -77,7 +77,7 @@
 }
 
 #footer #footer-icon {
-    color: #66afef;
+    color: #74b9ff;
     display: inline-block;
     font-size: 18px;
     margin: 0 10px;
@@ -85,7 +85,7 @@
 
 #footer #footer-wrap {
     border-top: 1px solid #aaa;
-    color: #5c6b72;
+    color: #dfe6e9;
     margin: auto;
     width: 900px;
 }
@@ -261,7 +261,7 @@
 
 #home-posts .page-current .current {
     border-radius: 5px;
-    color: #da0a51;
+    color: #74b9ff;
     display: inline-block;
     height: 35px;
     line-height: 35px;
@@ -273,6 +273,7 @@
 #home-posts .page-current .page-num,
 #home-posts .page-current .page-omit {
     border-radius: 5px;
+    color: #dfe6e9;
     display: inline-block;
     height: 35px;
     line-height: 35px;
@@ -282,7 +283,7 @@
 }
 
 #home-posts .page-current a {
-    color: #999;
+    color: #dfe6e9;
 }
 
 #home-posts .post {
