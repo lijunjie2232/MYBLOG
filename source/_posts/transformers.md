@@ -22,6 +22,12 @@ description: Transformers は、PyTorch, TensorFlow, JAX に対応した機械�
   - [使い方](#%E4%BD%BF%E3%81%84%E6%96%B9)
     - [主要コンポーネント概要](#%E4%B8%BB%E8%A6%81%E3%82%B3%E3%83%B3%E3%83%9D%E3%83%BC%E3%83%8D%E3%83%B3%E3%83%88%E6%A6%82%E8%A6%81)
       - [簡単な推論コード例:](#%E7%B0%A1%E5%8D%98%E3%81%AA%E6%8E%A8%E8%AB%96%E3%82%B3%E3%83%BC%E3%83%89%E4%BE%8B)
+    - [Pipeline](#pipeline)
+      - [サンプルコード:](#%E3%82%B5%E3%83%B3%E3%83%97%E3%83%AB%E3%82%B3%E3%83%BC%E3%83%89)
+    - [Tokenizers](#tokenizers)
+    - [実用的な設定と最適化技法](#%E5%AE%9F%E7%94%A8%E7%9A%84%E3%81%AA%E8%A8%AD%E5%AE%9A%E3%81%A8%E6%9C%80%E9%81%A9%E5%8C%96%E6%8A%80%E6%B3%95)
+      - [モデルロード時の最適化](#%E3%83%A2%E3%83%87%E3%83%AB%E3%83%AD%E3%83%BC%E3%83%89%E6%99%82%E3%81%AE%E6%9C%80%E9%81%A9%E5%8C%96)
+      - [バッチ処理の最適化](#%E3%83%90%E3%83%83%E3%83%81%E5%87%A6%E7%90%86%E3%81%AE%E6%9C%80%E9%81%A9%E5%8C%96)
     - [参考](#%E5%8F%82%E8%80%83)
 
 
@@ -175,7 +181,7 @@ def basic_usage_example():
     model = AutoModel.from_pretrained('bert-base-chinese')
     
     # 入力テキストの前処理
-    text = "这是一个测试文本"
+    text = "こんにちは世界！"
     inputs = tokenizer(text, return_tensors="pt")  # PyTorchテンソルとして返す
     
     # 推論実行
@@ -185,6 +191,91 @@ def basic_usage_example():
     return outputs.last_hidden_state
 ```
 
+### Pipeline
+
+`pipeline` は非常に簡単にさまざまなNLPタスクを実行できるインターフェースです。
+
+#### サンプルコード:
+```python
+from transformers import pipeline
+
+def pipeline_examples():
+    """代表的なタスクのPipeline例"""
+
+    # 感情分析
+    sentiment_analyzer = pipeline("sentiment-analysis")
+    result = sentiment_analyzer("この製品はとても使いやすい！")
+    print(f"感情分析結果：{result}")
+    
+    # テキスト生成（GPT-2）
+    generator = pipeline("text-generation", model="gpt2-chinese")
+    text = generator("人工知能は今", max_length=50)
+    print(f"生成されたテキスト：{text}")
+    
+    # 固有表現抽出（NER）
+    ner = pipeline("ner", model="bert-base-chinese")
+    entities = ner("華為の本社は深圳にあります")
+    print(f"認識された固有名詞：{entities}")
+    
+    # 質問応答システム
+    qa = pipeline("question-answering", model="bert-base-chinese")
+    context = "北京は中国の首都であり、上海は最大の経済都市です。"
+    question = "中国の首都是はどこですか？"
+    answer = qa(question=question, context=context)
+    print(f"質問応答結果：{answer}")
+
+if __name__ == "__main__":
+    pipeline_examples()
+```
+
+### Tokenizers
+
+Tokenizers は自然言語処理（NLP）においてテキストをモデルが理解できる形式に変換するための基本的なコンポーネントです。  
+HuggingFace Transformers では、多様な言語やモデルに対応した柔軟で高性能な `Tokenizer API` を提供しています。
+
+
+### 実用的な設定と最適化技法
+
+#### モデルロード時の最適化
+以下の方法でメモリ効率と推論速度を向上させることができます：
+
+```python
+from transformers import AutoModel
+import torch
+
+def setup_optimization():
+    """モデルの最適化設定"""
+    model = AutoModel.from_pretrained(
+        "bert-base-chinese",
+        device_map="auto",         # 自動的にGPU/CPUに割り当て
+        torch_dtype=torch.float16, # 半精度を使用してメモリ削減
+        low_cpu_mem_usage=True     # CPUメモリ消費を抑える
+    )
+    model.eval()  # 推論モードへ切り替え
+    return model
+```
+
+#### バッチ処理の最適化
+大規模なテキストデータを扱う際には、バッチ処理により処理速度が向上します。長文の分割も自動化しています。
+
+```python
+from typing import List
+
+def batch_process(texts: List[str], batch_size: int, max_length: int) -> List[List[str]]:
+    """長文を分割し、指定バッチサイズで処理する"""
+    processed_texts = []
+    for text in texts:
+        if len(text) > max_length:
+            chunks = [text[i:i+max_length] for i in range(0, len(text), max_length)]
+            processed_texts.extend(chunks)
+        else:
+            processed_texts.append(text)
+    
+    return [processed_texts[i:i+batch_size] for i in range(0, len(processed_texts), batch_size)]
+```
+
+
 
 ### 参考
 - Hubからのファイルダウンロード詳細については [Transformers official doc](https://huggingface.co/docs/transformers) を参照。
+- [Hugging Face Tokenizers Documentation](https://huggingface.co/docs/transformers/tokenizer_summary)
