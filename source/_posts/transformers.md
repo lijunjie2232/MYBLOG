@@ -19,6 +19,9 @@ description: Transformers は、PyTorch, TensorFlow, JAX に対応した機械�
       - [**Model Hub UI** から手動でダウンロード](#model-hub-ui-%E3%81%8B%E3%82%89%E6%89%8B%E5%8B%95%E3%81%A7%E3%83%80%E3%82%A6%E3%83%B3%E3%83%AD%E3%83%BC%E3%83%89)
       - [PreTrainedModel.from\_pretrained() \& save\_pretrained() ワークフロー](#pretrainedmodelfrompretrained--savepretrained-%E3%83%AF%E3%83%BC%E3%82%AF%E3%83%95%E3%83%AD%E3%83%BC)
       - [huggingface\_hubライブラリを使用したプログラム的なダウンロード](#huggingfacehub%E3%83%A9%E3%82%A4%E3%83%96%E3%83%A9%E3%83%AA%E3%82%92%E4%BD%BF%E7%94%A8%E3%81%97%E3%81%9F%E3%83%97%E3%83%AD%E3%82%B0%E3%83%A9%E3%83%A0%E7%9A%84%E3%81%AA%E3%83%80%E3%82%A6%E3%83%B3%E3%83%AD%E3%83%BC%E3%83%89)
+  - [使い方](#%E4%BD%BF%E3%81%84%E6%96%B9)
+    - [主要コンポーネント概要](#%E4%B8%BB%E8%A6%81%E3%82%B3%E3%83%B3%E3%83%9D%E3%83%BC%E3%83%8D%E3%83%B3%E3%83%88%E6%A6%82%E8%A6%81)
+      - [簡単な推論コード例:](#%E7%B0%A1%E5%8D%98%E3%81%AA%E6%8E%A8%E8%AB%96%E3%82%B3%E3%83%BC%E3%83%89%E4%BE%8B)
     - [参考](#%E5%8F%82%E8%80%83)
 
 
@@ -149,6 +152,37 @@ hf_hub_download(repo_id="bigscience/T0_3B", filename="config.json", cache_dir=".
 from transformers import AutoConfig
 
 config = AutoConfig.from_pretrained("./your/path/bigscience_t0/config.json")
+```
+
+## 使い方
+
+### 主要コンポーネント概要
+
+HuggingFace Transformers はモジュール化されたライブラリで、以下のような主要なコンポーネントが含まれています:
+
+- **`AutoTokenizer`**: テキストの分詞やエンコーディングに使用されます。
+- **`AutoModel`**: 学習済みモデルを読み込むための基本クラスです。
+- **`Trainer`, `TrainingArguments`**: モデルのファインチューニングを行うための高レベルツールです。
+- **`Pipeline`**: 前処理から推論、後処理までの全フローをカプセル化しており、素早く開発を開始できます。
+
+#### 簡単な推論コード例:
+```python
+from transformers import AutoTokenizer, AutoModel
+
+def basic_usage_example():
+    # Tokenizerとモデルのロード
+    tokenizer = AutoTokenizer.from_pretrained('bert-base-chinese')
+    model = AutoModel.from_pretrained('bert-base-chinese')
+    
+    # 入力テキストの前処理
+    text = "这是一个测试文本"
+    inputs = tokenizer(text, return_tensors="pt")  # PyTorchテンソルとして返す
+    
+    # 推論実行
+    outputs = model(**inputs)
+    
+    # 隠れ層の最終出力を返す
+    return outputs.last_hidden_state
 ```
 
 
