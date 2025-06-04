@@ -15,10 +15,10 @@ description: Transformers は、PyTorch, TensorFlow, JAX に対応した機械�
     - [編集可能なインストール](#%E7%B7%A8%E9%9B%86%E5%8F%AF%E8%83%BD%E3%81%AA%E3%82%A4%E3%83%B3%E3%82%B9%E3%83%88%E3%83%BC%E3%83%AB)
     - [キャッシュの設定](#%E3%82%AD%E3%83%A3%E3%83%83%E3%82%B7%E3%83%A5%E3%81%AE%E8%A8%AD%E5%AE%9A)
     - [オフラインモード](#%E3%82%AA%E3%83%95%E3%83%A9%E3%82%A4%E3%83%B3%E3%83%A2%E3%83%BC%E3%83%89)
-    - [オフラインでのモデル・トークナイザー利用方法](#%E3%82%AA%E3%83%95%E3%83%A9%E3%82%A4%E3%83%B3%E3%81%A7%E3%81%AE%E3%83%A2%E3%83%87%E3%83%AB%E3%83%BB%E3%83%88%E3%83%BC%E3%82%AF%E3%83%8A%E3%82%A4%E3%82%B6%E3%83%BC%E5%88%A9%E7%94%A8%E6%96%B9%E6%B3%95)
+    - [オフラインでのモデルトークナイザー利用方法](#%E3%82%AA%E3%83%95%E3%83%A9%E3%82%A4%E3%83%B3%E3%81%A7%E3%81%AE%E3%83%A2%E3%83%87%E3%83%AB%E3%83%88%E3%83%BC%E3%82%AF%E3%83%8A%E3%82%A4%E3%82%B6%E3%83%BC%E5%88%A9%E7%94%A8%E6%96%B9%E6%B3%95)
       - [**Model Hub UI** から手動でダウンロード](#model-hub-ui-%E3%81%8B%E3%82%89%E6%89%8B%E5%8B%95%E3%81%A7%E3%83%80%E3%82%A6%E3%83%B3%E3%83%AD%E3%83%BC%E3%83%89)
-      - [**PreTrainedModel.from\_pretrained() \& save\_pretrained()** ワークフロー](#pretrainedmodelfrompretrained--savepretrained-%E3%83%AF%E3%83%BC%E3%82%AF%E3%83%95%E3%83%AD%E3%83%BC)
-      - [**huggingface\_hub** ライブラリを使用したプログラム的なダウンロード](#huggingfacehub-%E3%83%A9%E3%82%A4%E3%83%96%E3%83%A9%E3%83%AA%E3%82%92%E4%BD%BF%E7%94%A8%E3%81%97%E3%81%9F%E3%83%97%E3%83%AD%E3%82%B0%E3%83%A9%E3%83%A0%E7%9A%84%E3%81%AA%E3%83%80%E3%82%A6%E3%83%B3%E3%83%AD%E3%83%BC%E3%83%89)
+      - [PreTrainedModel.from\_pretrained() \& save\_pretrained() ワークフロー](#pretrainedmodelfrompretrained--savepretrained-%E3%83%AF%E3%83%BC%E3%82%AF%E3%83%95%E3%83%AD%E3%83%BC)
+      - [huggingface\_hubライブラリを使用したプログラム的なダウンロード](#huggingfacehub%E3%83%A9%E3%82%A4%E3%83%96%E3%83%A9%E3%83%AA%E3%82%92%E4%BD%BF%E7%94%A8%E3%81%97%E3%81%9F%E3%83%97%E3%83%AD%E3%82%B0%E3%83%A9%E3%83%A0%E7%9A%84%E3%81%AA%E3%83%80%E3%82%A6%E3%83%B3%E3%83%AD%E3%83%BC%E3%83%89)
     - [参考](#%E5%8F%82%E8%80%83)
 
 
@@ -109,11 +109,11 @@ python examples/pytorch/translation/run_translation.py --model_name_or_path goog
 ```
 
 
-### オフラインでのモデル・トークナイザー利用方法
+### オフラインでのモデルトークナイザー利用方法
 #### **Model Hub UI** から手動でダウンロード
 - Webインターフェース上の ↓ アイコンをクリックしてファイルを取得。
 
-#### **PreTrainedModel.from_pretrained() & save_pretrained()** ワークフロー
+#### PreTrainedModel.from_pretrained() & save_pretrained() ワークフロー
 前もってオンライン環境でダウンロード＆保存:
 ```python
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
@@ -131,7 +131,7 @@ tokenizer = AutoTokenizer.from_pretrained("./your/path/bigscience_t0")
 model = AutoModel.from_pretrained("./your/path/bigscience_t0")
 ```
 
-#### **huggingface_hub** ライブラリを使用したプログラム的なダウンロード
+#### huggingface_hubライブラリを使用したプログラム的なダウンロード
 インストール:
 ```bash
 python -m pip install huggingface_hub
