@@ -25,6 +25,15 @@ description: Transformers は、PyTorch, TensorFlow, JAX に対応した機械�
     - [Pipeline](#pipeline)
       - [サンプルコード:](#%E3%82%B5%E3%83%B3%E3%83%97%E3%83%AB%E3%82%B3%E3%83%BC%E3%83%89)
     - [Tokenizers](#tokenizers)
+      - [分詞器の主な機能](#%E5%88%86%E8%A9%9E%E5%99%A8%E3%81%AE%E4%B8%BB%E3%81%AA%E6%A9%9F%E8%83%BD)
+        - [**Tokenize**](#tokenize)
+        - [**Encode**](#encode)
+        - [**Encode + 特殊タグ付加**](#encode--%E7%89%B9%E6%AE%8A%E3%82%BF%E3%82%B0%E4%BB%98%E5%8A%A0)
+        - [**Decode**](#decode)
+      - [分詞器の高階機能](#%E5%88%86%E8%A9%9E%E5%99%A8%E3%81%AE%E9%AB%98%E9%9A%8E%E6%A9%9F%E8%83%BD)
+        - [特殊トークンと語彙情報](#%E7%89%B9%E6%AE%8A%E3%83%88%E3%83%BC%E3%82%AF%E3%83%B3%E3%81%A8%E8%AA%9E%E5%BD%99%E6%83%85%E5%A0%B1)
+        - [バッチ処理と長文対応](#%E3%83%90%E3%83%83%E3%83%81%E5%87%A6%E7%90%86%E3%81%A8%E9%95%B7%E6%96%87%E5%AF%BE%E5%BF%9C)
+      - [実装例](#%E5%AE%9F%E8%A3%85%E4%BE%8B)
     - [実用的な設定と最適化技法](#%E5%AE%9F%E7%94%A8%E7%9A%84%E3%81%AA%E8%A8%AD%E5%AE%9A%E3%81%A8%E6%9C%80%E9%81%A9%E5%8C%96%E6%8A%80%E6%B3%95)
       - [モデルロード時の最適化](#%E3%83%A2%E3%83%87%E3%83%AB%E3%83%AD%E3%83%BC%E3%83%89%E6%99%82%E3%81%AE%E6%9C%80%E9%81%A9%E5%8C%96)
       - [バッチ処理の最適化](#%E3%83%90%E3%83%83%E3%83%81%E5%87%A6%E7%90%86%E3%81%AE%E6%9C%80%E9%81%A9%E5%8C%96)
@@ -232,6 +241,120 @@ if __name__ == "__main__":
 
 Tokenizers は自然言語処理（NLP）においてテキストをモデルが理解できる形式に変換するための基本的なコンポーネントです。  
 HuggingFace Transformers では、多様な言語やモデルに対応した柔軟で高性能な `Tokenizer API` を提供しています。
+
+#### 分詞器の主な機能
+
+##### **Tokenize**
+- テキストを単語、サブワード、文字などの「トークン」に分割します。
+- 例: `"これはテスト"` → `["これ", "は", "テスト"]`
+
+```python
+tokens = tokenizer.tokenize("これはテスト")
+```
+
+##### **Encode**
+- トークンを数値 ID（語彙ID）に変換します。
+- 例: `["これ", "は", "テスト"]` → `[345, 890, 1234]`
+
+```python
+token_ids = tokenizer.convert_tokens_to_ids(tokens)
+```
+
+##### **Encode + 特殊タグ付加**
+- 入力に特殊タグ（[CLS], [SEP]など）を追加し、テンソル形式で出力します。
+
+```python
+encoded = tokenizer(text, return_tensors="pt")
+```
+
+##### **Decode**
+- 数値 ID を再び人間可読なテキストに戻します。
+
+```python
+decoded_text = tokenizer.decode(encoded["input_ids"][0])
+```
+
+#### 分詞器の高階機能
+
+#####  特殊トークンと語彙情報
+
+- **[CLS]**: 分類タスク用の特別トークン
+- **[SEP]**: 文の区切りを示すトークン
+
+```python
+print(f"CLS标记: {tokenizer.cls_token}")      # [CLS]
+print(f"SEP标记: {tokenizer.sep_token}")      # [SEP]
+print(f"词表大小: {len(tokenizer)}")          # 語彙数
+print(f"特殊标记映射: {tokenizer.special_tokens_map}")
+```
+
+##### バッチ処理と長文対応
+
+複数文を一度に処理し、パディングと切り詰めも自動化できます。
+
+```python
+batch_encoding = tokenizer(texts, padding=True, truncation=True, return_tensors="pt")
+```
+
+長いテキストを最大長で自動的に切り詰めて処理します。
+
+```python
+truncated = tokenizer(long_text, max_length=128, truncation=True)
+```
+
+#### 実装例
+
+```python
+from transformers import AutoTokenizer
+
+def tokenizer_basics():
+    # 分詞器ロード
+    tokenizer = AutoTokenizer.from_pretrained("bert-base-chinese")
+
+    # テキスト入力
+    text = "これはテスト"
+
+    # 1. 分詞
+    tokens = tokenizer.tokenize(text)
+    print(f"Result: {tokens}")
+
+    # 2. Token IDs へ変換
+    token_ids = tokenizer.convert_tokens_to_ids(tokens)
+    print(f"Token IDs: {token_ids}")
+
+    # 3. 編碼（特殊タグ含む）
+    encoded = tokenizer(text, return_tensors="pt")
+    print(f"Encoding result: {encoded}")
+
+    # 4. 解码
+    decoded = tokenizer.decode(encoded["input_ids"][0])
+    print(f"Decoding result: {decoded}")
+
+# 特殊トークン情報
+def tokenizer_special_tokens():
+    tokenizer = AutoTokenizer.from_pretrained("bert-base-chinese")
+    print(f"CLS map: {tokenizer.cls_token}")
+    print(f"SEP map: {tokenizer.sep_token}")
+    print(f"tokenizer length: {len(tokenizer)}")
+    print(f"spcial token map: {tokenizer.special_tokens_map}")
+
+# バッチ・長文処理
+def batch_and_long_text_processing():
+    tokenizer = AutoTokenizer.from_pretrained("bert-base-chinese")
+    texts = ["this is the first text", "this is the second text"]
+    batch_encoding = tokenizer(texts, padding=True, truncation=True, return_tensors="pt")
+    print(f"batch processing result: {batch_encoding}")
+
+    long_text = "this is a " + "very very very very very very very very very very " * 50 + "long text。"""
+    truncated = tokenizer(long_text, max_length=128, truncation=True)
+    print(f"Result: {truncated['input_ids']}")
+
+# 実行例
+if __name__ == "__main__":
+    tokenizer_basics()
+    tokenizer_special_tokens()
+    batch_and_long_text_processing()
+```
 
 
 ### 実用的な設定と最適化技法
