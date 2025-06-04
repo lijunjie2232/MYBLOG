@@ -18,7 +18,7 @@
 
 [x] warmup and cosine annealing
 
-[ ] timm
+[x] timm
 
 [ ] transformers
 
