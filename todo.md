@@ -46,6 +46,20 @@
 
 [ ] whisper
 
+# face
+
+[ ] MTCNN
+
+[ ] RetinaFace
+
+[ ] SCRFD
+
+[ ] SDUNets
+
+[ ] Partial FC
+
+[ ] arcface
+
 # lightning model
 
 [ ] mobilenet
