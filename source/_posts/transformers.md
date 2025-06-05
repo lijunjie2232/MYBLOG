@@ -35,6 +35,15 @@ description: Transformers は、PyTorch, TensorFlow, JAX に対応した機械�
         - [バッチ処理と長文対応](#%E3%83%90%E3%83%83%E3%83%81%E5%87%A6%E7%90%86%E3%81%A8%E9%95%B7%E6%96%87%E5%AF%BE%E5%BF%9C)
       - [実装例](#%E5%AE%9F%E8%A3%85%E4%BE%8B)
     - [Models](#models)
+      - [文書分類（Sequence Classification）](#%E6%96%87%E6%9B%B8%E5%88%86%E9%A1%9Esequence-classification)
+      - [質問応答（Question Answering）](#%E8%B3%AA%E5%95%8F%E5%BF%9C%E7%AD%94question-answering)
+      - [主なモデルクラス一覧](#%E4%B8%BB%E3%81%AA%E3%83%A2%E3%83%87%E3%83%AB%E3%82%AF%E3%83%A9%E3%82%B9%E4%B8%80%E8%A6%A7)
+      - [実装フローまとめ](#%E5%AE%9F%E8%A3%85%E3%83%95%E3%83%AD%E3%83%BC%E3%81%BE%E3%81%A8%E3%82%81)
+    - [Configuration](#configuration)
+      - [基本設定のロードと確認](#%E5%9F%BA%E6%9C%AC%E8%A8%AD%E5%AE%9A%E3%81%AE%E3%83%AD%E3%83%BC%E3%83%89%E3%81%A8%E7%A2%BA%E8%AA%8D)
+      - [カスタム設定の作成](#%E3%82%AB%E3%82%B9%E3%82%BF%E3%83%A0%E8%A8%AD%E5%AE%9A%E3%81%AE%E4%BD%9C%E6%88%90)
+      - [設定の保存と再読み込み](#%E8%A8%AD%E5%AE%9A%E3%81%AE%E4%BF%9D%E5%AD%98%E3%81%A8%E5%86%8D%E8%AA%AD%E3%81%BF%E8%BE%BC%E3%81%BF)
+      - [主な設定パラメータ一覧](#%E4%B8%BB%E3%81%AA%E8%A8%AD%E5%AE%9A%E3%83%91%E3%83%A9%E3%83%A1%E3%83%BC%E3%82%BF%E4%B8%80%E8%A6%A7)
     - [実用的な設定と最適化技法](#%E5%AE%9F%E7%94%A8%E7%9A%84%E3%81%AA%E8%A8%AD%E5%AE%9A%E3%81%A8%E6%9C%80%E9%81%A9%E5%8C%96%E6%8A%80%E6%B3%95)
       - [モデルロード時の最適化](#%E3%83%A2%E3%83%87%E3%83%AB%E3%83%AD%E3%83%BC%E3%83%89%E6%99%82%E3%81%AE%E6%9C%80%E9%81%A9%E5%8C%96)
       - [バッチ処理の最適化](#%E3%83%90%E3%83%83%E3%83%81%E5%87%A6%E7%90%86%E3%81%AE%E6%9C%80%E9%81%A9%E5%8C%96)
@@ -358,8 +367,179 @@ if __name__ == "__main__":
 ```
 
 ### Models
+HuggingFace Transformers では、**モデル (`Model`) が推論や学習の中心となるコンポーネント**です。  
+このライブラリは、さまざまなタスクに対応する統一されたインターフェースを提供しており、以下のような主要なクラスがあります：
+
+- `AutoModel`: 基本的なモデル構造（すべてのタスクに汎用的に使用可能）
+- タスク特化型モデル:
+  - `AutoModelForSequenceClassification`: 文章分類
+  - `AutoModelForQuestionAnswering`: 質問応答
+  - `AutoModelForTokenClassification`: 固有表現抽出（NER）
+  - `AutoModelForSeq2SeqLM`: シーケンス生成（翻訳・要約など）
+
+#### 文書分類（Sequence Classification）
+
+BERTなどのモデルを使って文書の感情極性（ポジティブ/ネガティブ）などを分類できます。
+
+```python
+from transformers import AutoModelForSequenceClassification
+import torch
+
+def text_classification_example():
+    # 分類用モデルのロード（ラベル数=2）
+    model = AutoModelForSequenceClassification.from_pretrained("bert-base-chinese", num_labels=2)
+
+    # 入力テキスト
+    text = "この商品は非常に便利です。"
+    inputs = tokenizer(text, return_tensors="pt")
+
+    # 推論
+    outputs = model(**inputs)
+    probabilities = torch.softmax(outputs.logits, dim=-1)
+
+    print(f"Result: {probabilities}")
+```
+
+#### 質問応答（Question Answering）
+
+BERTベースの QA モデルを使用して、ある文章の中から質問に対する答えを抽出します。
+
+```python
+from transformers import AutoModelForQuestionAnswering
+
+def question_answering_example():
+    # 質問応答モデルのロード
+    model = AutoModelForQuestionAnswering.from_pretrained("bert-base-chinese")
+
+    # 質問と上下文
+    context = "This is an apple. Apple is a fruit."
+
+    question = "What is this?"
+
+    # 入力をエンコード
+    inputs = tokenizer(question, context, return_tensors="pt")
+
+    # 推論
+    outputs = model(**inputs)
+
+    start_index = torch.argmax(outputs.start_logits)
+    end_index = torch.argmax(outputs.end_logits)
+
+    answer = tokenizer.decode(inputs["input_ids"][0][start_index:end_index+1])
+    print(f"答案: {answer}")
+```
+
+#### 主なモデルクラス一覧
+
+| クラス名                             | 使用用途                       |
+| ------------------------------------ | ------------------------------ |
+| `AutoModel`                          | 一般的なシーケンス表現の取得   |
+| `AutoModelForSequenceClassification` | 文章分類（感情分析など）       |
+| `AutoModelForQuestionAnswering`      | 質問応答（SQuADなど）          |
+| `AutoModelForTokenClassification`    | 固有表現抽出（NER）            |
+| `AutoModelForSeq2SeqLM`              | シーケンス間変換（翻訳、要約） |
+| `AutoModelForCausalLM`               | 言語生成（GPT系）              |
 
 
+#### 実装フローまとめ
+
+1. **分詞器のロード**: `AutoTokenizer.from_pretrained(...)`
+2. **モデルのロード**: `AutoModel.from_pretrained(...)` or タスク専用モデル
+3. **入力処理**: `tokenizer(text, return_tensors="pt")`
+4. **推論実行**: `model(**inputs)`
+5. **結果の解釈**: logits, hidden states, etc.
+
+
+### Configuration
+
+`Configuration` は HuggingFace Transformers における **モデル構造と挙動を定義するための重要なコンポーネント**です。  
+このクラスを使用すると：
+
+- モデルの基本的なパラメータ（層数、隠れ層のサイズなど）を確認できます。
+- タスクやリソースに応じてカスタム構成を作成できます。
+- 設定を保存・再利用することで、複数環境での一貫性を維持できます。
+
+#### 基本設定のロードと確認
+
+各事前学習済みモデルには、そのモデルに関するデフォルト設定が含まれています。  
+この設定は `AutoConfig.from_pretrained(...)` を使って取得できます。
+
+```python
+from transformers import AutoConfig
+
+def load_model_config():
+    # 事前学習済みモデルの設定をロード
+    config = AutoConfig.from_pretrained("bert-base-chinese")
+
+    # 主なパラメータの表示
+    print(f"隐藏层大小: {config.hidden_size}")              # 隠れ層の次元数
+    print(f"注意力头数: {config.num_attention_heads}")      # 注意力ヘッド数
+    print(f"隐藏层数量: {config.num_hidden_layers}")        # Transformer 層数
+    print(f"最大位置编码: {config.max_position_embeddings}")# 最大シーケンス長
+```
+
+> このような設定情報は、モデルの性能やメモリ使用量に影響を与えるため、**タスクに合わせた調整が必要**です。
+
+#### カスタム設定の作成
+
+特定の用途や制約（例：少ないGPUメモリ、高速推論）に合わせて、**モデル構造を変更した独自の設定**を作成できます。
+
+```python
+from transformers import PretrainedConfig, AutoModel
+
+def create_custom_config():
+    # カスタム設定の作成
+    custom_config = PretrainedConfig(
+        vocab_size=21128,                # 語彙数
+        hidden_size=512,                 # 隠れ層のサイズ（小さめ）
+        num_hidden_layers=6,             # 層数を減らして軽量化
+        num_attention_heads=8,           # 注意力ヘッド数も減らす
+        intermediate_size=2048,          # 中間層のサイズ
+        max_position_embeddings=256,     # 最大シーケンス長を短く
+    )
+
+    # カスタム設定でモデルを初期化
+    model = AutoModel.from_config(custom_config)
+    print(f"モデル配置情報: {model.config}")
+```
+
+> このようにして、小さなモデルや軽量モデルをゼロから構築することが可能です。
+
+#### 設定の保存と再読み込み
+
+カスタム設定をファイルに保存することで、**後で再利用したり共有したり**できます。
+
+```python
+def save_and_load_config():
+    # 事前学習済み設定をロード
+    config = AutoConfig.from_pretrained("bert-base-chinese")
+
+    # 必要に応じて設定を変更
+    config.hidden_dropout_prob = 0.2
+    config.attention_probs_dropout_prob = 0.2
+
+    # 設定をディレクトリに保存
+    config.save_pretrained("./custom_config")
+
+    # 保存した設定を再ロード
+    new_config = AutoConfig.from_pretrained("./custom_config")
+    print(f"加载的配置: {new_config}")
+```
+
+> これにより、訓練済みモデルと同様に、**設定ファイル（config.json）として保存・共有**できます。
+
+#### 主な設定パラメータ一覧
+
+| パラメータ名                   | 内容                      |
+| ------------------------------ | ------------------------- |
+| `vocab_size`                   | 語彙数                    |
+| `hidden_size`                  | 隠れ層の次元数            |
+| `num_hidden_layers`            | Transformer 層の数        |
+| `num_attention_heads`          | 注意力ヘッド数            |
+| `intermediate_size`            | Feed-forward 層の中間次元 |
+| `max_position_embeddings`      | 最大シーケンス長          |
+| `hidden_dropout_prob`          | ドロップアウト率          |
+| `attention_probs_dropout_prob` | 注意力ドロップアウト率    |
 
 ### 実用的な設定と最適化技法
 
@@ -400,7 +580,6 @@ def batch_process(texts: List[str], batch_size: int, max_length: int) -> List[Li
     
     return [processed_texts[i:i+batch_size] for i in range(0, len(processed_texts), batch_size)]
 ```
-
 
 
 ### 参考
