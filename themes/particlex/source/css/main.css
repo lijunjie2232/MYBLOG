@@ -554,6 +554,10 @@
     word-wrap: break-word;
 }
 
+.article-wrap { 
+    
+}
+
 .article {
     font-size: 15px;
     margin: auto;

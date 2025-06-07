@@ -98,8 +98,8 @@ ignore:
 ## Plugins: https://hexo.io/plugins/
 ## Themes: https://hexo.io/themes/
 # theme: particlexmod
-theme: particlex
-# theme: redefine
+# theme: particlex
+theme: redefine
 
 
 # Deployment
