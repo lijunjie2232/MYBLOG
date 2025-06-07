@@ -20,7 +20,7 @@
 
 [x] timm
 
-[ ] transformers
+[x] transformers
 
 [ ] Tensor Parallelism
 
