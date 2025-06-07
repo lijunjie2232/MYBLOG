@@ -99,7 +99,7 @@
 }
 
 #home-card #card-style {
-    background: rgb(255, 255, 255, 0.9);
+    background: rgb(255, 255, 255, 0.8);
     border: none;
     border-radius: 10px;
     box-shadow: 0 0 20px #d9d9d980;
@@ -287,7 +287,7 @@
 }
 
 #home-posts .post {
-    background: rgb(255, 255, 255, 0.9);
+    background: rgb(255, 255, 255, 0.95);
     border-radius: 20px;
     box-shadow: 0 0 20px #d9d9d980;
     transition: box-shadow 0.25s, transform 0.25s;
