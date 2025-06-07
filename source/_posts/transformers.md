@@ -1,5 +1,5 @@
 ---
-title: Transformers　フレームワーク
+title: Huggingface Transformers
 date: 2024-3-30 17:10:00
 categories: [AI]
 tags: [Deep Learning, transformers, 機械学習, AI, 人工知能, 深層学習]
