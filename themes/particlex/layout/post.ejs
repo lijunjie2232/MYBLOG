@@ -1,5 +1,5 @@
-<div class="article-wrap">
-    <div class="article">
+<div class="article-wrap" id="article-wrap">
+    <div class="article" id="article">
         <div>
             <h1><%= page.title %></h1>
         </div>
@@ -57,7 +57,7 @@
             <div class="content" ref="content" v-show="cryptoStatus === 'success'"></div>
         </transition>
         <% } else { %>
-        <div class="content" v-pre>
+        <div class="content" v-pre id="content">
             <%- page.content %>
         </div>
         <% } %>
@@ -83,5 +83,8 @@
         </div>
         <% } %>
         <% } %>
+    </div>
+    <div class="aside-content" id="aside-content">
+        <%- partial("aside") %>
     </div>
 </div>

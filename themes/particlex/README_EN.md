@@ -51,7 +51,7 @@ Note: The style adjustments reflect my personal aesthetic preferences only. If y
 
 -   [x] Fix math rendering
 -   [x] Set homepage background to `fixed`
--   [ ] Add table of contents
+-   [x] Add table of contents
 
 ---
 

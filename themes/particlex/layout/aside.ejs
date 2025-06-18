@@ -1,0 +1,35 @@
+<div class="card-widget card-info text-center">
+    <div class="avatar-img">
+        <img src="/images/avatar.jpeg" alt="avatar" />
+    </div>
+    <div class="author-info-name">lijunjie2232</div>
+    <div class="author-info-description">個人技術ブログ</div>
+    <div class="site-data"><a href="/archives/">
+            <div class="headline">記事</div>
+            <div class="length-num">18</div>
+        </a><a href="/tags/">
+            <div class="headline">タグ</div>
+            <div class="length-num">19</div>
+        </a><a href="/categories/">
+            <div class="headline">カテゴリ</div>
+            <div class="length-num">3</div>
+        </a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/lijunjie2232"><i
+            class="fab fa-github"></i><span> My Github</span></a>
+</div>
+<div class="sticky_layout" id="aside-toc" :class="{ hidden: hiddenMenu }">
+    <div class="card-widget" id="card-toc">
+        <div class="item-headline"><i class="fas fa-stream"></i><span>目次</span><span class="toc-percentage"
+                id="toc-percentage">0</span>
+        </div>
+        <div class="toc-content" id="toc-content" style="display: block;" :class="{ hidden: hiddenMenu }">
+        </div>
+    </div>
+</div>
+
+<script>
+    const isToc = <%= theme.toc.enable %>;
+    const isAnchor = <%= theme.anchor.enable %>;
+    const isTocPercent = <%= theme.toc.percentage %>;
+</script>
+
+<script src="<%- url_for('/js/aside.js') %>"></script>

@@ -25,6 +25,59 @@
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0"
     />
     <link rel="icon" href="<%- url_for(theme.avatar) %>" />
+
+    <script>
+        const saveToLocal = {
+            set: (key, value, ttl) => {
+                if (!ttl) return
+                const expiry = Date.now() + ttl * 86400000
+                localStorage.setItem(key, JSON.stringify({ value, expiry }))
+            },
+            get: key => {
+                const itemStr = localStorage.getItem(key)
+                if (!itemStr) return undefined
+                const { value, expiry } = JSON.parse(itemStr)
+                if (Date.now() > expiry) {
+                    localStorage.removeItem(key)
+                    return undefined
+                }
+                return value
+            }
+        }
+        window.btf = {
+            saveToLocal,
+            getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+                const script = document.createElement('script')
+                script.src = url
+                script.async = true
+                Object.entries(attr).forEach(([key, val]) => script.setAttribute(key, val))
+                script.onload = script.onreadystatechange = () => {
+                    if (!script.readyState || /loaded|complete/.test(script.readyState)) resolve()
+                }
+                script.onerror = reject
+                document.head.appendChild(script)
+            }),
+            getCSS: (url, id) => new Promise((resolve, reject) => {
+                const link = document.createElement('link')
+                link.rel = 'stylesheet'
+                link.href = url
+                if (id) link.id = id
+                link.onload = link.onreadystatechange = () => {
+                    if (!link.readyState || /loaded|complete/.test(link.readyState)) resolve()
+                }
+                link.onerror = reject
+                document.head.appendChild(link)
+            }),
+            addGlobalFn: (key, fn, name = false, parent = window) => {
+                if (!<%= theme.pjax.enable %> && key.startsWith('pjax')) return
+                const globalFn = parent.globalFn || {}
+                globalFn[key] = globalFn[key] || {}
+                globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+                parent.globalFn = globalFn
+            }
+        }
+    </script>
+    <!-- <script src="<%- url_for('/js/utils.js') %>"></script> -->
     <%- partial("import", { type }) %>
 </head>
 <body>
@@ -51,9 +104,12 @@
         </transition>
         <% } %>
     </div>
-    <script src="<%- url_for("/js/main.js") %>"></script>
+    <script src="<%- url_for('/js/main.js') %>"></script>
     <% if (type === "post" && page.comments) { %>
     <%- partial("comment") %>
+    <% } %>
+    <% if (theme.pjax.enable) { %>
+        <script src="<%- url_for('/js/lib/pjax.js') %>"></script>
     <% } %>
 </body>
 </html>
