@@ -108,7 +108,7 @@
 
 # generative model
 
-[ ] GAN
+[x] GAN
 
 [ ] Autoencoder
 
