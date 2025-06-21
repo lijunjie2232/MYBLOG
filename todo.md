@@ -110,8 +110,14 @@
 
 [ ] GAN
 
+[ ] Autoencoder
+
+[ ] VAE
+
+[ ] diffusion model
+
 [ ] stylegan
 
-[ ] stable diffusion
-
 [ ] controlnet
+
+[ ] DALLE
