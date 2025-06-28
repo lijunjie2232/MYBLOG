@@ -68,6 +68,31 @@ $$
 - 異常検知（再構成誤差が大きい＝異常）
 - 特徴抽出（潜在空間 $ z $ を他のタスクに利用）
 
+### コード例
+
+```python
+import torch
+import torch.nn as nn
+
+class Autoencoder(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.encoder = nn.Sequential(
+            nn.Linear(784, 256),
+            nn.ReLU(),
+            nn.Linear(256, 64)
+        )
+        self.decoder = nn.Sequential(
+            nn.Linear(64, 256),
+            nn.ReLU(),
+            nn.Linear(256, 784)
+        )
+
+    def forward(self, x):
+        z = self.encoder(x)
+        return self.decoder(z)
+```
+
 ## DAE(Denoising Autoencode)
 
 DAE（**Denoising Autoencoder**）は、**ノイズ除去**を目的としたオートエンコーダー（Autoencoder）の一種です。通常のオートエンコーダーとは異なり、**意図的にノイズを加えた入力データ**から、**ノイズを取り除いた元のデータを再構成する**ように学習します。
@@ -114,4 +139,99 @@ DAE（**Denoising Autoencoder**）は、**ノイズ除去**を目的としたオ
   \mathcal{L} = \|x - \hat{x}\|_2^2
   $$
 
-## VAE(Variational Autoencoder)
+### 実装例
+
+```python
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+class DenoisingAutoencoder(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.encoder = nn.Sequential(
+            nn.Linear(784, 256),
+            nn.ReLU()
+        )
+        self.decoder = nn.Sequential(
+            nn.Linear(256, 784),
+            nn.Sigmoid()
+        )
+
+    def forward(self, x):
+        z = self.encoder(x)
+        return self.decoder(z)
+
+# ノイズを加える例（訓練時）
+def add_noise(x, noise_factor=0.2):
+    return x + noise_factor * torch.randn_like(x)
+
+# 使用例
+model = DenoisingAutoencoder()
+x_clean = ... # clean image tensor
+x_noisy = add_noise(x_clean)
+x_recon = model(x_noisy)
+
+loss = F.mse_loss(x_recon, x_clean)  # 損失計算
+```
+
+## DAE vs 普通の AE の違い
+
+| 項目     | 普通の Autoencoder     | Denoising Autoencoder          |
+| -------- | ---------------------- | ------------------------------ |
+| 入力     | 生データ $ x $         | ノイズ付きデータ $ \tilde{x} $ |
+| 出力     | 再構成データ $ x' $    | 元の生データ $ x $             |
+| 学習目標 | データの圧縮・再構成   | ノイズ除去                     |
+| 特徴     | 潜在空間に構造を捉える | ノイズに頑健な表現を学ぶ       |
+
+
+
+## 変分オートエンコーダー（Variational Autoencoder, VAE）
+
+VAE とは、対数尤度を最大化するように学習するオートエンコーダーのことです。
+**新しいデータを生成できるのが大きな特徴です。**
+
+### AEとの違い
+
+| 項目           | Autoencoder                | VAE                                |
+| -------------- | -------------------------- | ---------------------------------- |
+| 学習方法       | 再構成誤差最小化           | ELBO最大化（再構成誤差 + KL散逸）  |
+| 潜在空間       | 固定値                     | 確率分布（μ, σ）                   |
+| データ生成能力 | ×                          | ◯                                  |
+| 応用先         | 圧縮、ノイズ除去、異常検知 | 生成モデル、画像生成、潜在空間探索 |
+
+
+### 実装例
+```python
+class VAE(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.fc1 = nn.Linear(784, 400)
+        self.fc21 = nn.Linear(400, 20)  # mu
+        self.fc22 = nn.Linear(400, 20)  # logvar
+        self.fc3 = nn.Linear(20, 400)
+        self.fc4 = nn.Linear(400, 784)
+
+    def encode(self, x):
+        h1 = torch.relu(self.fc1(x))
+        return self.fc21(h1), self.fc22(h1)
+
+    def reparameterize(self, mu, logvar):
+        std = torch.exp(0.5*logvar)
+        eps = torch.randn_like(std)
+        return mu + eps*std
+
+    def decode(self, z):
+        h3 = torch.relu(self.fc3(z))
+        return torch.sigmoid(self.fc4(h3))
+
+    def forward(self, x):
+        mu, logvar = self.encode(x)
+        z = self.reparameterize(mu, logvar)
+        return self.decode(z), mu, logvar
+
+def loss_function(recon_x, x, mu, logvar):
+    BCE = torch.nn.functional.binary_cross_entropy(recon_x, x.view(-1, 784), reduction='sum')
+    KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+    return BCE + KLD
+```
