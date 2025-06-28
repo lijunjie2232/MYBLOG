@@ -385,3 +385,154 @@ def loss_function(recon_x, x, mu, logvar):
 
 ## VAE 実装
 
+### 環境構築
+```shell
+pip install torch torchvision torchbearer matplotlib numpy
+```
+
+```python
+import os
+import numpy as np
+import matplotlib.pyplot as plt
+%matplotlib inline  # Jupyter Notebook上でプロットを表示するため
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+
+import torchvision
+from torchvision import transforms
+from torchvision.utils import make_grid
+from torchvision.datasets import FashionMNIST
+
+import torchbearer
+import torchbearer.callbacks as callbacks
+from torchbearer import Trial, state_key
+```
+
+### データの前処理
+
+```python
+transform = transforms.Compose([transforms.ToTensor()])  # Tensor型へ変換
+
+# FashionMNISTデータセットをダウンロード
+trainset = FashionMNIST(root='../', train=True, transform=transform)
+testset = FashionMNIST(root='../', train=False, transform=transform)
+
+# DataLoaderでミニバッチを生成
+traingen = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=8)
+testgen = torch.utils.data.DataLoader(testset, batch_size=128, shuffle=False, num_workers=8)
+```
+
+### モデルの構築
+
+```python
+MU = state_key('mu')         # 潜在空間の平均値(mu)を保存するキー
+LOGVAR = state_key('logvar') # 潜在空間の対数分散(logvar)を保存するキー
+
+
+class VAE(nn.Module):
+    def __init__(self, latent_size):
+        super(VAE, self).__init__()
+        self.latent_size = latent_size
+
+        self.encoder = nn.Sequential(
+            nn.Conv2d(1, 32, 4, 1, 2),   # B,  32, 28, 28
+            nn.ReLU(True),
+            nn.Conv2d(32, 32, 4, 2, 1),  # B,  32, 14, 14
+            nn.ReLU(True),
+            nn.Conv2d(32, 64, 4, 2, 1),  # B,  64,  7, 7
+        )
+        
+        self.mu = nn.Linear(64 * 7 * 7, latent_size)
+        self.logvar = nn.Linear(64 * 7 * 7, latent_size)
+        
+        self.upsample = nn.Linear(latent_size, 64 * 7 * 7)
+        self.decoder = nn.Sequential(
+            nn.ConvTranspose2d(64, 32, 4, 2, 1), # B,  64,  14,  14
+            nn.ReLU(True),
+            nn.ConvTranspose2d(32, 32, 4, 2, 1, 1), # B,  32, 28, 28
+            nn.ReLU(True),
+            nn.ConvTranspose2d(32, 1, 4, 1, 2)   # B, 1, 28, 28
+        )
+
+    def reparameterize(self, mu, logvar):
+        if self.training:
+            std = torch.exp(0.5*logvar)
+            eps = torch.randn_like(std)
+            return eps.mul(std).add_(mu)
+        else:
+            return mu
+
+    def forward(self, x, state):
+        image = x
+        x = self.encoder(x).relu().view(x.size(0), -1)
+        
+        mu = self.mu(x)
+        logvar = self.logvar(x)
+        sample = self.reparameterize(mu, logvar)
+        
+        result = self.decoder(self.upsample(sample).relu().view(-1, 64, 7, 7))
+        
+        if state is not None:
+            state[torchbearer.Y_TRUE] = image
+            state[MU] = mu
+            state[LOGVAR] = logvar
+        
+        return result
+```
+- 入力画像をエンコーダー→潜在変数→デコーダーで再構成。
+- state に中間結果を保存して損失計算などに利用。
+
+
+### 損失関数の定義
+- β倍のKL項を加えることで潜在空間の学習を制御（β-VAEのような挙動）。
+```python
+def beta_kl(mu_key, logvar_key, beta=5):
+    @callbacks.add_to_loss
+    def callback(state):
+        mu = state[mu_key]
+        logvar = state[logvar_key]
+        return -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp()) * beta
+    return callback
+```
+
+### visualization
+- 学習中に再構成画像を定期的に表示して進捗を確認。
+```python
+def plot_progress(key=torchbearer.Y_PRED, num_images=100, nrow=10):
+    @callbacks.on_step_validation
+    @callbacks.once_per_epoch
+    def callback(state):
+        images = state[key]
+        image = make_grid(images[:num_images], nrow=nrow, normalize=True)[0, :, :]
+        plt.imshow(image.detach().cpu().numpy(), cmap="gray")
+        plt.show()
+    
+    return callback
+```
+
+### モデルの学習
+```python
+model = VAE(latent_size=10)
+optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=5e-4)
+trial = Trial(model, optimizer, nn.MSELoss(reduction='sum'), metrics=['acc', 'loss'], callbacks=[
+    beta_kl(MU, LOGVAR),
+    callbacks.ConsolePrinter(),
+    plot_progress()
+], verbose=1).with_generators(train_generator=traingen, test_generator=testgen)
+trial.to('cuda')     # GPU使用設定
+trial.run(20)        # 20エポック学習
+trial.evaluate(verbose=0, data_key=torchbearer.TEST_DATA)
+```
+- MSE Loss：再構成誤差を最小化。
+- beta_kl：KL項を追加。
+- plot_progress：毎エポックごとに画像を表示。
+- ConsolePrinter：ログ出力。
+- trial.to('cuda')：GPUでの高速処理を有効化。
+
+### 結果のビジュアライゼーション
+
+![VAE data](/assert/AutoEncoder_and_VAE/vae_result.png)
+
