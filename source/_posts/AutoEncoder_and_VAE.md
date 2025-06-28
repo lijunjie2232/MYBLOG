@@ -191,6 +191,10 @@ loss = F.mse_loss(x_recon, x_clean)  # 損失計算
 VAE とは、対数尤度を最大化するように学習するオートエンコーダーのことです。
 **新しいデータを生成できるのが大きな特徴です。**
 
+![VAE](/assert/AutoEncoder_and_VAE/VAE.png)
+
+
+
 ### AEとの違い
 
 | 項目           | Autoencoder                | VAE                                |
@@ -201,19 +205,68 @@ VAE とは、対数尤度を最大化するように学習するオートエン�
 | 応用先         | 圧縮、ノイズ除去、異常検知 | 生成モデル、画像生成、潜在空間探索 |
 
 
+
+### VAEの目的関数：ELBO（Evidence Lower Bound）
+
+VAEの学習目標は、対数尤度 $ \log p(x) $ を最大化することですが、直接計算は困難です。そのため、**ELBO（Evidence Lower Bound）** を最大化します。
+
+$$
+\log p(x) \geq \mathbb{E}_{q(z|x)}[\log p(x|z)] - D_{KL}(q(z|x) \| p(z))
+$$
+
+この右辺が ELBO であり、次のように分解されます：
+
+1. **再構成損失（Reconstruction Loss）**  
+   $$
+   \mathbb{E}_{q(z|x)}[\log p(x|z)]
+   $$
+
+   - デコーダーが出力する $ x' $ がどれだけ $ x $ に近いかを評価。
+   - 実装上は BCE（Binary Cross Entropy）や MSE を使用。
+
+2. **KL散逸（KL Divergence）**  
+   $$
+   D_{KL}(q(z|x) \| p(z))
+   $$
+
+   - 潜在変数の分布 $ q(z|x) $ が事前分布 $ p(z) $（通常は標準正規分布）に近づくように制約を与える。
+
+### 直感的な理解
+
+- **普通のAutoencoder**：入力 $ x $ → 固定値 $ z $ → 再構成 $ x' $
+- **VAE**：入力 $ x $ → 正規分布 $ (\mu, \sigma) $ → $ z $ をサンプリング → 再構成 $ x' $
+
+> **例**：顔画像を入力すると、VAE は「笑顔の強さ」「髪型」「年齢」などの特徴を表す**確率分布**として潜在空間に表現します。デコーダーはその分布からランダムに値を取り出し、**新しい顔画像を生成**できます。
+
+
+### VAEの利点・応用
+
+- **滑らかな潜在空間**：隣接する $ z $ 値は似たような出力を生成。
+- **新規データ生成**：潜在空間からのサンプリングで新しいデータを生成可能。
+- **内挿・外挿**：潜在空間上で線形補間することで、中間的なデータを生成。
+- **応用分野**：
+  - 画像生成（例：顔、風景）
+  - 音声合成
+  - 半教師あり学習
+  - 異常検知（KL項 or 再構成誤差を利用）
+
 ### 実装例
 ```python
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
 class VAE(nn.Module):
     def __init__(self):
         super().__init__()
         self.fc1 = nn.Linear(784, 400)
         self.fc21 = nn.Linear(400, 20)  # mu
-        self.fc22 = nn.Linear(400, 20)  # logvar
+        self.fc22 = nn.Linear(400, 20)  # log-variance
         self.fc3 = nn.Linear(20, 400)
         self.fc4 = nn.Linear(400, 784)
 
     def encode(self, x):
-        h1 = torch.relu(self.fc1(x))
+        h1 = F.relu(self.fc1(x))
         return self.fc21(h1), self.fc22(h1)
 
     def reparameterize(self, mu, logvar):
@@ -222,7 +275,7 @@ class VAE(nn.Module):
         return mu + eps*std
 
     def decode(self, z):
-        h3 = torch.relu(self.fc3(z))
+        h3 = F.relu(self.fc3(z))
         return torch.sigmoid(self.fc4(h3))
 
     def forward(self, x):
@@ -231,7 +284,7 @@ class VAE(nn.Module):
         return self.decode(z), mu, logvar
 
 def loss_function(recon_x, x, mu, logvar):
-    BCE = torch.nn.functional.binary_cross_entropy(recon_x, x.view(-1, 784), reduction='sum')
+    BCE = F.binary_cross_entropy(recon_x, x, reduction='sum')
     KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
     return BCE + KLD
 ```
