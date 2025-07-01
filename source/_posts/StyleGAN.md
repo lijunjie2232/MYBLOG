@@ -4,10 +4,65 @@ date: 2024-4-8 11:15:00
 categories: [AI]
 tags: [Deep Learning, PyTorch, Python, 機械学習, AI, 人工知能, 深層学習, 生成AI, 画像生成]
 lang: ja
-description: StyleGANシリーズの画像生成技術について解説します。この記事は、StyleGANの歴史、アーキテクチャ、主な特徴、そして実装方法を網羅的に紹介します。
+description: StyleGANシリーズ（v1～v3）は、NVIDIAによって開発された高品質な顔画像生成を目的としたGAN（敵対的生成ネットワーク）のアーキテクチャで、特にスタイルベースの生成器構造を採用することで、画像の視覚的特徴をより細かく制御可能にした点が特徴です。v1では潜在空間を分離し、各レイヤーでAdaINを通じてスタイル情報を注入する手法を導入し、v2では水滴状アーティファクトの解消や正則化手法の導入により画像品質を向上させました。さらにv3では、生成画像における「テクスチャが画面上に固定される」問題に対処し、畳み込みネットワークの等変性（平移・回転に対する一貫性）を理論的に保証する設計へと進化させ、自然でリアルな画像生成を実現しています。このシリーズは画像生成技術の基盤として広く応用され、FIDやPPLなどの評価指標を用いてその性能が検証されています。
 ---
 
 ## 目次
+- [目次](#%E7%9B%AE%E6%AC%A1)
+- [AdaIN（自適応インスタンス正規化）](#adain%E8%87%AA%E9%81%A9%E5%BF%9C%E3%82%A4%E3%83%B3%E3%82%B9%E3%82%BF%E3%83%B3%E3%82%B9%E6%AD%A3%E8%A6%8F%E5%8C%96)
+  - [数式による定義](#%E6%95%B0%E5%BC%8F%E3%81%AB%E3%82%88%E3%82%8B%E5%AE%9A%E7%BE%A9)
+  - [特徴](#%E7%89%B9%E5%BE%B4)
+  - [ネットワーク構造](#%E3%83%8D%E3%83%83%E3%83%88%E3%83%AF%E3%83%BC%E3%82%AF%E6%A7%8B%E9%80%A0)
+  - [損失関数](#%E6%90%8D%E5%A4%B1%E9%96%A2%E6%95%B0)
+- [StyleGAN v1](#stylegan-v1)
+  - [概要](#%E6%A6%82%E8%A6%81)
+  - [アーキテクチャの主な特徴](#%E3%82%A2%E3%83%BC%E3%82%AD%E3%83%86%E3%82%AF%E3%83%81%E3%83%A3%E3%81%AE%E4%B8%BB%E3%81%AA%E7%89%B9%E5%BE%B4)
+    - [デュアルネットワーク構造](#%E3%83%87%E3%83%A5%E3%82%A2%E3%83%AB%E3%83%8D%E3%83%83%E3%83%88%E3%83%AF%E3%83%BC%E3%82%AF%E6%A7%8B%E9%80%A0)
+    - [スタイルベースの生成器 (Style-based Generator)](#%E3%82%B9%E3%82%BF%E3%82%A4%E3%83%AB%E3%83%99%E3%83%BC%E3%82%B9%E3%81%AE%E7%94%9F%E6%88%90%E5%99%A8-style-based-generator)
+    - [ランダムノイズの導入（Stochastic Variation）](#%E3%83%A9%E3%83%B3%E3%83%80%E3%83%A0%E3%83%8E%E3%82%A4%E3%82%BA%E3%81%AE%E5%B0%8E%E5%85%A5stochastic-variation)
+  - [訓練方法と損失関数](#%E8%A8%93%E7%B7%B4%E6%96%B9%E6%B3%95%E3%81%A8%E6%90%8D%E5%A4%B1%E9%96%A2%E6%95%B0)
+  - [FID（Fréchet Inception Distance）](#fidfr%C3%A9chet-inception-distance)
+    - [計算方法](#%E8%A8%88%E7%AE%97%E6%96%B9%E6%B3%95)
+  - [二つの量化解離度（Latent Space Disentanglement）の方法](#%E4%BA%8C%E3%81%A4%E3%81%AE%E9%87%8F%E5%8C%96%E8%A7%A3%E9%9B%A2%E5%BA%A6latent-space-disentanglement%E3%81%AE%E6%96%B9%E6%B3%95)
+    - [感知パス長（Perceptual Path Length）](#%E6%84%9F%E7%9F%A5%E3%83%91%E3%82%B9%E9%95%B7perceptual-path-length)
+      - [計算方法](#%E8%A8%88%E7%AE%97%E6%96%B9%E6%B3%95-1)
+      - [数式](#%E6%95%B0%E5%BC%8F)
+      - [解釈](#%E8%A7%A3%E9%87%88)
+    - [線形可分性（Linear Separability）](#%E7%B7%9A%E5%BD%A2%E5%8F%AF%E5%88%86%E6%80%A7linear-separability)
+      - [計算手順](#%E8%A8%88%E7%AE%97%E6%89%8B%E9%A0%86)
+      - [最終評価値](#%E6%9C%80%E7%B5%82%E8%A9%95%E4%BE%A1%E5%80%A4)
+    - [対比](#%E5%AF%BE%E6%AF%94)
+- [StyleGAN v2](#stylegan-v2)
+  - [AdaIN の置き換え：Modulation + Demodulation](#adain-%E3%81%AE%E7%BD%AE%E3%81%8D%E6%8F%9B%E3%81%88modulation--demodulation)
+    - [改良のポイント：](#%E6%94%B9%E8%89%AF%E3%81%AE%E3%83%9D%E3%82%A4%E3%83%B3%E3%83%88)
+  - [数式による表現](#%E6%95%B0%E5%BC%8F%E3%81%AB%E3%82%88%E3%82%8B%E8%A1%A8%E7%8F%BE)
+    - [重みの調製（Modulation）](#%E9%87%8D%E3%81%BF%E3%81%AE%E8%AA%BF%E8%A3%BDmodulation)
+    - [解調（Demodulation）](#%E8%A7%A3%E8%AA%BFdemodulation)
+  - [FID・P\&R の限界と PPL の重要性](#fid%E3%83%BBpr-%E3%81%AE%E9%99%90%E7%95%8C%E3%81%A8-ppl-%E3%81%AE%E9%87%8D%E8%A6%81%E6%80%A7)
+    - [PPL（Perceptual Path Length）の役割](#pplperceptual-path-length%E3%81%AE%E5%BD%B9%E5%89%B2)
+  - [正則化手法の導入](#%E6%AD%A3%E5%89%87%E5%8C%96%E6%89%8B%E6%B3%95%E3%81%AE%E5%B0%8E%E5%85%A5)
+    - [路径長正則化（Path Length Regularization）](#%E8%B7%AF%E5%BE%84%E9%95%B7%E6%AD%A3%E5%89%87%E5%8C%96path-length-regularization)
+      - [数式：](#%E6%95%B0%E5%BC%8F-1)
+    - [惰性正則化（Lazy Regularization）](#%E6%83%B0%E6%80%A7%E6%AD%A3%E5%89%87%E5%8C%96lazy-regularization)
+      - [効果：](#%E5%8A%B9%E6%9E%9C)
+  - [渐進的成長（Progressive Growing）の見直し](#%E6%B8%90%E9%80%B2%E7%9A%84%E6%88%90%E9%95%B7progressive-growing%E3%81%AE%E8%A6%8B%E7%9B%B4%E3%81%97)
+    - [題点](#%E9%A1%8C%E7%82%B9)
+    - [新しい代替設計（非漸進的）](#%E6%96%B0%E3%81%97%E3%81%84%E4%BB%A3%E6%9B%BF%E8%A8%AD%E8%A8%88%E9%9D%9E%E6%BC%B8%E9%80%B2%E7%9A%84)
+- [StyleGAN v3](#stylegan-v3)
+  - [問題の具体例：](#%E5%95%8F%E9%A1%8C%E3%81%AE%E5%85%B7%E4%BD%93%E4%BE%8B)
+  - [StyleGAN2 の限界](#stylegan2-%E3%81%AE%E9%99%90%E7%95%8C)
+  - [信号処理理論に基づく再設計](#%E4%BF%A1%E5%8F%B7%E5%87%A6%E7%90%86%E7%90%86%E8%AB%96%E3%81%AB%E5%9F%BA%E3%81%A5%E3%81%8F%E5%86%8D%E8%A8%AD%E8%A8%88)
+    - [基盤となる生成器構造の変更](#%E5%9F%BA%E7%9B%A4%E3%81%A8%E3%81%AA%E3%82%8B%E7%94%9F%E6%88%90%E5%99%A8%E6%A7%8B%E9%80%A0%E3%81%AE%E5%A4%89%E6%9B%B4)
+    - [バウンダリ拡張と理想的なアップサンプリング](#%E3%83%90%E3%82%A6%E3%83%B3%E3%83%80%E3%83%AA%E6%8B%A1%E5%BC%B5%E3%81%A8%E7%90%86%E6%83%B3%E7%9A%84%E3%81%AA%E3%82%A2%E3%83%83%E3%83%97%E3%82%B5%E3%83%B3%E3%83%97%E3%83%AA%E3%83%B3%E3%82%B0)
+    - [非線形活性化の最適化](#%E9%9D%9E%E7%B7%9A%E5%BD%A2%E6%B4%BB%E6%80%A7%E5%8C%96%E3%81%AE%E6%9C%80%E9%81%A9%E5%8C%96)
+    - [エイリアシング（Aliasing）の抑制](#%E3%82%A8%E3%82%A4%E3%83%AA%E3%82%A2%E3%82%B7%E3%83%B3%E3%82%B0aliasing%E3%81%AE%E6%8A%91%E5%88%B6)
+    - [全体的な空間変換能力の獲得](#%E5%85%A8%E4%BD%93%E7%9A%84%E3%81%AA%E7%A9%BA%E9%96%93%E5%A4%89%E6%8F%9B%E8%83%BD%E5%8A%9B%E3%81%AE%E7%8D%B2%E5%BE%97)
+    - [平移等変性のさらなる強化（T改版）](#%E5%B9%B3%E7%A7%BB%E7%AD%89%E5%A4%89%E6%80%A7%E3%81%AE%E3%81%95%E3%82%89%E3%81%AA%E3%82%8B%E5%BC%B7%E5%8C%96t%E6%94%B9%E7%89%88)
+    - [回転等変性の実現（R改版）](#%E5%9B%9E%E8%BB%A2%E7%AD%89%E5%A4%89%E6%80%A7%E3%81%AE%E5%AE%9F%E7%8F%BEr%E6%94%B9%E7%89%88)
+    - [等変性の定義](#%E7%AD%89%E5%A4%89%E6%80%A7%E3%81%AE%E5%AE%9A%E7%BE%A9)
+  - [アーキテクチャの変化](#%E3%82%A2%E3%83%BC%E3%82%AD%E3%83%86%E3%82%AF%E3%83%81%E3%83%A3%E3%81%AE%E5%A4%89%E5%8C%96)
+- [参考資料](#%E5%8F%82%E8%80%83%E8%B3%87%E6%96%99)
+
 
 ---
 
@@ -310,7 +365,7 @@ $
 - $J_w$: 生成器のヤコビ行列（Jacobian Matrix）。中間潜在コード `w` 。
 - $J^\top_w$: ヤコビ行列の転置（Transpose）。
 - $y$: RGB画像空間（3×H×W次元）に定義された**ランダムな単位ノルムベクトル**。
-- $\left\| \cdot \right\|_2: L2ノルム（ユークリッドノルム）。
+- $\left\| \cdot \right\|_2$: L2ノルム（ユークリッドノルム）。
 - $a$: 目標となる勾配スケール（通常 `a=1`）。
 
 
