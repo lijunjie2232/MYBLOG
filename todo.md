@@ -110,13 +110,13 @@
 
 [x] GAN
 
-[ ] Autoencoder
+[x] Autoencoder
 
-[ ] VAE
+[x] VAE
+
+[x] stylegan
 
 [ ] diffusion model
-
-[ ] stylegan
 
 [ ] controlnet
 
