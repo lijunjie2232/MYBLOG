@@ -14,6 +14,7 @@ description: Pythonの遅延バインディングについて解説します。
   - [コード例2](#%E3%82%B3%E3%83%BC%E3%83%89%E4%BE%8B2)
 - [解決方法1：デフォルト引数を使う](#%E8%A7%A3%E6%B1%BA%E6%96%B9%E6%B3%951%E3%83%87%E3%83%95%E3%82%A9%E3%83%AB%E3%83%88%E5%BC%95%E6%95%B0%E3%82%92%E4%BD%BF%E3%81%86)
 - [解決方法2：paritial を使う](#%E8%A7%A3%E6%B1%BA%E6%96%B9%E6%B3%952paritial-%E3%82%92%E4%BD%BF%E3%81%86)
+- [結論](#%E7%B5%90%E8%AB%96)
 
 
 ---
@@ -84,7 +85,7 @@ Python の関数や `lambda` の**デフォルト引数は定義された時点�
 `functools.partial` は Python 標準ライブラリの functools モジュールに含まれる関数で、関数の一部の引数を固定して新しい関数を作成するための機能です。
 
 ```python
->>> my_ld = [partial(lambda x, i_val: x * i, i_val=i) for i in range(3)]
+>>> my_ld = [partial(lambda x, a: x * a, a=i) for i in range(3)]
 >>> my_list = [ld(2) for ld in my_ld]
 >>> my_list
 [0, 2, 4]
@@ -95,3 +96,9 @@ Python の関数や `lambda` の**デフォルト引数は定義された時点�
 >>> my_list = [ld(2) for ld in my_ld]
 >>> my_list
 ```
+
+## 結論
+
+- **遅延バインディング**は Python 特有の挙動であり、特にループ内でクロージャや `lambda` を生成するときに注意が必要です。
+- **デフォルト引数**や `functools.partial` を使い、意図した値を確実にキャプチャしましょう。
+- 可読性・保守性を考えると、`functools.partial` の使用も検討してください。
