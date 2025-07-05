@@ -4,7 +4,7 @@ date: 2024-4-9 11:15:00
 categories: [Python]
 tags: [Python]
 lang: ja
-description: Pythonの遅延バインディングについて解説します。
+description: 遅延バインディング (late binding) についての記事です。Pythonでよく見かける問題と、それを解決する方法を紹介します。
 ---
 
 ## 目次
