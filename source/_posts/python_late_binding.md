@@ -74,7 +74,18 @@ Python の関数や `lambda` の**デフォルト引数は定義された時点�
 - 各 `lambda` はそれぞれ `a=0`, `a=1`, `a=2` を持つようになるので、期待通りの結果を得られます。
 
 ## 解決方法2：paritial を使う
-Python には `functools.partial` が用意されています。これを使うと、デフォルト引数を指定して関数をラップし、そのラップした関数を返すことができます。
+
+`functools.partial` は Python 標準ライブラリの functools モジュールに含まれる関数で、関数の一部の引数を固定して新しい関数を作成するための機能です。
 
 ```python
+>>> my_ld = [partial(lambda x, i_val: x * i, i_val=i) for i in range(3)]
+>>> my_list = [ld(2) for ld in my_ld]
+>>> my_list
+[0, 2, 4]
+```
 
+```python
+>>> my_ld = [partial(my_func, a=i) for i in range(3)]
+>>> my_list = [ld(2) for ld in my_ld]
+>>> my_list
+```
