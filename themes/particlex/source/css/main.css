@@ -558,7 +558,7 @@
     animation: bottom-top 1s;
     display: flex;
     -webkit-box-flex: 1;
-    max-width: 1200px;
+    max-width: 1450px;
     font-size: 15px;
     margin: auto;
     margin-top: 100px;
@@ -567,6 +567,7 @@
 
 @media screen and (min-width: 901px) {.article {
     width: calc(100% - 320px) !important;
+    padding: 25px;
 }
 }
 
