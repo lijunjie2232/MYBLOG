@@ -138,6 +138,22 @@ $
 
 これらのバイアスにより、CNNは画像認識において非常に効果的なモデルとなっています。
 
+### ViTの特徴と実め
+
+- 入力画像を固定サイズのパッチに分割し、それぞれをベクトルとして扱います。
+- Attention機構によって、**すべてのパッチ間の関係性を同時に考慮**できます。
+
+![ViT bias](/assert/vision_transformer/vision_transformer_bias.png)
+
+図中の矢印で示された2つの部分は、同じ建物の一部です。CNN（畳み込みニューロンネットワーク）では、適切なサイズの畳み込みカーネルを使えば、これらの領域を一緒に捉えることができます。しかし、ViT（Vision Transformer）では、これらのパッチ間の位置が遠く離されてしまい、さらにパッチを細かく分割すると、その距離はより一層広がってしまいます。Attention機構によってベクトル間の関係性を学ぶことは可能ですが、**空間的な局所性**という点では、ViTはCNNほど優れていないと言えます。
+
+また、「**平移等価性**」に注目すると、ViTは各パッチの位置情報を学習する必要があるため、同じ内容のパッチでも場所が変わると出力結果も変わってしまうという問題があります。このように、<font color="#e3008c">**ViTは画像認識における「帰納的バイアス（inductive bias）」の仮定をうまく維持できていない**</font>とも言えます。
+
+しかし、だからといってViTには未来がないわけではありません。むしろ逆です。**Transformer系のモデルには有名な特徴があります。「データがあれば、何とかなる」** つまり、<font color="#e3008c">十分な量の学習データがあれば、ViTはピクセル単位の関係性を十分に学習し、帰納的バイアスの問題を解消することができます</font>。
+
+要するに、「**ViTは少ないデータでは弱いが、データが多ければ驚くべき力を発揮する**」ということです。
+
 ## 参考文献
+- [Attention Is All You Need](https://arxiv.org/abs/1706.03762)
 - [An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale](https://arxiv.org/abs/2010.11929)
 - [https://github.com/google-research/vision_transformer](https://github.com/google-research/vision_transformer)
