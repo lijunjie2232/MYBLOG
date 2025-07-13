@@ -435,7 +435,7 @@
 }
 
 #menu {
-    background: #92cafa;
+    background: linear-gradient(135deg, rgb(171, 220, 255, 0.9), rgb(146, 202, 250, 0.9));
     box-shadow: 0 -1px 10px 0 #9e9e9e4d;
     font-weight: bold;
     line-height: 50px;
@@ -566,10 +566,11 @@
     padding: 25px;
 }
 
-@media screen and (min-width: 901px) {.article {
-    width: calc(100% - 320px) !important;
-    padding: 25px;
-}
+@media screen and (min-width: 901px) {
+    .article {
+        width: calc(100% - 480px) !important;
+        padding: 40px;
+    }
 }
 
 #aside-content {
