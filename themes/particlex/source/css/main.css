@@ -560,9 +560,10 @@
     -webkit-box-flex: 1;
     max-width: 1450px;
     font-size: 15px;
-    margin: auto;
+    /* margin: auto; */
+    margin: 40px 40px 40px 320px;
     margin-top: 100px;
-    padding: 20px;
+    padding: 25px;
 }
 
 @media screen and (min-width: 901px) {.article {
