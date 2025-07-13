@@ -15,6 +15,7 @@ description: Vision Transformer（ViT）が画像認識において空間的な�
   - [画像のパッチ化（Patch）](#%E7%94%BB%E5%83%8F%E3%81%AE%E3%83%91%E3%83%83%E3%83%81%E5%8C%96patch)
   - [Position Embedding](#position-embedding)
     - [数式](#%E6%95%B0%E5%BC%8F)
+    - [コード例](#%E3%82%B3%E3%83%BC%E3%83%89%E4%BE%8B)
   - [cls token](#cls-token)
   - [Encoder](#encoder)
   - [ViTで画像処理の流れ](#vit%E3%81%A7%E7%94%BB%E5%83%8F%E5%87%A6%E7%90%86%E3%81%AE%E6%B5%81%E3%82%8C)
@@ -74,6 +75,37 @@ $
 - `pos`: トークンまたはパッチの位置（0, 1, 2,...）
 - `i`: 埋め込みベクトルの次元（0 ≤ i < d_model/2）
 - `d_model`: 入力ベクトルの次元（例: 768）
+
+#### コード例
+
+```python
+'''Attention Is All You Need'''
+
+class Positional_Encoding(nn.Module):
+    def __init__(self, embed, pad_size, dropout, device):
+        super(Positional_Encoding, self).__init__()
+        self.device = device
+        self.pe = torch.tensor([[pos / (10000.0 ** (i // 2 * 2.0 / embed)) for i in range(embed)] for pos in range(pad_size)])
+        self.pe[:, 0::2] = np.sin(self.pe[:, 0::2])
+        self.pe[:, 1::2] = np.cos(self.pe[:, 1::2])
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x):
+        out = x + nn.Parameter(self.pe, requires_grad=False).to(self.device)
+        out = self.dropout(out)
+        return out
+
+
+class Model(nn.Module):
+    def __init__(self, config):
+        ... ...
+        self.postion_embedding = Positional_Encoding(self.dim_model, config.pad_num, config.dropout, config.device)
+        ... ...
+
+    def forward(self, x):
+        out = self.postion_embedding(x)
+        ... ...
+```
 
 ### cls token
 
