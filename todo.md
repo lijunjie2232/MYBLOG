@@ -30,7 +30,7 @@
 
 # base model
 
-[ ] vit
+[x] vit
 
 [ ] resnet
 
