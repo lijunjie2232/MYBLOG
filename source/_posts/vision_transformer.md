@@ -2,13 +2,34 @@
 title: Vision Transformer(ViT)
 date: 2024-4-10 10:17:00
 categories: [AI]
-tags: [Deep Learning, transformer, 機械学習, AI, 人工知能, 深層学習]
+tags: [Deep Learning, transformer, ViT, 機械学習, AI, 人工知能, 深層学習, 画像認識, 画像分類, image classification]
+
 lang: ja
-description: ViTはTransformerアーキテクチャを画像認識に応用したもので、パッチ単位で画像を処理します。CNNの帰納的バイアスをTransformerに持ち込み、より強力な特徴抽出能力を実現します。
+description: Vision Transformer（ViT）が画像認識において空間的な局所性や平移等価性といった帰納的バイアスを明示的に持たないことによる課題を指摘しつつも、大規模データでの学習を通じてAttention機構がこれらの問題を補完できると述べています。また、モデルの性能は構造だけでなくデータ量にも依存しており、十分なデータがあればTransformer系のモデルでも優れた結果が得られると強調しています。要するに、「ViTは帰納的バイアスが弱いが、データがあればその欠点を克服できる」という主張がまとめられます。
 
 ---
 
 ## 目次
+- [目次](#%E7%9B%AE%E6%AC%A1)
+- [Vision Transformer (ViT)](#vision-transformer-vit)
+  - [画像のパッチ化（Patch）](#%E7%94%BB%E5%83%8F%E3%81%AE%E3%83%91%E3%83%83%E3%83%81%E5%8C%96patch)
+  - [位置エンコーディング（Positional Encoding）](#%E4%BD%8D%E7%BD%AE%E3%82%A8%E3%83%B3%E3%82%B3%E3%83%BC%E3%83%87%E3%82%A3%E3%83%B3%E3%82%B0positional-encoding)
+    - [数式](#%E6%95%B0%E5%BC%8F)
+  - [cls token](#cls-token)
+  - [Encoder](#encoder)
+  - [ViTで画像処理の流れ](#vit%E3%81%A7%E7%94%BB%E5%83%8F%E5%87%A6%E7%90%86%E3%81%AE%E6%B5%81%E3%82%8C)
+- [CNNにかえりみる](#cnn%E3%81%AB%E3%81%8B%E3%81%88%E3%82%8A%E3%81%BF%E3%82%8B)
+  - [平移等価性（Translation Equivariance）](#%E5%B9%B3%E7%A7%BB%E7%AD%89%E4%BE%A1%E6%80%A7translation-equivariance)
+    - [数式](#%E6%95%B0%E5%BC%8F-1)
+    - [利点](#%E5%88%A9%E7%82%B9)
+  - [局所性（Locality）](#%E5%B1%80%E6%89%80%E6%80%A7locality)
+    - [利点](#%E5%88%A9%E7%82%B9-1)
+- [帰納的バイアス](#%E5%B8%B0%E7%B4%8D%E7%9A%84%E3%83%90%E3%82%A4%E3%82%A2%E3%82%B9)
+  - [CNNにおける帰納的バイアス](#cnn%E3%81%AB%E3%81%8A%E3%81%91%E3%82%8B%E5%B8%B0%E7%B4%8D%E7%9A%84%E3%83%90%E3%82%A4%E3%82%A2%E3%82%B9)
+    - [主なバイアス:](#%E4%B8%BB%E3%81%AA%E3%83%90%E3%82%A4%E3%82%A2%E3%82%B9)
+  - [ViTの特徴と実め](#vit%E3%81%AE%E7%89%B9%E5%BE%B4%E3%81%A8%E5%AE%9F%E3%82%81)
+- [参考文献](#%E5%8F%82%E8%80%83%E6%96%87%E7%8C%AE)
+
 
 ---
 
