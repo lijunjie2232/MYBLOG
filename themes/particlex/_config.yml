@@ -102,6 +102,9 @@ anchor:
 pjax:
   enable: true
 
+canvas:
+  enable: true
+
 # giscus
 # https://github.com/giscus/giscus
 giscus:
