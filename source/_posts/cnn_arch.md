@@ -4,7 +4,7 @@ date: 2024-4-1 10:17:00
 categories: [AI]
 tags: [Deep Learning, CNN, 機械学習, AI, 人工知能, 深層学習, 画像認識, 画像分類, image classification]
 lang: ja　
-description: CNN (Convolutional Neural Networks / 畳み込みニューラルネットワーク) とは、画像認識や画像分類などのコンピュータビジョンタスクで広く使用される深層学習モデルです。
+description: CNN (Convolutional Neural Networks / 畳み込みニューラルネットワーク) は、画像認識に特化した深層学習モデルで、入力層が画像を数値行列に変換し、畳み込み層が特徴を抽出、プーリング層がサイズを縮小して計算量を削減、全結合層が最終的な分類を行う仕組みです。また、畳み込み演算やPadding、活性化関数（ReLU）の役割についても解説し、CNNが画像の局所的な特徴から全体の意味を理解するプロセスを紹介しました。
 
 ---
 
