@@ -10,6 +10,26 @@ description: CNN (Convolutional Neural Networks / 畳み込みニューラルネ
 
 ## 目次
 
+- [目次](#%E7%9B%AE%E6%AC%A1)
+- [基本構造](#%E5%9F%BA%E6%9C%AC%E6%A7%8B%E9%80%A0)
+- [入力層](#%E5%85%A5%E5%8A%9B%E5%B1%A4)
+- [畳み込み層](#%E7%95%B3%E3%81%BF%E8%BE%BC%E3%81%BF%E5%B1%A4)
+  - [畳み込み演算の手順](#%E7%95%B3%E3%81%BF%E8%BE%BC%E3%81%BF%E6%BC%94%E7%AE%97%E3%81%AE%E6%89%8B%E9%A0%86)
+    - [順伝播（Forward）の数式](#%E9%A0%86%E4%BC%9D%E6%92%ADforward%E3%81%AE%E6%95%B0%E5%BC%8F)
+  - [パディング（Padding）](#%E3%83%91%E3%83%87%E3%82%A3%E3%83%B3%E3%82%B0padding)
+    - [パディングの仕組み](#%E3%83%91%E3%83%87%E3%82%A3%E3%83%B3%E3%82%B0%E3%81%AE%E4%BB%95%E7%B5%84%E3%81%BF)
+  - [多チャンネル画像の処理](#%E5%A4%9A%E3%83%81%E3%83%A3%E3%83%B3%E3%83%8D%E3%83%AB%E7%94%BB%E5%83%8F%E3%81%AE%E5%87%A6%E7%90%86)
+    - [処理手順](#%E5%87%A6%E7%90%86%E6%89%8B%E9%A0%86)
+    - [図の説明](#%E5%9B%B3%E3%81%AE%E8%AA%AC%E6%98%8E)
+- [プーリング層](#%E3%83%97%E3%83%BC%E3%83%AA%E3%83%B3%E3%82%B0%E5%B1%A4)
+  - [主なプーリング手法](#%E4%B8%BB%E3%81%AA%E3%83%97%E3%83%BC%E3%83%AA%E3%83%B3%E3%82%B0%E6%89%8B%E6%B3%95)
+    - [**最大プーリング（Max Pooling）**](#%E6%9C%80%E5%A4%A7%E3%83%97%E3%83%BC%E3%83%AA%E3%83%B3%E3%82%B0max-pooling)
+    - [**平均プーリング（Average Pooling）**](#%E5%B9%B3%E5%9D%87%E3%83%97%E3%83%BC%E3%83%AA%E3%83%B3%E3%82%B0average-pooling)
+- [全結合層](#%E5%85%A8%E7%B5%90%E5%90%88%E5%B1%A4)
+  - [処理の流れ](#%E5%87%A6%E7%90%86%E3%81%AE%E6%B5%81%E3%82%8C)
+  - [コード例 (AlexNet)](#%E3%82%B3%E3%83%BC%E3%83%89%E4%BE%8B-alexnet)
+
+
 ---
 
 CNN (Convolutional Neural Networks / 畳み込みニューラルネットワーク) とは、画像認識や画像分類などのコンピュータビジョンタスクで広く使用される深層学習モデルです。
@@ -263,4 +283,53 @@ $$
    - ReLUやSigmoid、Softmaxなどの活性化関数を使って、非線形な関係を学習します。
    - 最終的には、どのクラスに属するかの**確率**を出力します。
 
+
+### コード例 (AlexNet)
+
+```python
+import torch
+import torch.nn as nn
+import torchvision
+
+class AlexNet(nn.Module):
+    def __init__(self,num_classes=1000):
+        super(AlexNet,self).__init__()
+        self.feature_extraction = nn.Sequential(
+            nn.Conv2d(in_channels=3,out_channels=96,kernel_size=11,stride=4,padding=2,bias=False),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=3,stride=2,padding=0),
+            nn.Conv2d(in_channels=96,out_channels=192,kernel_size=5,stride=1,padding=2,bias=False),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=3,stride=2,padding=0),
+            nn.Conv2d(in_channels=192,out_channels=384,kernel_size=3,stride=1,padding=1,bias=False),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(in_channels=384,out_channels=256,kernel_size=3,stride=1,padding=1,bias=False),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(in_channels=256,out_channels=256,kernel_size=3,stride=1,padding=1,bias=False),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=3, stride=2, padding=0),
+        )
+        self.classifier = nn.Sequential(
+            nn.Dropout(p=0.5),
+            nn.Linear(in_features=256*6*6,out_features=4096),
+            nn.Dropout(p=0.5),
+            nn.Linear(in_features=4096, out_features=4096),
+            nn.Linear(in_features=4096, out_features=num_classes),
+        )
+    def forward(self,x):
+        x = self.feature_extraction(x)
+        x = x.view(x.size(0),256*6*6)
+        x = self.classifier(x)
+        return x
+
+
+if __name__ =='__main__':
+    # model = torchvision.models.AlexNet()
+    model = AlexNet()
+    print(model)
+
+    input = torch.randn(8,3,224,224)
+    out = model(input)
+    print(out.shape)
+```
 
