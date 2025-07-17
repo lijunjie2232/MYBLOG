@@ -32,6 +32,8 @@
 
 [x] vit
 
+[x] cnn arch
+
 [ ] resnet
 
 [ ] rnn (gru, lstm)
