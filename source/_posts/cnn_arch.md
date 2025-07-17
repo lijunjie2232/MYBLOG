@@ -27,7 +27,7 @@ description: CNN (Convolutional Neural Networks / 畳み込みニューラルネ
     - [**平均プーリング（Average Pooling）**](#%E5%B9%B3%E5%9D%87%E3%83%97%E3%83%BC%E3%83%AA%E3%83%B3%E3%82%B0average-pooling)
 - [全結合層](#%E5%85%A8%E7%B5%90%E5%90%88%E5%B1%A4)
   - [処理の流れ](#%E5%87%A6%E7%90%86%E3%81%AE%E6%B5%81%E3%82%8C)
-  - [コード例 (AlexNet)](#%E3%82%B3%E3%83%BC%E3%83%89%E4%BE%8B-alexnet)
+- [コード例 (AlexNet)](#%E3%82%B3%E3%83%BC%E3%83%89%E4%BE%8B-alexnet)
 
 
 ---
@@ -284,7 +284,7 @@ $$
    - 最終的には、どのクラスに属するかの**確率**を出力します。
 
 
-### コード例 (AlexNet)
+## コード例 (AlexNet)
 
 ```python
 import torch
