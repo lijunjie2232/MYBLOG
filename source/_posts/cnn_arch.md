@@ -158,13 +158,13 @@ $
 - これにより、画像の端の情報も特徴マップに十分に反映されます。
 
 
-**図6：Padding = 1 の場合**
+**Padding = 1 の場合**
 ![padding operation](/assert/CNN/padding_1.gif)
 
 - 画像の周囲に1層の0を追加し、畳み込み演算を行います。
 - これにより、特徴マップのサイズが入力画像とほぼ同じになります。
 
-**図7：Padding = 2 の場合**
+**Padding = 2 の場合**
 ![padding operation](/assert/CNN/padding_2.gif)
 
 - 周囲に2層の0を追加します。
@@ -182,7 +182,7 @@ $
 
 #### 図の説明
 
-**図8：2つのカーネルを使用して畳み込みを行う過程**
+**2つのカーネルを使用して畳み込みを行う過程**
 
 ![channels convolution process](/assert/CNN/channel_conv.gif)
 
