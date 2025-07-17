@@ -85,6 +85,47 @@ CNN (Convolutional Neural Networks / 畳み込みニューラルネットワー�
 
 3. **特徴マップの生成**
 
+- 各位置での畳み込み演算の結果を結合して、新しい2次元行列（特徴マップ）を作成します。
+
+
+##### 順伝播（Forward）の数式
+畳み込み演算は、入力画像 $ X $ とフィルター（カーネル） $ W $ を使って行われます。以下にその基本的な数式を示します。
+
+<center>
+$
+Y_{i,j} = \sum_{m=0}^{k-1} \sum_{n=0}^{k-1} X_{i+m, j+n} \cdot W_{m,n} + b
+$
+</center>
+
+- $ Y_{i,j} $：出力特徴マップの位置 ` (i,j) ` の値 
+- ` X `：入力画像（2次元行列）
+- ` W `：フィルター（カーネル）$ k \times k $
+- ` b `：バイアス項
+- ` k `：カーネルのサイズ
+
+逆伝播では、損失関数 $ L $ の勾配をフィルター $ W $ と入力 $ X $ に対して求めます。
+
+(1) フィルター $ W $ に関する勾配
+<center>
+$
+\frac{\partial L}{\partial W_{m,n}} = \sum_{i,j} \frac{\partial L}{\partial Y_{i,j}} \cdot X_{i+m, j+n}
+$
+</center>
+
+(2) 入力 $ X $ に関する勾配
+<center>
+$
+\frac{\partial L}{\partial X_{i,j}} = \sum_{m,n} \frac{\partial L}{\partial Y_{i-m,j-n}} \cdot W_{m,n}
+$
+</center>
+
+(3) バイアス $ b $ に関する勾配
+<center>
+$
+\frac{\partial L}{\partial b} = \sum_{i,j} \frac{\partial L}{\partial Y_{i,j}}
+$
+</center>
+
 #### パディング（Padding）
 
 ![padding operation](/assert/CNN/padding_0.gif)
@@ -128,3 +169,4 @@ CNN (Convolutional Neural Networks / 畳み込みニューラルネットワー�
 - 入力画像がRGB画像（7×7×3）であると仮定します。
 - 2つのカーネルを使用して、それぞれで畳み込み演算を行い、2つの特徴マップを生成します。
 - 各カーネルにはバイアス（偏置項）が含まれており、演算結果に加算されます。
+
