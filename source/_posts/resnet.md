@@ -141,7 +141,7 @@ import torch.nn as nn
  
  
 class BasicBlock(nn.Module):
-    """搭建BasicBlock模块"""
+    """BasicBlock"""
     expansion = 1
  
     def __init__(self, in_channel, out_channel, stride=1, downsample=None):
@@ -169,6 +169,41 @@ class BasicBlock(nn.Module):
 ```
 
 #### Bottleneck
+```python
+class BottleNeck(nn.Module):
+    """BottleNeck"""
+    # BottleNeckモジュールの最終的な出力out_channelは、Residualモジュールの入力in_channelの4倍のサイズ（Residualモジュールの入力は64）であり、ショートカットブランチのin_channelはResidualの入力64である。
+    # はResidualの入力64なので、元の入力画像Xと同じサイズにするために、Residualのin_channelをショートカットブランチで4倍に拡張する必要がある。
+    expansion = 4
+ 
+    def __init__(self, in_channel, out_channel, stride=1, downsample=None):
+        super(BottleNeck, self).__init__()
+ 
+        # デフォルトの生入力は256で、7x7レイヤーと3x3レイヤーの後、BottleNeckの入力は64に減少する。
+        self.conv1 = nn.Conv2d(in_channel, out_channel, kernel_size=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(out_channel)    # BN层, BN层放在conv层和relu层中间使用
+        self.conv2 = nn.Conv2d(out_channel, out_channel, kernel_size=3, stride=stride, padding=1, bias=False)
+        self.bn2 = nn.BatchNorm2d(out_channel)
+        self.conv3 = nn.Conv2d(out_channel, out_channel * self.expansion, kernel_size=1, bias=False)
+        self.bn3 = nn.BatchNorm2d(out_channel * self.expansion)  # レイヤー3のout_channelはin_channelの4倍に拡張される。
+ 
+        self.downsample = downsample
+        self.relu = nn.ReLU(inplace=True)
+ 
+    # 順伝播
+    def forward(self, X):
+        identity = X
+ 
+        Y = self.relu(self.bn1(self.conv1(X)))
+        Y = self.relu(self.bn2(self.conv2(Y)))
+        Y = self.bn3(self.conv3(Y))
+ 
+        if self.downsample is not None:    # 元の入力Xのサイズは、積み重ねたときにメインブランチの畳み込み後の出力のサイズと同じ次元であることが保証される
+            identity = self.downsample(X)
+ 
+        return self.relu(Y + identity)
+```
+
 
 #### ResNet-18
 ![resnet 18](/assert/CNN/resnet_18.png)
