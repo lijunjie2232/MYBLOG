@@ -1,10 +1,10 @@
 ---
-title: ResNet
+title: ResNetの説明
 date: 2024-4-5 10:17:00
 categories: [AI]
 tags: [Deep Learning, CNN, resnet, 機械学習, AI, 人工知能, 深層学習, 画像認識, 画像分類, image classification]
 lang: ja　
-description: Resnet
+description: ResNetは2015年にマイクロソフトの何凱明氏らによって提案された深層学習モデルで、従来のCNNが抱えていたネットワークが深くなるほど性能が劣化するという問題を、ショートカット接続と残差学習の概念を導入することで解決しました。このモデルは極めて深いネットワーク構造（152層、場合によっては1000層以上）を可能にし、画像認識・分類タスクにおいて顕著な成果を残し、深層学習の発展に大きな影響を与えました。
 
 ---
 
@@ -22,6 +22,7 @@ description: Resnet
   - [勾配伝播の改善](#%E5%8B%BE%E9%85%8D%E4%BC%9D%E6%92%AD%E3%81%AE%E6%94%B9%E5%96%84)
 - [ResNet](#resnet)
   - [コード例](#%E3%82%B3%E3%83%BC%E3%83%89%E4%BE%8B)
+- [参考文献](#%E5%8F%82%E8%80%83%E6%96%87%E7%8C%AE)
 
 
 ---
@@ -227,3 +228,7 @@ class Resnet18(nn.Module):
                 nowd_params += list(module.parameters())
         return wd_params, nowd_params
 ```
+
+## 参考文献
+
+- [Deep Residual Learning for Image Recognition](https://arxiv.org/abs/1512.03385)
