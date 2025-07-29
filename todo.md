@@ -34,7 +34,7 @@
 
 [x] cnn arch
 
-[ ] resnet
+[x] resnet
 
 [ ] rnn (gru, lstm)
 
