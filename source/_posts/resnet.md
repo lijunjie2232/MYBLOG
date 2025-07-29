@@ -23,6 +23,8 @@ description: ResNetは2015年にマイクロソフトの何凱明氏らによっ
   - [ネットワークの特徴](#%E3%83%8D%E3%83%83%E3%83%88%E3%83%AF%E3%83%BC%E3%82%AF%E3%81%AE%E7%89%B9%E5%BE%B4)
   - [2種類の残差ユニット](#2%E7%A8%AE%E9%A1%9E%E3%81%AE%E6%AE%8B%E5%B7%AE%E3%83%A6%E3%83%8B%E3%83%83%E3%83%88)
   - [コード例](#%E3%82%B3%E3%83%BC%E3%83%89%E4%BE%8B)
+    - [BasicBlock](#basicblock)
+    - [Bottleneck](#bottleneck)
     - [ResNet-18](#resnet-18)
 - [参考文献](#%E5%8F%82%E8%80%83%E6%96%87%E7%8C%AE)
 
@@ -121,10 +123,10 @@ ResNetには2種類の残差ユニットが存在し、ネットワークの深�
 
 ![diff res block](/assert/CNN/res_block_two_diff.png)
 
-1. 基本的な残差ユニット（浅層ネットワーク用）
+1. 基本的な残差ユニット(basicblock)（浅層ネットワーク用）
      - 18層や34層のResNetで使用
      - 比較的シンプルな構造
-2. ボトルネック(bottleneck)残差ユニット（深層ネットワーク用）
+2. ボトルネック残差ユニット(bottleneck)（深層ネットワーク用）
      - 50層、101層、152層のResNetで使用
      - 計算効率を考慮した複雑な構造
      - ショートカット接続の処理方法
@@ -132,7 +134,9 @@ ResNetには2種類の残差ユニットが存在し、ネットワークの深�
 
 ### コード例
 
+#### BasicBlock
 
+#### Bottleneck
 
 #### ResNet-18
 ![resnet 18](/assert/CNN/resnet_18.png)
