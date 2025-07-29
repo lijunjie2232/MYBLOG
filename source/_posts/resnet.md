@@ -135,6 +135,38 @@ ResNetには2種類の残差ユニットが存在し、ネットワークの深�
 ### コード例
 
 #### BasicBlock
+```python
+import torch
+import torch.nn as nn
+ 
+ 
+class BasicBlock(nn.Module):
+    """搭建BasicBlock模块"""
+    expansion = 1
+ 
+    def __init__(self, in_channel, out_channel, stride=1, downsample=None):
+        super(BasicBlock, self).__init__()
+ 
+        # BNレイヤーでバイアスを使う必要はない
+        self.conv1 = nn.Conv2d(in_channel, out_channel, kernel_size=3, padding=1, stride=stride, bias=False)
+        self.bn1 = nn.BatchNorm2d(out_channel)    # BN層、BN層はコンボ層とリル層の中間に使用される。
+        self.conv2 = nn.Conv2d(out_channel, out_channel, kernel_size=3, padding=1, bias=False)
+        self.bn2 = nn.BatchNorm2d(out_channel)
+ 
+        self.downsample = downsample
+        self.relu = nn.ReLU(inplace=True)
+ 
+    # 順伝播
+    def forward(self, X):
+        identity = X
+        Y = self.relu(self.bn1(self.conv1(X)))
+        Y = self.bn2(self.conv2(Y))
+ 
+        if self.downsample is not None:    # 元の入力Xのサイズは、積み重ねたときにメインブランチの畳み込み後の出力のサイズと同じ次元であることが保証される
+            identity = self.downsample(X)
+ 
+        return self.relu(Y + identity)
+```
 
 #### Bottleneck
 
