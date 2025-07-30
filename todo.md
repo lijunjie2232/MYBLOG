@@ -36,7 +36,9 @@
 
 [x] resnet
 
-[ ] rnn (gru, lstm)
+[x] rnn (gru, lstm)
+
+[ ] lstm practice
 
 [x] transformer
 
