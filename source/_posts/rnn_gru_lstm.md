@@ -161,9 +161,9 @@ RNNの隠れ状態h_tは固定長のベクトルであるため、時系列が�
 
 $$
 \begin{aligned}
-\mathbf{I}_t &= \sigma(\mathbf{X}_t \mathbf{W}_{\textrm{xi}} + \mathbf{H}_{t-1} \mathbf{W}_{\textrm{hi}} + \mathbf{b}_\textrm{i}),\\
-\mathbf{F}_t &= \sigma(\mathbf{X}_t \mathbf{W}_{\textrm{xf}} + \mathbf{H}_{t-1} \mathbf{W}_{\textrm{hf}} + \mathbf{b}_\textrm{f}),\\
-\mathbf{O}_t &= \sigma(\mathbf{X}_t \mathbf{W}_{\textrm{xo}} + \mathbf{H}_{t-1} \mathbf{W}_{\textrm{ho}} + \mathbf{b}_\textrm{o}),
+\mathbf{I}_t &= \sigma(\mathbf{X}_t \mathbf{W}_{\textrm{xi}} + \mathbf{H}_{t-1} \mathbf{W}_{\textrm{hi}} + \mathbf{b}_\textrm{i})\\
+\mathbf{F}_t &= \sigma(\mathbf{X}_t \mathbf{W}_{\textrm{xf}} + \mathbf{H}_{t-1} \mathbf{W}_{\textrm{hf}} + \mathbf{b}_\textrm{f})\\
+\mathbf{O}_t &= \sigma(\mathbf{X}_t \mathbf{W}_{\textrm{xo}} + \mathbf{H}_{t-1} \mathbf{W}_{\textrm{ho}} + \mathbf{b}_\textrm{o})
 \end{aligned}
 $$
 
@@ -242,3 +242,11 @@ class LSTM(nn.Module):
         hx = out_gate * F.tanh(self.cx_bn(cx))
         return hx, cx
 ```
+
+## GRU
+
+![GRU](/assert/rnn/gru.png)
+
+GRU（Gated Recurrent Unit）は、2010年代にRNN、特にLSTM（Long Short-Term Memory）アーキテクチャが急速に普及した時期に開発されました。LSTMは内部状態と乗法的ゲート機構を組み合わせることで、従来のRNNが抱えていた勾配消失問題を解決し、長期依存関係を学習できるようになりました。
+
+しかし、LSTMは入力ゲート、忘却ゲート、出力ゲートの3つのゲートを持つ複雑な構造のため、計算コストが高く、学習や推論に時間がかかるという問題がありました。このため、研究者たちはLSTMの核心的な概念（内部状態とゲート機構）を維持しながら、よりシンプルで計算効率の良いアーキテクチャを模索し始めました。特に、LSTMの記憶セル状態と隠れ状態を統合し、ゲートの数を減らしたことで、パラメータ数が削減され、計算グラフが単純化されたため、勾配の流れがよりスムーズになり、学習が安定するという利点もあります。
