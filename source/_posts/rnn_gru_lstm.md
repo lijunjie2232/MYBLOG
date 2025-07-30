@@ -55,7 +55,9 @@ description: rnn
 
 まず、隠れ状態を持たない多層パーセプトロン（MLP）を考えてみましょう。入力 $\mathbf{X}$ に対して、隠れ層の出力 $\mathbf{H}$ は次のように計算されます。
 
-$$\mathbf{H} = \phi(\mathbf{X} \mathbf{W}_{\textrm{xh}} + \mathbf{b}_\textrm{h})$$
+$$
+\mathbf{H} = \phi(\mathbf{X} \mathbf{W}_{\textrm{xh}} + \mathbf{b}_\textrm{h})
+$$
 
 ここで、$\phi$ は活性化関数、$\mathbf{W}_{\textrm{xh}}$ は重み、$\mathbf{b}_\textrm{h}$ はバイアスです。
 
@@ -63,7 +65,9 @@ $$\mathbf{H} = \phi(\mathbf{X} \mathbf{W}_{\textrm{xh}} + \mathbf{b}_\textrm{h})
 
 RNNでは、隠れ層の出力 $\mathbf{H}_t$ は現在の入力 $\mathbf{X}_t$ だけでなく、**1つ前の時刻の隠れ状態** $\mathbf{H}_{t-1}$ にも依存します。
 
-$$\mathbf{H}_t = \phi(\mathbf{X}_t \mathbf{W}_{\textrm{xh}} + \mathbf{H}_{t-1} \mathbf{W}_{\textrm{hh}} + \mathbf{b}_\textrm{h})$$
+$$
+\mathbf{H}_t = \phi(\mathbf{X}_t \mathbf{W}_{\textrm{xh}} + \mathbf{H}_{t-1} \mathbf{W}_{\textrm{hh}} + \mathbf{b}_\textrm{h})
+$$
 
 この式により、RNNは時系列の履歴情報を保持し、現在の出力を計算することができます。隠れ状態 $\mathbf{H}_t$ は、時系列の現在の「状態」または「記憶」として機能します。
 
@@ -71,7 +75,9 @@ $$\mathbf{H}_t = \phi(\mathbf{X}_t \mathbf{W}_{\textrm{xh}} + \mathbf{H}_{t-1} \
 
 RNNの出力層は、通常のMLPと同様に計算されます。
 
-$$\mathbf{O}_t = \mathbf{H}_t \mathbf{W}_{\textrm{hq}} + \mathbf{b}_\textrm{q}$$
+$$
+\mathbf{O}_t = \mathbf{H}_t \mathbf{W}_{\textrm{hq}} + \mathbf{b}_\textrm{q}
+$$
 
 ### 特徴
 
@@ -113,7 +119,9 @@ RNNは理論上、任意の長さの時系列情報を保持できますが、�
 
 RNNの更新は逐次的に行われるため、並列化が難しく、学習や推論が遅くなります。
 
-$$h_t = f(h_{t-1}, x_t)$$
+$$
+h_t = f(h_{t-1}, x_t)
+$$
 
 この式からわかるように、時刻tの計算は時刻$t-1$の結果に依存するため、並列処理ができません。
 
@@ -301,7 +309,9 @@ $$
 
 候補隠れ状態は以下の式で表されます：
 
-$$\tilde{\mathbf{H}}_t = \tanh(\mathbf{X}_t \mathbf{W}_{\textrm{xh}} + \left(\mathbf{R}_t \odot \mathbf{H}_{t-1}\right) \mathbf{W}_{\textrm{hh}} + \mathbf{b}_\textrm{h})$$
+$$
+\tilde{\mathbf{H}}_t = \tanh(\mathbf{X}_t \mathbf{W}_{\textrm{xh}} + \left(\mathbf{R}_t \odot \mathbf{H}_{t-1}\right) \mathbf{W}_{\textrm{hh}} + \mathbf{b}_\textrm{h})
+$$
 
 ここで：
 
@@ -329,7 +339,9 @@ $$\tilde{\mathbf{H}}_t = \tanh(\mathbf{X}_t \mathbf{W}_{\textrm{xh}} + \left(\ma
 
 更新ゲート$\mathbf{Z}_t$を用いることで、$\mathbf{H}_{t-1}$と$\tilde{\mathbf{H}}_t$の要素ごとの凸結合（convex combinations）を取ることで、最終的な隠れ状態を計算します：
 
-$$\mathbf{H}_t = \mathbf{Z}_t \odot \mathbf{H}_{t-1}  + (1 - \mathbf{Z}_t) \odot \tilde{\mathbf{H}}_t$$
+$$
+\mathbf{H}_t = \mathbf{Z}_t \odot \mathbf{H}_{t-1}  + (1 - \mathbf{Z}_t) \odot \tilde{\mathbf{H}}_t
+$$
 
 この式の動作を理解するために：
 
