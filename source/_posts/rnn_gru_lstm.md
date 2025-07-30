@@ -312,3 +312,78 @@ $$\tilde{\mathbf{H}}_t = \tanh(\mathbf{X}_t \mathbf{W}_{\textrm{xh}} + \left(\ma
 
 - リセットゲート$\mathbf{R}_t$の要素が1に近い場合：通常のRNNと同等になります
 - リセットゲート$\mathbf{R}_t$の要素が0に近い場合：候補隠れ状態は$\mathbf{X}_t$を入力とする多層パーセプトロン（MLP）の結果となり、既存の隠れ状態はデフォルト値に「リセット」されます
+
+### 隠れ状態（Hidden State）
+
+![GRU Hidden State](/assert/rnn/gru_hidden_state.png)
+
+最後に、更新ゲート$\mathbf{Z}_t$の効果を組み込む必要があります。これにより、新しい隠れ状態$\mathbf{H}_t$が古い状態$\mathbf{H}_{t-1}$にどの程度一致するか、そして新しい候補状態$\tilde{\mathbf{H}}_t$にどの程度似ているかが決定されます。
+
+#### 最終的な隠れ状態の計算
+
+更新ゲート$\mathbf{Z}_t$を用いることで、$\mathbf{H}_{t-1}$と$\tilde{\mathbf{H}}_t$の要素ごとの凸結合（convex combinations）を取ることで、最終的な隠れ状態を計算します：
+
+$$\mathbf{H}_t = \mathbf{Z}_t \odot \mathbf{H}_{t-1}  + (1 - \mathbf{Z}_t) \odot \tilde{\mathbf{H}}_t$$
+
+この式の動作を理解するために：
+
+- $\mathbf{Z}_t \odot \mathbf{H}_{t-1}$：更新ゲートの値に応じて古い状態をどれだけ保持するか
+- $(1 - \mathbf{Z}_t) \odot \tilde{\mathbf{H}}_t$：更新ゲートの値に応じて新しい候補状態をどれだけ採用するか
+
+#### 動作の直感的理解
+
+更新ゲート$\mathbf{Z}_t$の値によって、GRUの動作は大きく異なります：
+
+1. **更新ゲート$\mathbf{Z}_t$が1に近い場合**：
+   - 古い状態$\mathbf{H}_{t-1}$をほぼそのまま保持
+   - 時刻$t$の入力情報$\mathbf{X}_t$は無視され、依存関係の連鎖において時刻$t$が事実上スキップされる
+
+2. **更新ゲート$\mathbf{Z}_t$が0に近い場合**：
+   - 新しい隠れ状態$\mathbf{H}_t$は候補隠れ状態$\tilde{\mathbf{H}}_t$に近づく
+   - 新しい情報が積極的に採用される
+
+
+### コード例
+
+```python
+import torch
+import torch.nn as nn
+
+class GRU(nn.Module):
+    def __init__(self, hidden_size, item_num, state_size, gru_layers=1):
+        super(GRU, self).__init__()
+        self.hidden_size = hidden_size
+        self.item_num = item_num
+        self.state_size = state_size
+        self.item_embeddings = nn.Embedding(
+            num_embeddings=item_num + 1,
+            embedding_dim=self.hidden_size,
+        )
+        nn.init.normal_(self.item_embeddings.weight, 0, 0.01)
+        self.gru = nn.GRU(
+            input_size=self.hidden_size,
+            hidden_size=self.hidden_size,
+            num_layers=gru_layers,
+            batch_first=True
+        )
+        self.s_fc = nn.Linear(self.hidden_size, self.item_num)
+
+    def forward(self, states, len_states):
+        # Supervised Head
+        emb = self.item_embeddings(states)
+        emb_packed = nn.utils.rnn.pack_padded_sequence(emb, len_states, batch_first=True, enforce_sorted=False)
+        emb_packed, hidden = self.gru(emb_packed)
+        hidden = hidden.view(-1, hidden.shape[2])
+        supervised_output = self.s_fc(hidden)
+        return supervised_output
+
+    def forward_eval(self, states, len_states):
+        # Supervised Head
+        emb = self.item_embeddings(states)
+        emb_packed = nn.utils.rnn.pack_padded_sequence(emb, len_states, batch_first=True, enforce_sorted=False)
+        emb_packed, hidden = self.gru(emb_packed)
+        hidden = hidden.view(-1, hidden.shape[2])
+        supervised_output = self.s_fc(hidden)
+
+        return supervised_output
+```
