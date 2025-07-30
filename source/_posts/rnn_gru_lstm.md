@@ -175,3 +175,27 @@ $$
 - $\mathbf{W}_{\textrm{hi}}, \mathbf{W}_{\textrm{hf}}, \mathbf{W}_{\textrm{ho}}$: 前の隠れ状態から各ゲートへの重み行列（隠れユニット数 $h$ × 隠れユニット数 $h$）
 - $\mathbf{b}_\textrm{i}, \mathbf{b}_\textrm{f}, \mathbf{b}_\textrm{o}$: 各ゲートのバイアス項（1 × 隠れユニット数 $h$）
 - $\sigma$: シグモイド活性化関数（出力を0から1の間に制限）
+
+
+### 入力ノード (input node)
+
+![LSTM Input Node](/assert/rnn/lstm_input_node.png)
+
+$$
+\tilde{\mathbf{C}}_t = \textrm{tanh}(\mathbf{X}_t \mathbf{W}_{\textrm{xc}} + \mathbf{H}_{t-1} \mathbf{W}_{\textrm{hc}} + \mathbf{b}_\textrm{c})
+$$
+
+- セル状態に追加される候補情報を生成
+- tanh活性化関数で[-1,1]の範囲に正規化
+
+### メモリセル状態 (memory cell state)
+
+![LSTM Memory Cell State](/assert/rnn/lstm_memory_cell_state.png)]
+
+$$
+\mathbf{C}_t = \mathbf{F}_t \odot \mathbf{C}_{t-1} + \mathbf{I}_t \odot \tilde{\mathbf{C}}_t
+$$
+
+- Hadamard積(要素ごとの積)で情報の更新を制御
+- 忘却ゲートが1の時、過去の情報が維持される
+
