@@ -28,6 +28,8 @@
 
 [ ] FSDP
 
+[ ] optimization
+
 # base model
 
 [x] vit
@@ -41,6 +43,8 @@
 [ ] lstm practice
 
 [x] transformer
+
+[ ] mamba
 
 [ ] swin transformer
 
@@ -103,6 +107,10 @@
 [ ] segnext
 
 # NLP
+
+[ ] word2vec & glove
+
+[ ] seq2seq
 
 [ ] bert
 
