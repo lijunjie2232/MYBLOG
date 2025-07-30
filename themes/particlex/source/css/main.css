@@ -1240,7 +1240,7 @@ code,
 }
 
 table:not(.hljs-ln) {
-    margin: 15px 0;
+    margin: 0 auto;
 }
 
 table:not(.hljs-ln) td:nth-child(even) {
