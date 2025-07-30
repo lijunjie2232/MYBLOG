@@ -41,6 +41,7 @@ description: rnn
     - [最終的な隠れ状態の計算](#%E6%9C%80%E7%B5%82%E7%9A%84%E3%81%AA%E9%9A%A0%E3%82%8C%E7%8A%B6%E6%85%8B%E3%81%AE%E8%A8%88%E7%AE%97)
     - [動作の直感的理解](#%E5%8B%95%E4%BD%9C%E3%81%AE%E7%9B%B4%E6%84%9F%E7%9A%84%E7%90%86%E8%A7%A3-1)
   - [コード例](#%E3%82%B3%E3%83%BC%E3%83%89%E4%BE%8B-1)
+- [参考文献](#%E5%8F%82%E8%80%83%E6%96%87%E7%8C%AE)
 
 ---
 
@@ -392,3 +393,9 @@ class GRU(nn.Module):
 
         return supervised_output
 ```
+
+## 参考文献
+1. [d2l](https://d2l.ai/chapter_recurrent-modern)
+2. [Recurrent Neural Networks (RNNs): A gentle Introduction and Overview](https://arxiv.org/abs/1912.05911)
+3. [Long Short-Term Memory](https://ieeexplore.ieee.org/abstract/document/6795963)
+4. [Empirical Evaluation of Gated Recurrent Neural Networks on Sequence Modeling](https://arxiv.org/abs/1412.3555)
