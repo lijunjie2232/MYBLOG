@@ -284,3 +284,31 @@ $$
 - $\sigma$ はシグモイド関数
 
 この構造により、GRUはLSTMと比較してパラメータ数を削減しながらも、同様のゲート制御メカニズムを維持しています。
+
+### 候補隠れ状態（Candidate Hidden State）
+
+![GRU Candidate Hidden State](/assert/rnn/gru_candidate_hidden_state.png)
+
+次に、リセットゲート$\mathbf{R}_t$を通常のRNN更新メカニズムと統合することで、時刻$t$における**候補隠れ状態**（candidate hidden state）$\tilde{\mathbf{H}}_t \in \mathbb{R}^{n \times h}$を計算します。
+
+#### 数式的表現
+
+候補隠れ状態は以下の式で表されます：
+
+$$\tilde{\mathbf{H}}_t = \tanh(\mathbf{X}_t \mathbf{W}_{\textrm{xh}} + \left(\mathbf{R}_t \odot \mathbf{H}_{t-1}\right) \mathbf{W}_{\textrm{hh}} + \mathbf{b}_\textrm{h})$$
+
+ここで：
+
+- $\mathbf{W}_{\textrm{xh}} \in \mathbb{R}^{d \times h}$ と $\mathbf{W}_{\textrm{hh}} \in \mathbb{R}^{h \times h}$ は重みパラメータ
+- $\mathbf{b}_\textrm{h} \in \mathbb{R}^{1 \times h}$ はバイアス項
+- $\odot$ はアダマール積（要素ごとの積）を表す演算子
+- $\tanh$ は双曲線正接活性化関数
+
+#### 動作の直感的理解
+
+この計算結果は「候補」隠れ状態と呼ばれるのは、更新ゲートの作用をまだ組み込んでいないからです。
+
+通常のRNNと比較して、GRUではリセットゲート$\mathbf{R}_t$と前の隠れ状態$\mathbf{H}_{t-1}$の要素ごとの乗算を用いることで、前の状態の影響を減らすことができます。
+
+- リセットゲート$\mathbf{R}_t$の要素が1に近い場合：通常のRNNと同等になります
+- リセットゲート$\mathbf{R}_t$の要素が0に近い場合：候補隠れ状態は$\mathbf{X}_t$を入力とする多層パーセプトロン（MLP）の結果となり、既存の隠れ状態はデフォルト値に「リセット」されます
