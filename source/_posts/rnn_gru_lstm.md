@@ -90,7 +90,7 @@ $$\mathbf{O}_t = \mathbf{H}_t \mathbf{W}_{\textrm{hq}} + \mathbf{b}_\textrm{q}$$
 #### RNNによる予測プロセス
 RNNは各時刻tにおいて、以下の手順で処理を行います：
 
-1. 現在の入力文字 $\mathbf{X}t$ と前の隠れ状態 $\mathbf{H}{t-1}$ から新しい隠れ状態 $\mathbf{H}_t$ を計算
+1. 現在の入力文字 $\mathbf{X}t$ と前の隠れ状態 $\mathbf{H}_{t-1}$ から新しい隠れ状態 $\mathbf{H}_t$ を計算
 2. 隠れ状態 $\mathbf{H}_t$ から出力 $\mathbf{O}_t$ を生成
 3. 出力に対してsoftmax関数を適用し、各文字の出現確率を算出
 4. クロスエントロピー損失を用いて、予測結果と正解ラベル（次の文字）との誤差を計算
@@ -119,7 +119,7 @@ $$h_t = f(h_{t-1}, x_t)$$
 
 ### 固定長の隠れ状態
 
-RNNの隠れ状態h_tは固定長のベクトルであるため、時系列が長くなるにつれて情報を圧縮する必要があります。これは情報の損失を引き起こします。
+RNNの隠れ状態$h_t$は固定長のベクトルであるため、時系列が長くなるにつれて情報を圧縮する必要があります。これは情報の損失を引き起こします。
 
 ### 学習の不安定性
 
@@ -198,7 +198,7 @@ $$
 
 ### メモリセル状態 (memory cell state)
 
-![LSTM Memory Cell State](/assert/rnn/lstm_memory_cell_state.png)]
+![LSTM Memory Cell State](/assert/rnn/lstm_memory_cell_state.png)
 
 $$
 \mathbf{C}_t = \mathbf{F}_t \odot \mathbf{C}_{t-1} + \mathbf{I}_t \odot \tilde{\mathbf{C}}_t
