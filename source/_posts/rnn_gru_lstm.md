@@ -250,3 +250,37 @@ class LSTM(nn.Module):
 GRU（Gated Recurrent Unit）は、2010年代にRNN、特にLSTM（Long Short-Term Memory）アーキテクチャが急速に普及した時期に開発されました。LSTMは内部状態と乗法的ゲート機構を組み合わせることで、従来のRNNが抱えていた勾配消失問題を解決し、長期依存関係を学習できるようになりました。
 
 しかし、LSTMは入力ゲート、忘却ゲート、出力ゲートの3つのゲートを持つ複雑な構造のため、計算コストが高く、学習や推論に時間がかかるという問題がありました。このため、研究者たちはLSTMの核心的な概念（内部状態とゲート機構）を維持しながら、よりシンプルで計算効率の良いアーキテクチャを模索し始めました。特に、LSTMの記憶セル状態と隠れ状態を統合し、ゲートの数を減らしたことで、パラメータ数が削減され、計算グラフが単純化されたため、勾配の流れがよりスムーズになり、学習が安定するという利点もあります。
+
+### ゲート (gate) の簡略化
+
+![GRU Gates](/assert/rnn/gru_gates.png)
+
+LSTMでは3つのゲート（入力ゲート、忘却ゲート、出力ゲート）を使用していましたが、GRUではこれらを2つのゲートに簡略化しています。それがリセットゲート（reset gate）と更新ゲート（update gate）です。
+
+LSTMと同様に、これらのゲートにはシグモイド活性化関数が適用され、出力値は0から1の間に制限されます。これは、各ゲートが「どの程度情報を通すか」を確率的に表現するためです。
+
+直感的に理解すると：
+
+- リセットゲート：前の時刻の隠れ状態（情報）をどの程度記憶し続けるかを制御します
+- 更新ゲート：新しい状態が古い状態の単純なコピーであることをどの程度許容するかを制御します
+
+#### 数式的表現
+
+時刻$t$における入力がミニバッチ$\mathbf{X}_t \in \mathbb{R}^{n \times d}$（サンプル数$n$、入力次元数$d$）で、前の時刻の隠れ状態が$\mathbf{H}_{t-1} \in \mathbb{R}^{n \times h}$（隠れユニット数$h$）であるとします。
+
+このとき、リセットゲート$\mathbf{R}_t$と更新ゲート$\mathbf{Z}_t$は以下のように計算されます：
+
+$$
+\begin{aligned}
+\mathbf{R}_t = \sigma(\mathbf{X}_t \mathbf{W}_{\textrm{xr}} + \mathbf{H}_{t-1} \mathbf{W}_{\textrm{hr}} + \mathbf{b}_\textrm{r}),\\
+\mathbf{Z}_t = \sigma(\mathbf{X}_t \mathbf{W}_{\textrm{xz}} + \mathbf{H}_{t-1} \mathbf{W}_{\textrm{hz}} + \mathbf{b}_\textrm{z}),
+\end{aligned}
+$$
+
+ここで：
+- $\mathbf{W}_{\textrm{xr}}, \mathbf{W}_{\textrm{xz}} \in \mathbb{R}^{d \times h}$ は入力から各ゲートへの重み行列
+- $\mathbf{W}_{\textrm{hr}}, \mathbf{W}_{\textrm{hz}} \in \mathbb{R}^{h \times h}$ は前の隠れ状態から各ゲートへの重み行列
+- $\mathbf{b}_\textrm{r}, \mathbf{b}_\textrm{z} \in \mathbb{R}^{1 \times h}$ は各ゲートのバイアス項
+- $\sigma$ はシグモイド関数
+
+この構造により、GRUはLSTMと比較してパラメータ数を削減しながらも、同様のゲート制御メカニズムを維持しています。
