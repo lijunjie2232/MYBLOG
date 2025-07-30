@@ -47,15 +47,14 @@ $$\mathbf{O}_t = \mathbf{H}_t \mathbf{W}_{\textrm{hq}} + \mathbf{b}_\textrm{q}$$
 
 ### RNNをもちいる言語モデル
 
-#### 文字レベル言語モデルの概要
+![RNN Language Model](/assert/rnn/rnn_lm.png)
+
 言語モデルの目的は、現在および過去のトークン（単語や文字）に基づいて、次のトークンを予測することです。RNNを用いた文字レベル言語モデルでは、テキストを文字単位でトークン化し、1文字ずつ予測していきます。
 
 例えば、"machine"という単語のシーケンスを考えると、入力シーケンスは"machin"、ターゲットシーケンスは"achine"となります。各時刻tにおいて、RNNは過去の文字列に基づいて次の文字を予測します。
 
 #### RNNによる予測プロセス
 RNNは各時刻tにおいて、以下の手順で処理を行います：
-
-![RNN Language Model](/assert/rnn/rnn_lm.png)
 
 1. 現在の入力文字 $\mathbf{X}t$ と前の隠れ状態 $\mathbf{H}{t-1}$ から新しい隠れ状態 $\mathbf{H}_t$ を計算
 2. 隠れ状態 $\mathbf{H}_t$ から出力 $\mathbf{O}_t$ を生成
