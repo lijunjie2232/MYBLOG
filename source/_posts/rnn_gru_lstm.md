@@ -152,3 +152,26 @@ RNNの隠れ状態h_tは固定長のベクトルであるため、時系列が�
 | **出力ゲート(output gate)** | セル状態の出力制御   |
 
 
+### LSTMのゲート計算の数式
+
+
+数学的に、$h$ 個の隠れユニット、バッチサイズ $n$、入力数 $d$ があると仮定します。したがって、入力は $\mathbf{X}_t \in \mathbb{R}^{n \times d}$ で、前の時間ステップの隠れ状態は $\mathbf{H}_{t-1} \in \mathbb{R}^{n \times h}$ です。これに対応して、時間ステップ $t$ におけるゲートは次のように定義されます：入力ゲートは $\mathbf{I}_t \in \mathbb{R}^{n \times h}$、忘却ゲートは $\mathbf{F}_t \in \mathbb{R}^{n \times h}$、出力ゲートは $\mathbf{O}_t \in \mathbb{R}^{n \times h}$ です。これらは次のように計算されます：
+
+$$
+\begin{aligned}
+\mathbf{I}_t &= \sigma(\mathbf{X}_t \mathbf{W}_{\textrm{xi}} + \mathbf{H}_{t-1} \mathbf{W}_{\textrm{hi}} + \mathbf{b}_\textrm{i}),\\
+\mathbf{F}_t &= \sigma(\mathbf{X}_t \mathbf{W}_{\textrm{xf}} + \mathbf{H}_{t-1} \mathbf{W}_{\textrm{hf}} + \mathbf{b}_\textrm{f}),\\
+\mathbf{O}_t &= \sigma(\mathbf{X}_t \mathbf{W}_{\textrm{xo}} + \mathbf{H}_{t-1} \mathbf{W}_{\textrm{ho}} + \mathbf{b}_\textrm{o}),
+\end{aligned}
+$$
+
+ここで、$\mathbf{W}_{\textrm{xi}}, \mathbf{W}_{\textrm{xf}}, \mathbf{W}_{\textrm{xo}} \in \mathbb{R}^{d \times h}$ および $\mathbf{W}_{\textrm{hi}}, \mathbf{W}_{\textrm{hf}}, \mathbf{W}_{\textrm{ho}} \in \mathbb{R}^{h \times h}$ は重みパラメータで、$\mathbf{b}_\textrm{i}, \mathbf{b}_\textrm{f}, \mathbf{b}_\textrm{o} \in \mathbb{R}^{1 \times h}$ はバイアスパラメータです。合計中にブロードキャストがトリガーされることに注意してください。入力値を区間 $(0, 1)$ にマッピングするためにシグモイド関数を使用します。
+
+各成分の意味を以下に示します：
+
+- $\mathbf{X}_t$: 時間ステップ $t$ における入力ベクトル（バッチサイズ $n$、入力次元 $d$）
+- $\mathbf{H}_{t-1}$: 時間ステップ $t-1$ における隠れ状態（バッチサイズ $n$、隠れユニット数 $h$）
+- $\mathbf{W}_{\textrm{xi}}, \mathbf{W}_{\textrm{xf}}, \mathbf{W}_{\textrm{xo}}$: 入力から各ゲートへの重み行列（入力次元 $d$ × 隠れユニット数 $h$）
+- $\mathbf{W}_{\textrm{hi}}, \mathbf{W}_{\textrm{hf}}, \mathbf{W}_{\textrm{ho}}$: 前の隠れ状態から各ゲートへの重み行列（隠れユニット数 $h$ × 隠れユニット数 $h$）
+- $\mathbf{b}_\textrm{i}, \mathbf{b}_\textrm{f}, \mathbf{b}_\textrm{o}$: 各ゲートのバイアス項（1 × 隠れユニット数 $h$）
+- $\sigma$: シグモイド活性化関数（出力を0から1の間に制限）
