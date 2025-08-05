@@ -406,3 +406,123 @@ class PatchMerging(nn.Module):
         # ダウンサンプリングされた特徴を返す
         return x
 ```
+
+### mask掩码生成とstageスタックのコードモジュール
+
+```python
+def create_mask(self, x, H, W):
+    # SW-MSA用のアテンションマスクを計算
+    # HpとWpがwindow_sizeの整数倍になるように保証
+    Hp = int(np.ceil(H / self.window_size)) * self.window_size
+    Wp = int(np.ceil(W / self.window_size)) * self.window_size
+    # feature mapと同じチャネル配置順序を持ち、後続のwindow_partitionを容易にする
+    img_mask = torch.zeros((1, Hp, Wp, 1), device=x.device)  # [1, Hp, Wp, 1]
+    
+    # 高さ方向のスライスを定義：左上(-100)、左中(-100)、左下(-100)の3つの領域
+    h_slices = (slice(0, -self.window_size),                    # 0から-window_sizeまで
+                slice(-self.window_size, -self.shift_size),     # -window_sizeから-shift_sizeまで
+                slice(-self.shift_size, None))                  # -shift_sizeから終端まで
+    # 幅方向のスライスを定義：同様に3つの領域
+    w_slices = (slice(0, -self.window_size),                    # 0から-window_sizeまで
+                slice(-self.window_size, -self.shift_size),     # -window_sizeから-shift_sizeまで
+                slice(-self.shift_size, None))                  # -shift_sizeから終端まで
+    
+    cnt = 0
+    # 3x3の領域（合計9領域）それぞれに異なる番号を割り当てる
+    for h in h_slices:
+        for w in w_slices:
+            img_mask[:, h, w, :] = cnt  # 各領域に0〜8の番号を割り当て
+            cnt += 1
+
+    # img_maskを個別のウィンドウに分割
+    mask_windows = window_partition(img_mask, self.window_size)  # [nW, Mh, Mw, 1]
+    # 各ウィンドウを1次元に平坦化
+    mask_windows = mask_windows.view(-1, self.window_size * self.window_size)  # [nW, Mh*Mw]
+    
+    # アテンションマスクの計算：ブロードキャストメカニズムを使用
+    attn_mask = mask_windows.unsqueeze(1) - mask_windows.unsqueeze(2)  # [nW, 1, Mh*Mw] - [nW, Mh*Mw, 1]
+    # [nW, Mh*Mw, Mh*Mw] - 各ウィンドウ内の位置間の関係を表す
+    
+    # 自己アテンションメカニズムを求める必要があるため、同じ領域は0で表し、異なる領域は-100で埋める
+    # 0でない位置には-100を、0の位置には0を設定
+    attn_mask = attn_mask.masked_fill(attn_mask != 0, float(-100.0)).masked_fill(attn_mask == 0, float(0.0))
+    return attn_mask
+
+# 4. stageスタック部分コード：
+
+class BasicLayer(nn.Module):
+    """
+    1つのステージ用の基本的なSwin Transformerレイヤー
+    Args:
+        dim (int): 入力チャネル数
+        depth (int): ブロック数
+        num_heads (int): アテンションヘッド数
+        window_size (int): ローカルウィンドウサイズ
+        mlp_ratio (float): MLP隠れ次元と埋め込み次元の比率
+        qkv_bias (bool, optional): Trueの場合、query, key, valueに学習可能なバイアスを追加
+        drop (float, optional): ドロップアウト率
+        attn_drop (float, optional): アテンションドロップアウト率
+        drop_path (float | tuple[float], optional): 確率的深度率
+        norm_layer (nn.Module, optional): 正規化層
+        downsample (nn.Module | None, optional): レイヤー終端のダウンサンプル層
+        use_checkpoint (bool): メモリ節約のためのチェックポイント使用有無
+    """
+
+    def __init__(self, dim, depth, num_heads, window_size,
+                 mlp_ratio=4., qkv_bias=True, drop=0., attn_drop=0.,
+                 drop_path=0., norm_layer=nn.LayerNorm, downsample=None, use_checkpoint=False):
+        super().__init__()
+        self.dim = dim
+        self.depth = depth  # このレイヤー内のブロック数
+        self.window_size = window_size
+        self.use_checkpoint = use_checkpoint
+        self.shift_size = window_size // 2  # 右および下方向へのシフトサイズ（ウィンドウサイズの半分）
+
+        # ブロックの構築
+        self.blocks = nn.ModuleList([
+            SwinTransformerBlock(
+                dim=dim,
+                num_heads=num_heads,
+                window_size=window_size,
+                # シフトサイズが0かどうかでW-MSAかSW-MSAかを決定
+                shift_size=0 if (i % 2 == 0) else self.shift_size,
+                mlp_ratio=mlp_ratio,
+                qkv_bias=qkv_bias,
+                drop=drop,
+                attn_drop=attn_drop,
+                # ドロップパス率をリスト形式か単一値で設定
+                drop_path=drop_path[i] if isinstance(drop_path, list) else drop_path,
+                norm_layer=norm_layer)
+            for i in range(depth)])  # depth数分のSwinTransformerBlockを生成
+
+        # パッチマージング層（PatchMergingクラス）
+        if downsample is not None:
+            self.downsample = downsample(dim=dim, norm_layer=norm_layer)
+        else:
+            self.downsample = None
+
+    def create_mask(self, x, H, W):
+        # SW-MSA用のアテンションマスクを計算（前述のcreate_mask関数と同じ内容）
+
+    def forward(self, x, H, W):
+        # maskマスクの作成
+        attn_mask = self.create_mask(x, H, W)  # [nW, Mh*Mw, Mh*Mw]
+        
+        # 各ブロックに対して順伝播
+        for blk in self.blocks:
+            blk.H, blk.W = H, W  # ブロックに高さと幅の情報を設定
+            # ジットコンパイル中でなく、チェックポイント使用の場合はメモリ節約モード
+            if not torch.jit.is_scripting() and self.use_checkpoint:
+                x = checkpoint.checkpoint(blk, x, attn_mask)
+            else:
+                x = blk(x, attn_mask)  # 通常の順伝播
+        
+        # ダウンサンプル層がある場合、適用する
+        if self.downsample is not None:
+            x = self.downsample(x, H, W)
+            # 高さと幅を更新（(H+1)//2と(W+1)//2により、奇数の場合も適切に処理）
+            H, W = (H + 1) // 2, (W + 1) // 2
+
+        # 処理後の特徴、高さ、幅を返す
+        return x, H, W
+```
