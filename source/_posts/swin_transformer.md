@@ -2,7 +2,7 @@
 title: Swin Transformer
 date: 2024-4-11 10:17:00
 categories: [AI]
-tags: [Deep Learning, transformer, swin transformer, image classification, Computer Vision, 機械学習, AI, 人工知能, 深層学習, 画像処理, 画像分類]
+tags: [Deep Learning, transformer, swin transformer, image classiftion, Computer Vision, 機械学習, AI, 人工知能, 深層学習, 画像処理, 画像分類, 画像処理]
 lang: ja　
 description: Microsoft Researchが開発したSwin Transformer（Shifted Window Transformer）について詳しく解説しています。従来のVision Transformerが抱える計算複雑性と局所特徴捕捉の問題を解決するために、ウィンドウベースのアテンションメカニズムと階層的な特徴処理を導入したモデルです。ブログでは、Patch Embedding、Window Partition、W-MSA、SW-MSA、PatchMergingなどの中核コンポーネントを図解とコード例を交えて詳細に説明し、Swin Transformerがどのようにして計算効率と性能のバランスを実現しているかを分かりやすく紹介しています。
 
