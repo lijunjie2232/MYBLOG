@@ -46,7 +46,7 @@
 
 [ ] mamba
 
-[ ] swin transformer
+[x] swin transformer
 
 [ ] convnext
 
