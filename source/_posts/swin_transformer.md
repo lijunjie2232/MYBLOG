@@ -56,7 +56,6 @@ Patch Embeddingは、入力画像を複数の小さなパッチに分割し、�
 - **パラメータの制御**: 
 - **柔軟な設定**: 畳み込みパラメータを変更することで、パッチの数と各パッチの次元を制御可能
 
-
 ## ウィンドウ分割 (Window Partition)
 
 Swin Transformerでは、Patch Embeddingで得られた特徴表現に加えて、ウィンドウ分割(Window Partition)によってさらに細分化・処理を行い、ウィンドウ内での局所的アテンションメカニズムにより計算効率を向上させ、局所特徴を捉えることを目的としています。
@@ -148,3 +147,57 @@ W-MSA (Window Multi-Head Self Attention) はSwin Transformerの中心的なア�
 - `3`: ヘッド数
 - `49`: 各ウィンドウ内の位置数 (7×7)
 - `49`: 各位置から他の位置へのアテンションスコア (自己アテンション行列)
+
+
+
+
+## コード例
+```python
+class PatchEmbed(nn.Module):
+    """
+    2D Image to Patch Embedding
+    split image into non-overlapping patches   即将图片划分成一个个没有重叠的patch
+    """
+    def __init__(self, patch_size=4, in_c=3, embed_dim=96, norm_layer=None):
+        super().__init__()
+        # パッチサイズをタプル形式に変換し、高さと幅の両方に同じ値を適用
+        patch_size = (patch_size, patch_size)
+        self.patch_size = patch_size
+        # 入力チャネル数と埋め込み次元数をクラス属性として保存
+        self.in_chans = in_c
+        self.embed_dim = embed_dim
+        # 畳み込み層を定義: 入力画像をパッチに分割し、指定された次元に埋め込む
+        # kernel_size = stride により、パッチが重ならないように分割される
+        self.proj = nn.Conv2d(in_c, embed_dim, kernel_size=patch_size, stride=patch_size)
+        # 正規化層の設定: 指定されていればその層を使用、なければIdentity(何もしない)
+        self.norm = norm_layer(embed_dim) if norm_layer else nn.Identity()
+ 
+    def forward(self, x):
+        # 入力テンソルの形状からバッチサイズ、チャネル数、高さ、幅を取得
+        _, _, H, W = x.shape
+ 
+        # padding
+        # 如果输入图片的H，W不是patch_size的整数倍，需要进行padding
+        # 入力画像の高さまたは幅がパッチサイズの整数倍でない場合、パディングが必要
+        pad_input = (H % self.patch_size[0] != 0) or (W % self.patch_size[1] != 0)
+        if pad_input:
+            # to pad the last 3 dimensions,
+            # (W_left, W_right, H_top,H_bottom, C_front, C_back)
+            # 最後の3次元(幅、高さ、チャネル)にパディングを適用
+            x = F.pad(x, (0, self.patch_size[1] - W % self.patch_size[1],   # 表示宽度方向右侧填充数
+                          0, self.patch_size[0] - H % self.patch_size[0],   # 表示高度方向底部填充数
+                          0, 0))
+ 
+        # 下采样patch_size倍
+        # パッチサイズ分だけダウンサンプリングし、パッチへの分割を実行
+        x = self.proj(x)
+        _, _, H, W = x.shape
+        # flatten: [B, C, H, W] -> [B, C, HW]
+        # transpose: [B, C, HW] -> [B, HW, C]
+        # テンソルの形状を変更: パッチの系列を1次元に平坦化し、チャネル次元を最後に移動
+        x = x.flatten(2).transpose(1, 2)
+        # 正規化層を適用
+        x = self.norm(x)
+        # 埋め込み特徴、出力の高さ、出力の幅を返す
+        return x, H, W
+```
