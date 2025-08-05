@@ -12,9 +12,9 @@ description: swin transformer
 
 ---
 
-![swin transformer architecture](/assert/swin_transformer/swin_transformer_arch.png)
-
 Swin Transformerは、Microsoft Researchチームが開発した視覚モデルで、従来のTransformerモデルがコンピュータビジョンタスクにおいて抱える計算複雑性の問題を解決することを目的としています。正式名称は「Shifted Window Transformer」で、階層アーキテクチャとシフトウィンドウメカニズムを導入することで、性能と効率のバランスを実現しています。
+
+![swin transformer architecture](/assert/swin_transformer/swin_transformer_arch.png)
 
 ## Vision Transformerの課題
 
@@ -29,4 +29,30 @@ Swin Transformerは、Microsoft Researchチームが開発した視覚モデル�
   - レイヤーごとにトークンを徐々にマージ（400→200→100トークン）
   - トークン数が減少するにつれてウィンドウサイズが増加
   - CNNの畳み込みとプーリング操作と同様の概念
+
+## Swin TransformerにおけるPatch Embedding
+
+### Patch Embeddingの役割
+
+Patch Embeddingは、入力画像を複数の小さなパッチに分割し、これらのパッチのピクセル値を高次元空間に埋め込むことで、Transformerが処理可能な特徴表現を形成します。
+
+### 処理手順
+
+1. **画像の分割**: 入力画像(224×224×3)を小さなパッチに分割
+2. **畳み込み操作**: Conv2d(3, 96, kernel_size=(4, 4), stride=(4, 4))を使用して各パッチを96次元の特徴ベクトルに変換
+   - カーネルサイズ: 4×4
+   - ストライド: 4
+   - 入力チャネル数: 3(RGB画像)
+   - 出力チャネル数: 96
+3. **出力サイズの計算**: (224 - 4) / 4 + 1 = 56 → 56×56×96の特徴マップを生成
+
+そこで：
+  - `kernel_size`: 各パッチの空間サイズを決定
+  - `stride`: パッチ間の間隔(ストライド)を決定
+
+### 特徴と利点
+
+- **パッチの表現**: 56×56×96の出力は3,136個のパッチを含み、各パッチは96次元のベクトルとして表現される
+- **パラメータの制御**: 
+- **柔軟な設定**: 畳み込みパラメータを変更することで、パッチの数と各パッチの次元を制御可能
 
