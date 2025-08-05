@@ -526,3 +526,130 @@ class BasicLayer(nn.Module):
         # 処理後の特徴、高さ、幅を返す
         return x, H, W
 ```
+
+### SW-MSAの計算
+```python
+class SwinTransformerBlock(nn.Module):
+    r""" Swin Transformer Block.
+
+    Args:
+        dim (int): 入力チャネル数
+        num_heads (int): アテンションヘッド数
+        window_size (int): ウィンドウサイズ
+        shift_size (int): SW-MSA用のシフトサイズ
+        mlp_ratio (float): MLP隠れ次元と埋め込み次元の比率
+        qkv_bias (bool, optional): Trueの場合、query, key, valueに学習可能なバイアスを追加
+        drop (float, optional): ドロップアウト率
+        attn_drop (float, optional): アテンションドロップアウト率
+        drop_path (float, optional): 確率的深度率
+        act_layer (nn.Module, optional): 活性化層
+        norm_layer (nn.Module, optional): 正規化層
+    """
+
+    def __init__(self, dim, num_heads, window_size=7, shift_size=0,
+                 mlp_ratio=4., qkv_bias=True, drop=0., attn_drop=0., drop_path=0.,
+                 act_layer=nn.GELU, norm_layer=nn.LayerNorm):
+        super().__init__()
+        # 各パラメータをクラス属性として保存
+        self.dim = dim
+        self.num_heads = num_heads
+        self.window_size = window_size
+        self.shift_size = shift_size
+        self.mlp_ratio = mlp_ratio
+        # シフトサイズが0〜window_sizeの範囲内にあることを確認
+        assert 0 <= self.shift_size < self.window_size, "shift_size must in 0-window_size"
+
+        # 最初の正規化層
+        self.norm1 = norm_layer(dim)
+        # ウィンドウアテンション層
+        self.attn = WindowAttention(
+            dim, window_size=(self.window_size, self.window_size), num_heads=num_heads, qkv_bias=qkv_bias,
+            attn_drop=attn_drop, proj_drop=drop)
+
+        # ドロップパス層（drop_pathが0より大きい場合のみ適用）
+        self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
+        # 2番目の正規化層
+        self.norm2 = norm_layer(dim)
+        # MLP層の隠れ次元数を計算
+        mlp_hidden_dim = int(dim * mlp_ratio)
+        # MLP層の定義
+        self.mlp = Mlp(in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop)
+
+    def forward(self, x, attn_mask):
+        # 高さと幅をクラス属性から取得
+        H, W = self.H, self.W
+        # 入力テンソルの形状を取得
+        B, L, C = x.shape
+        # 入力特徴のサイズが正しいか確認
+        assert L == H * W, "input feature has wrong size"
+
+        # ショートカット接続用に元の入力を保存
+        shortcut = x
+        # 最初の正規化を適用
+        x = self.norm1(x)
+        # テンソルの形状を[B, H, W, C]に変更
+        x = x.view(B, H, W, C)
+
+        # pad feature maps to multiples of window size
+        # feature mapをwindow sizeの整数倍にパディング
+        # パディング量を計算（左、上、右、下）
+        pad_l = pad_t = 0  # 左と上のパディングは0
+        pad_r = (self.window_size - W % self.window_size) % self.window_size  # 右のパディング量
+        pad_b = (self.window_size - H % self.window_size) % self.window_size  # 下のパディング量
+        
+        # パディングを適用
+        x = F.pad(x, (0, 0, pad_t, pad_b, pad_l, pad_r))
+
+        # パディング後の高さと幅を取得
+        _, Hp, Wp, _ = x.shape
+
+        # cyclic shift（循環シフト）
+        if self.shift_size > 0:
+            # paper中、滑动的size是窗口大小的/2（向下取整）
+            # torch.rollはH,Wの次元を例にすると、負値は左上に移動、正值は右下に移動
+            # 溢れた値は対角方向に出現する（循環移動）
+            shifted_x = torch.roll(x, shifts=(-self.shift_size, -self.shift_size), dims=(1, 2))
+        else:
+            shifted_x = x
+            attn_mask = None  # シフトがない場合はアテンションマスクをNoneに
+
+        # partition windows（ウィンドウ分割）
+        # シフトされた特徴をウィンドウに分割
+        x_windows = window_partition(shifted_x, self.window_size)  # [nW*B, Mh, Mw, C]
+        # ウィンドウを1次元に平坦化
+        x_windows = x_windows.view(-1, self.window_size * self.window_size, C)  # [nW*B, Mh*Mw, C]
+
+        # W-MSA/SW-MSA（ウィンドウマルチヘッドセルフアテンション）
+        # アテンション計算を実行
+        attn_windows = self.attn(x_windows, mask=attn_mask)  # [nW*B, Mh*Mw, C]
+
+        # merge windows（ウィンドウ結合）
+        # アテンション結果をウィンドウ形状に戻す
+        attn_windows = attn_windows.view(-1, self.window_size, self.window_size, C)  # [nW*B, Mh, Mw, C]
+        # ウィンドウを元の特徴マップ形状に復元
+        shifted_x = window_reverse(attn_windows, self.window_size, Hp, Wp)  # [B, H', W', C]
+
+        # reverse cyclic shift（逆循環シフト）
+        if self.shift_size > 0:
+            # シフトを元に戻す
+            x = torch.roll(shifted_x, shifts=(self.shift_size, self.shift_size), dims=(1, 2))
+        else:
+            x = shifted_x
+
+        # パディングしたデータを削除
+        if pad_r > 0 or pad_b > 0:
+            # 前にパディングしたデータを除去
+            x = x[:, :H, :W, :].contiguous()
+
+        # テンソルの形状を[B, H*W, C]に戻す
+        x = x.view(B, H * W, C)
+
+        # FFN（フィードフォワードネットワーク）
+        # ショートカット接続とドロップパスを適用
+        x = shortcut + self.drop_path(x)
+        # 2番目のショートカット接続とMLPを適用
+        x = x + self.drop_path(self.mlp(self.norm2(x)))
+
+        # 処理後の特徴を返す
+        return x
+```
