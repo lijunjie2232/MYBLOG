@@ -28,7 +28,7 @@ description: Microsoft Researchが開発したSwin Transformer（Shifted Window 
     - [処理手順](#%E5%87%A6%E7%90%86%E6%89%8B%E9%A0%86-1)
     - [出力結果](#%E5%87%BA%E5%8A%9B%E7%B5%90%E6%9E%9C)
 - [SW-MSA (Shifted Window Multi-Head Self Attention)](#sw-msa-shifted-window-multi-head-self-attention)
-    - [Window MSAの問題点](#window-msa%E3%81%AE%E5%95%8F%E9%A1%8C%E7%82%B9)
+  - [Window MSAの問題点](#window-msa%E3%81%AE%E5%95%8F%E9%A1%8C%E7%82%B9)
   - [操作の詳細](#%E6%93%8D%E4%BD%9C%E3%81%AE%E8%A9%B3%E7%B4%B0)
   - [利点](#%E5%88%A9%E7%82%B9-1)
   - [SW MSAの問題点](#sw-msa%E3%81%AE%E5%95%8F%E9%A1%8C%E7%82%B9)
@@ -45,8 +45,8 @@ description: Microsoft Researchが開発したSwin Transformer（Shifted Window 
   - [チャネル数の変化](#%E3%83%81%E3%83%A3%E3%83%8D%E3%83%AB%E6%95%B0%E3%81%AE%E5%A4%89%E5%8C%96)
   - [利点](#%E5%88%A9%E7%82%B9-3)
 - [コード例](#%E3%82%B3%E3%83%BC%E3%83%89%E4%BE%8B)
-  - [PatchEmbed](#patchembed)
-  - [PatchMerging](#patchmerging-1)
+  - [PatchEmbed　コード例](#patchembed-%E3%82%B3%E3%83%BC%E3%83%89%E4%BE%8B)
+  - [PatchMerging　コード例](#patchmerging-%E3%82%B3%E3%83%BC%E3%83%89%E4%BE%8B)
   - [mask掩码生成とstageスタックのコードモジュール](#mask%E6%8E%A9%E7%A0%81%E7%94%9F%E6%88%90%E3%81%A8stage%E3%82%B9%E3%82%BF%E3%83%83%E3%82%AF%E3%81%AE%E3%82%B3%E3%83%BC%E3%83%89%E3%83%A2%E3%82%B8%E3%83%A5%E3%83%BC%E3%83%AB)
   - [SW-MSAの計算](#sw-msa%E3%81%AE%E8%A8%88%E7%AE%97)
 
@@ -217,7 +217,7 @@ SW-MSA (Shifted Window Multi-Head Self Attention) は、Swin Transformerのウ�
 
 ![swin SW-MSA](/assert/swin_transformer/swin_shift0.png)
 
-#### Window MSAの問題点
+### Window MSAの問題点
 
 - 画像を固定ウィンドウ(例: 7×7)に分割し、各ウィンドウ内で自己注意を計算
 - 各ウィンドウ内の情報が比較的閉鎖的で、隣接ウィンドウとの情報交換がない
@@ -331,7 +331,7 @@ Swin Transformerでは、モデルの各層でダウンサンプリング操作�
 
 ## コード例
 
-### PatchEmbed
+### PatchEmbed　コード例
 
 ```python
 class PatchEmbed(nn.Module):
@@ -383,7 +383,7 @@ class PatchEmbed(nn.Module):
         return x, H, W
 ```
 
-### PatchMerging
+### PatchMerging　コード例
 
 ```python
 class PatchMerging(nn.Module):
