@@ -10,6 +10,47 @@ description: Microsoft Researchが開発したSwin Transformer（Shifted Window 
 
 目次
 
+- [Vision Transformerの課題](#vision-transformer%E3%81%AE%E8%AA%B2%E9%A1%8C)
+  - [Swin Transformerの解決策](#swin-transformer%E3%81%AE%E8%A7%A3%E6%B1%BA%E7%AD%96)
+- [Patch Embedding](#patch-embedding)
+  - [処理手順](#%E5%87%A6%E7%90%86%E6%89%8B%E9%A0%86)
+  - [特徴と利点](#%E7%89%B9%E5%BE%B4%E3%81%A8%E5%88%A9%E7%82%B9)
+- [ウィンドウ分割 (Window Partition)](#%E3%82%A6%E3%82%A3%E3%83%B3%E3%83%89%E3%82%A6%E5%88%86%E5%89%B2-window-partition)
+  - [処理手順と計算](#%E5%87%A6%E7%90%86%E6%89%8B%E9%A0%86%E3%81%A8%E8%A8%88%E7%AE%97)
+  - [Tokenの概念の変化](#token%E3%81%AE%E6%A6%82%E5%BF%B5%E3%81%AE%E5%A4%89%E5%8C%96)
+  - [利点](#%E5%88%A9%E7%82%B9)
+- [W-MSA (Windwow multi-head self attentio)](#w-msa-windwow-multi-head-self-attentio)
+  - [入力データ構造](#%E5%85%A5%E5%8A%9B%E3%83%87%E3%83%BC%E3%82%BF%E6%A7%8B%E9%80%A0)
+  - [Multi-Head Self-Attentionの処理手順](#multi-head-self-attention%E3%81%AE%E5%87%A6%E7%90%86%E6%89%8B%E9%A0%86)
+  - [W-MSAの計算プロセス](#w-msa%E3%81%AE%E8%A8%88%E7%AE%97%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9)
+  - [出力の形状](#%E5%87%BA%E5%8A%9B%E3%81%AE%E5%BD%A2%E7%8A%B6)
+  - [Window Reverseの目的](#window-reverse%E3%81%AE%E7%9B%AE%E7%9A%84)
+    - [処理手順](#%E5%87%A6%E7%90%86%E6%89%8B%E9%A0%86-1)
+    - [出力結果](#%E5%87%BA%E5%8A%9B%E7%B5%90%E6%9E%9C)
+- [SW-MSA (Shifted Window Multi-Head Self Attention)](#sw-msa-shifted-window-multi-head-self-attention)
+    - [Window MSAの問題点](#window-msa%E3%81%AE%E5%95%8F%E9%A1%8C%E7%82%B9)
+  - [操作の詳細](#%E6%93%8D%E4%BD%9C%E3%81%AE%E8%A9%B3%E7%B4%B0)
+  - [利点](#%E5%88%A9%E7%82%B9-1)
+  - [SW MSAの問題点](#sw-msa%E3%81%AE%E5%95%8F%E9%A1%8C%E7%82%B9)
+    - [解決策: マスク操作](#%E8%A7%A3%E6%B1%BA%E7%AD%96-%E3%83%9E%E3%82%B9%E3%82%AF%E6%93%8D%E4%BD%9C)
+  - [出力特徴マップ](#%E5%87%BA%E5%8A%9B%E7%89%B9%E5%BE%B4%E3%83%9E%E3%83%83%E3%83%97)
+- [PatchMerging](#patchmerging)
+  - [特徴と目的](#%E7%89%B9%E5%BE%B4%E3%81%A8%E7%9B%AE%E7%9A%84)
+  - [処理手順](#%E5%87%A6%E7%90%86%E6%89%8B%E9%A0%86-2)
+    - [1. 分割と連結 (Splitting and Concatenation)](#1-%E5%88%86%E5%89%B2%E3%81%A8%E9%80%A3%E7%B5%90-splitting-and-concatenation)
+    - [2. 畳み込み操作](#2-%E7%95%B3%E3%81%BF%E8%BE%BC%E3%81%BF%E6%93%8D%E4%BD%9C)
+  - [利点](#%E5%88%A9%E7%82%B9-2)
+- [階層計算 (Hierarchical Computation)](#%E9%9A%8E%E5%B1%A4%E8%A8%88%E7%AE%97-hierarchical-computation)
+  - [処理フロー](#%E5%87%A6%E7%90%86%E3%83%95%E3%83%AD%E3%83%BC)
+  - [チャネル数の変化](#%E3%83%81%E3%83%A3%E3%83%8D%E3%83%AB%E6%95%B0%E3%81%AE%E5%A4%89%E5%8C%96)
+  - [利点](#%E5%88%A9%E7%82%B9-3)
+- [コード例](#%E3%82%B3%E3%83%BC%E3%83%89%E4%BE%8B)
+  - [PatchEmbed](#patchembed)
+  - [PatchMerging](#patchmerging-1)
+  - [mask掩码生成とstageスタックのコードモジュール](#mask%E6%8E%A9%E7%A0%81%E7%94%9F%E6%88%90%E3%81%A8stage%E3%82%B9%E3%82%BF%E3%83%83%E3%82%AF%E3%81%AE%E3%82%B3%E3%83%BC%E3%83%89%E3%83%A2%E3%82%B8%E3%83%A5%E3%83%BC%E3%83%AB)
+  - [SW-MSAの計算](#sw-msa%E3%81%AE%E8%A8%88%E7%AE%97)
+
+
 ---
 
 Swin Transformerは、Microsoft Researchチームが開発した視覚モデルで、従来のTransformerモデルがコンピュータビジョンタスクにおいて抱える計算複雑性の問題を解決することを目的としています。正式名称は「Shifted Window Transformer」で、階層アーキテクチャとシフトウィンドウメカニズムを導入することで、性能と効率のバランスを実現しています。
