@@ -37,8 +37,8 @@ description: Microsoft Researchが開発したSwin Transformer（Shifted Window 
 - [PatchMerging](#patchmerging)
   - [特徴と目的](#%E7%89%B9%E5%BE%B4%E3%81%A8%E7%9B%AE%E7%9A%84)
   - [処理手順](#%E5%87%A6%E7%90%86%E6%89%8B%E9%A0%86-2)
-    - [1. 分割と連結 (Splitting and Concatenation)](#1-%E5%88%86%E5%89%B2%E3%81%A8%E9%80%A3%E7%B5%90-splitting-and-concatenation)
-    - [2. 畳み込み操作](#2-%E7%95%B3%E3%81%BF%E8%BE%BC%E3%81%BF%E6%93%8D%E4%BD%9C)
+    - [分割と連結 (Splitting and Concatenation)](#%E5%88%86%E5%89%B2%E3%81%A8%E9%80%A3%E7%B5%90-splitting-and-concatenation)
+    - [畳み込み操作](#%E7%95%B3%E3%81%BF%E8%BE%BC%E3%81%BF%E6%93%8D%E4%BD%9C)
   - [利点](#%E5%88%A9%E7%82%B9-2)
 - [階層計算 (Hierarchical Computation)](#%E9%9A%8E%E5%B1%A4%E8%A8%88%E7%AE%97-hierarchical-computation)
   - [処理フロー](#%E5%87%A6%E7%90%86%E3%83%95%E3%83%AD%E3%83%BC)
@@ -273,7 +273,7 @@ PatchMergingはSwin Transformerにおけるダウンサンプリング操作で�
 
 **入力**: H × W × C の特徴マップ
 
-#### 1. 分割と連結 (Splitting and Concatenation)
+#### 分割と連結 (Splitting and Concatenation)
 
 - 特徴マップを一定のステップサイズ（通常は2）で分割
 - 各2×2のパッチをマージ（結合）
@@ -281,7 +281,7 @@ PatchMergingはSwin Transformerにおけるダウンサンプリング操作で�
 - 各2×2パッチ内の特徴を連結し、新しい特徴次元を生成
 - 元のチャネル数Cから連結後のチャネル数4Cに拡張
 
-#### 2. 畳み込み操作
+#### 畳み込み操作
 
 - 連結後の特徴に対して**畳み込み**を実行し、特徴表現をさらに強化
 - 畳み込み操作により特徴空間を変換
