@@ -133,3 +133,7 @@
 [ ] controlnet
 
 [ ] DALLE
+
+# TTS
+
+[ ] VITS
