@@ -56,3 +56,51 @@ VITS（Variational Inference with adversarial learning for end-to-end Text-to-Sp
 ![VITS Architecture](/assert/VITS/train.png)
 
 
+### 変分推論（Variational Inference）
+
+VITSの生成器は、変分下界（ELBO: Evidence Lower Bound）を最大化する条件付きVAEとして考えることができます。これは以下の目的関数を最適化することを意味します：
+
+$$
+L_{vae} = L_{recon} + L_{kl} + L_{dur} + L_{adv} + L_{fm}(G)
+$$
+
+### 重建損失（Reconstruction Loss）
+
+訓練時には、モデルの学習を導くためにメルスペクトログラムを生成します。重建損失の目標サンプルには、生の波形ではなくメルスペクトログラムが使用されます：
+
+$$
+L_{recon}=||x_{mel}-\hat{x}_{mel}||_1
+$$
+
+推論時にはメルスペクトログラムの生成は不要で、この損失は訓練中のみ計算に使用されます。
+
+### KLダイバージェンス（KL Divergence）
+
+事前エンコーダーの入力$c$には、テキストから生成された音素$c_{text}$と音素・潜在変数間のアライメント$A$が含まれます。アライメントとは、$|c_{text}|×|z|$サイズの厳密単調注意行列で、各音素の発音時間を表します。KLダイバージェンスは以下の通りです：
+
+$$
+L_{kl}=log\ q_{\phi}(z|x_{lin})-log\ p_{\theta}(z|c_{text},A)
+$$
+
+ここで：
+- $q_{\phi}(z|x)$は線形スペクトログラム$x$が与えられたときの潜在変数$z$の事後分布
+- $p_{\theta}(z|c)$は条件$c$が与えられたときの潜在変数$z$の事前分布
+- 潜在変数$z$は以下に従います：$z\sim q_{\phi}(z|x_{lin})=N(z;\mu_{\phi}(x_{lin}),\sigma_{\phi}(x_{lin}))$
+
+
+より高解像度の情報を事後エンコーダー$q_{\phi}$に提供するために、メルスペクトログラムではなく線形スペクトログラムを入力として使用します。よりリアルなサンプルを生成するために、事前分布の表現能力を向上させることが重要であるため、正規化フローを導入して、テキストエンコーダーが生成する単純な分布と潜在変数$z$に対応する複雑な分布の間で可逆変換を行います：
+
+$$
+p_{\theta}(z|c)=N(f_{\theta}(z);\mu_{\theta}(c),\sigma_{\theta}(c))|det\frac{\partial f_{\theta}(z)}{\partial z}|
+$$
+
+ここで入力$c$はアップサンプリングされたエンコーダー出力です：$c=[c_{text},A]$
+
+
+### アライメント推定（Alignment Estimation）
+
+訓練時には「アライメント」の真のラベルがないため、訓練フェーズの各イテレーションでテキストと音声の間のアライメントを推定する必要があります。
+
+#### 単調アライメント探索（Monotonic Alignment Search: MAS）
+
+#### テキストからの持続時間予測 
