@@ -128,6 +128,8 @@
 
 [x] stylegan
 
+[ ] Flow
+
 [ ] diffusion model
 
 [ ] controlnet
@@ -137,3 +139,9 @@
 # TTS
 
 [ ] VITS
+
+[ ] HiFiGAN
+
+[ ] WaveNet
+
+[ ] Tacotron2
