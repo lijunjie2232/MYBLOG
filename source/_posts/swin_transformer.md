@@ -3,7 +3,7 @@ title: Swin Transformer
 date: 2024-4-11 10:17:00
 categories: [AI]
 tags: [Deep Learning, transformer, swin transformer, image classiftion, Computer Vision, 機械学習, AI, 人工知能, 深層学習, 画像処理, 画像分類, 画像認識]
-lang: ja　
+lang: ja
 description: Microsoft Researchが開発したSwin Transformer（Shifted Window Transformer）について詳しく解説しています。従来のVision Transformerが抱える計算複雑性と局所特徴捕捉の問題を解決するために、ウィンドウベースのアテンションメカニズムと階層的な特徴処理を導入したモデルです。ブログでは、Patch Embedding、Window Partition、W-MSA、SW-MSA、PatchMergingなどの中核コンポーネントを図解とコード例を交えて詳細に説明し、Swin Transformerがどのようにして計算効率と性能のバランスを実現しているかを分かりやすく紹介しています。
 
 ---
@@ -49,6 +49,7 @@ description: Microsoft Researchが開発したSwin Transformer（Shifted Window 
   - [PatchMerging　コード例](#patchmerging-%E3%82%B3%E3%83%BC%E3%83%89%E4%BE%8B)
   - [mask掩码生成とstageスタックのコードモジュール](#mask%E6%8E%A9%E7%A0%81%E7%94%9F%E6%88%90%E3%81%A8stage%E3%82%B9%E3%82%BF%E3%83%83%E3%82%AF%E3%81%AE%E3%82%B3%E3%83%BC%E3%83%89%E3%83%A2%E3%82%B8%E3%83%A5%E3%83%BC%E3%83%AB)
   - [SW-MSAの計算](#sw-msa%E3%81%AE%E8%A8%88%E7%AE%97)
+- [参考文献](#%E5%8F%82%E8%80%83%E6%96%87%E7%8C%AE)
 
 
 ---
@@ -694,3 +695,7 @@ class SwinTransformerBlock(nn.Module):
         # 処理後の特徴を返す
         return x
 ```
+
+## 参考文献
+
+- [Swin Transformer: Hierarchical Vision Transformer using Shifted Windows](https://arxiv.org/abs/2103.14030)
