@@ -22,6 +22,7 @@ description: VITS（Variational Inference with adversarial learning for end-to-e
     - [テキストからの持続時間予測](#%E3%83%86%E3%82%AD%E3%82%B9%E3%83%88%E3%81%8B%E3%82%89%E3%81%AE%E6%8C%81%E7%B6%9A%E6%99%82%E9%96%93%E4%BA%88%E6%B8%AC)
   - [敵対的学習（Adversarial Training）](#%E6%95%B5%E5%AF%BE%E7%9A%84%E5%AD%A6%E7%BF%92adversarial-training)
   - [理解](#%E7%90%86%E8%A7%A3)
+- [参考文献](#%E5%8F%82%E8%80%83%E6%96%87%E7%8C%AE)
 
 
 ---
@@ -30,8 +31,13 @@ description: VITS（Variational Inference with adversarial learning for end-to-e
 
 ![VITS Architecture](/assert/VITS/arch.png)
 
-VITS（Variational Inference with adversarial learning for end-to-end Text-to-Speech）は、変分推論（variational inference）、正規化フロー（normalizing flows）、および敵対的学習を組み合わせた、表現力の高い音声合成モデルです。VITSは、音声合成における音響モデルとボコーダーをスペクトログラムではなく潜在変数で連結し、潜在変数上で確率モデリングを行い、確率的デュレーション予測器を利用することで、合成音声の多様性を向上させています。同じテキストを入力しても、異なるトーンやリズムの音声を合成することが可能になります。
+VITS([Conditional Variational Autoencoder with Adversarial Learning for End-to-End Text-to-Speech（ICML 2021）](https://proceedings.mlr.press/v139/kim21f/kim21f.pdf))は、変分推論（variational inference）、正規化フロー（normalizing flows）、および敵対的学習を組み合わせた、表現力の高い音声合成モデルです。VITSは、音声合成における音響モデルとボコーダーをスペクトログラムではなく潜在変数で連結し、潜在変数上で確率モデリングを行い、確率的デュレーション予測器を利用することで、合成音声の多様性を向上させています。同じテキストを入力しても、異なるトーンやリズムの音声を合成することが可能になります。
 
+論点アドレス：https://proceedings.mlr.press/v139/kim21f/kim21f.pdf
+
+コードアドレス：https://github.com/jaywalnut310/vits
+
+demoアドレス：https://jaywalnut310.github.io/vits
 
 ## 主な貢献点
 
@@ -170,3 +176,7 @@ $$
 3. **エンドツーエンド学習**: 伝統的な2段階モデルよりも効率的な学習と推論が実現
 4. **自己教師あり学習**: アライメントラベルなしでの学習が可能
 
+## 参考文献
+[Conditional Variational Autoencoder with Adversarial Learning for End-to-End Text-to-Speech（ICML 2021）](https://proceedings.mlr.press/v139/kim21f/kim21f.pdf)
+
+[细读经典：VITS，用于语音合成带有对抗学习的条件变分自编码器](https://zhuanlan.zhihu.com/p/419883319)
