@@ -147,7 +147,7 @@ document.addEventListener('DOMContentLoaded', () => {
         $tocLink = $cardToc.querySelectorAll('.toc-link')
 
         if (isToc) {
-            console.log(detectItem)
+            // console.log(detectItem)
 
             document.getElementById("toc-content").querySelectorAll('.toc-active').forEach(i => i.classList.remove('toc-active'))
 
