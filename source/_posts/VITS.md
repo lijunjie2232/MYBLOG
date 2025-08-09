@@ -30,3 +30,29 @@ VITS（Variational Inference with adversarial learning for end-to-end Text-to-Sp
    - 入力テキストから異なるリズムを持つ音声を合成可能
    - 自然なone-to-many関係を表現（同じテキストを異なるトーンとリズムで複数の方法で発話可能）
 
+## モデルアーキテクチャ
+
+![VITS Architecture](/assert/VITS/arch.png)
+
+- **音声情報入力**: メルスペクトログラム: 音声データの短時フーリエ変換から得られる: `Posterior Encoder` (WaveNetモデル) で潜在変数zの事後分布を取得
+
+- **Decoder**: HiFiGANのジェネレーターと同等: 生の音声データを直接生成し、中間特徴量(メルスペクトログラム)の生成やボコーダーの訓練を不要に
+
+- **Flow**: 事後分布qから事前分布pへの変換関数fとして機能: 信号の表現能力を強化
+
+- **Monotonic Alignment Search**: 音声とテキストのベクトル系列の長さを一致させる
+
+- **Text Encoder**: 多頭注意transformer構造を使用: 入力テキストを音素系列に変換し、さらにベクトル系列に変換
+
+- **Projection**: ベクトル系列に基づいて$p_{θ}(z|c)$の事前分布パラメータ($μ_{θ}$, $σ_{θ}$)を取得
+
+- **Stochastic Duration Predictor**: Flowモデルを使用して周期予測を行う
+
+- **Discriminator**: 生成されたRaw Waveformと実際の音声波形を識別する一組の識別器
+
+
+##　トレーニング
+
+![VITS Architecture](/assert/VITS/train.png)
+
+
