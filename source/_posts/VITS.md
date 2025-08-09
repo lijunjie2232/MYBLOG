@@ -10,11 +10,26 @@ description: VITS（Variational Inference with adversarial learning for end-to-e
 
 目次
 
+- [VITS](#vits)
+- [主な貢献点](#%E4%B8%BB%E3%81%AA%E8%B2%A2%E7%8C%AE%E7%82%B9)
+- [モデルアーキテクチャ](#%E3%83%A2%E3%83%87%E3%83%AB%E3%82%A2%E3%83%BC%E3%82%AD%E3%83%86%E3%82%AF%E3%83%81%E3%83%A3)
+- [トレーニング](#%E3%83%88%E3%83%AC%E3%83%BC%E3%83%8B%E3%83%B3%E3%82%B0)
+  - [変分推論（Variational Inference）](#%E5%A4%89%E5%88%86%E6%8E%A8%E8%AB%96variational-inference)
+  - [重建損失（Reconstruction Loss）](#%E9%87%8D%E5%BB%BA%E6%90%8D%E5%A4%B1reconstruction-loss)
+  - [KLダイバージェンス（KL Divergence）](#kl%E3%83%80%E3%82%A4%E3%83%90%E3%83%BC%E3%82%B8%E3%82%A7%E3%83%B3%E3%82%B9kl-divergence)
+  - [アライメント推定（Alignment Estimation）](#%E3%82%A2%E3%83%A9%E3%82%A4%E3%83%A1%E3%83%B3%E3%83%88%E6%8E%A8%E5%AE%9Aalignment-estimation)
+    - [単調アライメント探索（Monotonic Alignment Search: MAS）](#%E5%8D%98%E8%AA%BF%E3%82%A2%E3%83%A9%E3%82%A4%E3%83%A1%E3%83%B3%E3%83%88%E6%8E%A2%E7%B4%A2monotonic-alignment-search-mas)
+    - [テキストからの持続時間予測](#%E3%83%86%E3%82%AD%E3%82%B9%E3%83%88%E3%81%8B%E3%82%89%E3%81%AE%E6%8C%81%E7%B6%9A%E6%99%82%E9%96%93%E4%BA%88%E6%B8%AC)
+
+
 ---
+
+## VITS
+
+![VITS Architecture](/assert/VITS/arch.png)
 
 VITS（Variational Inference with adversarial learning for end-to-end Text-to-Speech）は、変分推論（variational inference）、正規化フロー（normalizing flows）、および敵対的学習を組み合わせた、表現力の高い音声合成モデルです。VITSは、音声合成における音響モデルとボコーダーをスペクトログラムではなく潜在変数で連結し、潜在変数上で確率モデリングを行い、確率的デュレーション予測器を利用することで、合成音声の多様性を向上させています。同じテキストを入力しても、異なるトーンやリズムの音声を合成することが可能になります。
 
-![VITS Architecture](/assert/VITS/arch.png)
 
 ## 主な貢献点
 
@@ -50,8 +65,7 @@ VITS（Variational Inference with adversarial learning for end-to-end Text-to-Sp
 
 - **Discriminator**: 生成されたRaw Waveformと実際の音声波形を識別する一組の識別器
 
-
-##　トレーニング
+## トレーニング
 
 ![VITS Architecture](/assert/VITS/train.png)
 
@@ -103,4 +117,26 @@ $$
 
 #### 単調アライメント探索（Monotonic Alignment Search: MAS）
 
+テキストと音声の間のアライメント$A$を推定するために、VITSはGlow-TTSと同様の単調アライメント探索（MAS）手法を採用しています。この手法は、正規化フロー$f$でパラメータ化されたデータの対数尤度を最大化する最適なアライメントパスを探すことを試みます：
+
+$$
+A=\mathop{argmax}\limits_{\hat A}\mathop{log}p(x|c_{text},\hat A)\\=\mathop{argmax}\limits_{\hat A}\mathop{log}N(f(x);\mu(c_{text},\hat A),\sigma(c_{text},\hat A))
+$$
+
+
+MASによって得られる最適アライメントは単調かつスキップなしである必要がありますが、VITSの最適化目標は決定論的な潜在変数$z$の対数尤度ではなくELBOであるため、MASを直接VITSに適用することはできません。そのため、ELBOを最大化する最適なアライメントパスを探すためにMASを若干変更しています：
+
+$$
+\mathop{argmax}\limits_{\hat A}\mathop{log}p_{\theta}(x_{mel}|z)-\mathop{log}\frac{q_\phi(z|x_{lin})}{p_\theta(z|c_{text},\hat A)}=\mathop{argmax}\limits_{\hat A}\mathop{log}p_\theta(z|c_{text},\hat A)=\mathop{log}N(f_{\theta}(z);\mu_{\theta}(c_{text},\hat A),\sigma_{\theta}(c_{text},\hat A))
+$$
+
 #### テキストからの持続時間予測 
+
+確率的持続時間予測器はフローに基づく生成モデルであり、持続時間シーケンスと同じ時間解像度と次元を持つ確率変数$u$と$v$を導入します。近似事後分布$q_{\phi}(u,v|d,c_{text})$を使用してこれらの変数をサンプリングし、訓練目標は音素持続時間の対数尤度の変分下界です：
+
+$$
+\mathop{log}p_\theta(d|c_{text})\geq \mathbb{E}_{q_{\phi}(u,v|d,c_{text})}[\mathop{log}\frac{p_{\theta}(d-u,v|c_{text})}{q_{\phi}(u,v|d,c_{text})}]
+$$
+
+訓練の時には、他のモジュールに影響を与えるのを防ぐために、確率的持続時間予測器からの勾配伝播を遮断します。音素の持続時間は、確率的持続時間予測器の可逆変換を通じてランダムノイズからサンプリングされ、その後整数値に変換されます。
+
