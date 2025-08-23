@@ -163,6 +163,8 @@ c. 空間的深度方向畳み込み層の位置変更
 
 #### ダウンサンプリング層の分離
 
+[具体的なコード分析](#ダウンサンプリング層の分離コード)
+
 ##### ダウンサンプリング戦略の変更
 - ResNet: 各ステージの最初の残差ブロックで空間ダウンサンプリング（3×3 conv、ストライド2）
 - Swin Transformer: ステージ間に独立したダウンサンプリング層を追加
@@ -172,6 +174,100 @@ c. 空間的深度方向畳み込み層の位置変更
 - 空間解像度が変更される場所に正規化層を追加
 - ダウンサンプリング層の前、stemの後、最終グローバル平均プーリング後のLN層を追加
 - 結果: 精度が82.0%に向上（Swin-Tの81.3%を大幅に上回る）
+
+## コード分析
+
+### ConvNeXt Block コード
+```python
+class Block(nn.Module):
+    def __init__(self, dim, drop_path=0., layer_scale_init_value=1e-6):
+        super().__init__()
+        # 深度方向分離畳み込み (depthwise conv) - 大きなカーネルサイズ(7x7)を使用
+        # groups=dim により、各チャネルに独立した畳み込みを適用
+        self.dwconv = nn.Conv2d(dim, dim, kernel_size=7, padding=3, groups=dim)
+        
+        # LayerNormを使用 - BatchNormから変更された重要な改善点
+        # 画像データを(N, C, H, W)から(N, H, W, C)に変換してから適用
+        self.norm = LayerNorm(dim, eps=1e-6)
+        
+        # 1x1畳み込みを線形層で実装 - TransformerのMLPブロックと同等
+        # 逆ボトルネック構造: 入力チャネル数の4倍に拡張
+        self.pwconv1 = nn.Linear(dim, 4 * dim)
+        
+        # GELU活性化関数 - ReLUから変更された活性化関数
+        self.act = nn.GELU()
+        
+        # 1x1畳み込みを線形層で実装 - 逆ボトルネック構造の出力層
+        # 4倍に拡張されたチャネル数を元のチャネル数に戻す
+        self.pwconv2 = nn.Linear(4 * dim, dim)
+        
+        # Layer Scale - 学習可能なスケーリング係数
+        # 初期値が非常に小さい(1e-6)ことで学習の安定化を図る
+        self.gamma = nn.Parameter(layer_scale_init_value * torch.ones((dim)), requires_grad=True) if layer_scale_init_value > 0 else None
+        
+        # DropPath - ランダム深度の実装
+        # 学習時の正則化として機能し、過学習を防止
+        self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
+
+    def forward(self, x):
+        input = x  # 残差接続用に入力値を保存
+        
+        # 深度方向畳み込みの適用
+        x = self.dwconv(x)
+        
+        # LayerNormのために次元の順序を変更 (N, C, H, W) -> (N, H, W, C)
+        x = x.permute(0, 2, 3, 1)
+        
+        # LayerNormの適用
+        x = self.norm(x)
+        
+        # 1x1畳み込み(線形層)と活性化関数の適用 - MLPブロックと同等
+        x = self.pwconv1(x)
+        x = self.act(x)
+        x = self.pwconv2(x)
+        
+        # Layer Scaleの適用 (学習可能なスケーリング)
+        if self.gamma is not None:
+            x = self.gamma * x
+        
+        # 次元の順序を元に戻す (N, H, W, C) -> (N, C, H, W)
+        x = x.permute(0, 3, 1, 2)
+        
+        # 残差接続とDropPathの適用
+        x = input + self.drop_path(x)
+        
+        return x
+```
+
+### ダウンサンプリング層の分離コード
+
+```python
+self.downsample_layers = nn.ModuleList() 
+
+# stem層もダウンサンプリング層として扱い、downsample_layersに統合
+# 推論時にはインデックスでアクセスするため、すべてのダウンサンプリング処理を一元管理
+stem = nn.Sequential(
+    # パッチ化された埋め込み: 4x4のカーネル、ストライド4で入力画像をダウンサンプリング
+    # 224x224の入力が56x56の特徴マップに変換される
+    nn.Conv2d(in_chans, dims[0], kernel_size=4, stride=4),
+    # LayerNormを適用 - BatchNormからLayerNormへの重要な変更点
+    # data_format="channels_first"により、(N, C, H, W)形式に対応
+    LayerNorm(dims[0], eps=1e-6, data_format="channels_first")
+)
+self.downsample_layers.append(stem)
+
+# 3つのステージ間のダウンサンプリング層を定義 (合計4ステージなので3回のダウンサンプリングが必要)
+for i in range(3):
+    downsample_layer = nn.Sequential(
+            # ダウンサンプリング前のLayerNorm - 学習安定化のための重要な改善点
+            # Swin Transformerの設計思想を取り入れ、独立した正規化層を追加
+            LayerNorm(dims[i], eps=1e-6, data_format="channels_first"),
+            # 2x2のカーネル、ストライド2で空間解像度を半分にダウンサンプリング
+            # ResNetの3x3 conv, stride=2から変更された重要なポイント
+            nn.Conv2d(dims[i], dims[i+1], kernel_size=2, stride=2),
+    )
+    self.downsample_layers.append(downsample_layer)
+```
 
 ## 参考
 
