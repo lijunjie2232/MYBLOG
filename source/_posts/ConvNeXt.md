@@ -1,14 +1,10 @@
 ---
-title: ConvNeXt
+title: ConvNeXt解読
 date: 2024-5-10 10:17:00
 categories: [AI]
 tags: [Deep Learning, CNN, 機械学習, AI, 人工知能, 深層学習, 画像認識, 画像分類, image classification]
 lang: ja　
 description: ConvNeXtは、特に新しい構造やイノベーションがあるわけではなく、既存のネットワークで使われている細かい設計要素を適切に組み合わせることで、ImageNetのTop-1精度を向上させました。この設計の動機は非常にシンプルで、「TransformerやSwin-Transformerがどのようにしているかを参考にして、効果があれば採用する」という方針に従っています。
-
----
-## 目次
-
 
 ---
 
