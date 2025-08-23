@@ -130,6 +130,10 @@ c. 空間的深度方向畳み込み層の位置変更
 - 7×7を超えると性能向上が頭打ちになることが確認されている
 - 大容量モデル(ResNet-200)でも同様の傾向を確認
 
+### 他の変更点
+
+![ConvNeXt Design](/assert/ConvNeXt/block.png)
+
 ## 参考
 
 https://arxiv.org/abs/2201.03545
