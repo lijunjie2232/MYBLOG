@@ -54,6 +54,8 @@ MobileNetV1の核心的な概念は、従来の標準的な畳み込みの代わ
 
 ## 数式解析と計算複雑度の比較
 
+![Convolution compare](/assert/MobileNet/dsc.png)
+
 以下の仮定に基づいて分析します：
 
 - 入力特徴マップのサイズ：$D_k \times D_k \times M$
