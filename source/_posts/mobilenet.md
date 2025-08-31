@@ -4,7 +4,7 @@ date: 2024-5-11 10:17:00
 categories: [AI]
 tags: [Deep Learning, CNN, mobilenet, 機械学習, AI, 人工知能, 深層学習, 画像認識, 画像分類, image classification]
 lang: ja　
-description: MobileNet
+description: 歴代のMobileNetシリーズモデルを用いる革新を解説。
 
 ---
 
