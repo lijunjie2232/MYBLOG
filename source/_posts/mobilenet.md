@@ -100,5 +100,78 @@ $$
 
 この分析から、Depthwise Separable Convolutionは通常の畳み込みよりも計算効率がはるかに優れていることがわかります。特に、$D_F = 3$という典型的なカーネルサイズでは、計算量は約1/9に削減されます。
 
+## コード
+```python
+# from https://github.com/sean-wade/MobileNetV1_2_3-Pytorch/blob/master/mobilenetv1.py
+import torch
+import torch.nn as nn
+
+class MobileNetv1(nn.Module):
+    def __init__(self, n_class=1000):
+        # MobileNetV1のクラス定義。n_classは分類するクラス数（デフォルトは1000クラス）
+        super(MobileNet, self).__init__()
+        self.nclass = n_class
+
+        def conv_bn(inp, oup, stride):
+            # 標準的な畳み込み層 + Batch Normalization + ReLU
+            # inp: 入力チャネル数, oup: 出力チャネル数, stride: ストライド
+            return nn.Sequential(
+                nn.Conv2d(inp, oup, 3, stride, 1, bias=False),
+                nn.BatchNorm2d(oup),
+                nn.ReLU(inplace=True)
+            )
+
+        def conv_dw(inp, oup, stride):
+            # Depthwise Separable Convolutionの実装 ★MobileNetの核心的革新部分★
+            return nn.Sequential(
+                # 深度方向畳み込み (Depthwise Convolution) - 各チャネルに独立した3x3カーネルを適用
+                # groups=inp により、各入力チャネルが独立して処理される
+                nn.Conv2d(inp, inp, 3, stride, 1, groups=inp, bias=False),
+                nn.BatchNorm2d(inp),
+                nn.ReLU(inplace=True),
+    
+                # ポイントワイズ畳み込み (Pointwise Convolution) - 1x1畳み込みでチャネル融合
+                # 入力チャネル数(inp)から出力チャネル数(oup)へ変換
+                nn.Conv2d(inp, oup, 1, 1, 0, bias=False),
+                nn.BatchNorm2d(oup),
+                nn.ReLU(inplace=True),
+            )
+
+        # MobileNetV1のネットワーク構造定義
+        self.model = nn.Sequential(
+            # 最初の標準的な畳み込み層（3チャネルから32チャネルへ）
+            conv_bn(3, 32, 2),
+            
+            # Depthwise Separable Convolutionブロック群
+            # ★MobileNetの主要な革新: 標準畳み込みの代わりにDSCを使用★
+            conv_dw(32, 64, 1),       # 32->64チャネル, stride=1
+            conv_dw(64, 128, 2),      # 64->128チャネル, stride=2 (ダウンサンプリング)
+            conv_dw(128, 128, 1),     # 128->128チャネル, stride=1
+            conv_dw(128, 256, 2),     # 128->256チャネル, stride=2 (ダウンサンプリング)
+            conv_dw(256, 256, 1),     # 256->256チャネル, stride=1
+            conv_dw(256, 512, 2),     # 256->512チャネル, stride=2 (ダウンサンプリング)
+            conv_dw(512, 512, 1),     # 512->512チャネル, stride=1
+            conv_dw(512, 512, 1),     # 512->512チャネル, stride=1
+            conv_dw(512, 512, 1),     # 512->512チャネル, stride=1
+            conv_dw(512, 512, 1),     # 512->512チャネル, stride=1
+            conv_dw(512, 512, 1),     # 512->512チャネル, stride=1
+            conv_dw(512, 1024, 2),    # 512->1024チャネル, stride=2 (ダウンサンプリング)
+            conv_dw(1024, 1024, 1),   # 1024->1024チャネル, stride=1
+            
+            # 最終的な平均プーリング
+            nn.AvgPool2d(7),
+        )
+        
+        # 最終的な全結合層（分類層）
+        self.fc = nn.Linear(1024, self.nclass)
+
+    def forward(self, x):
+        # 順伝播の定義
+        x = self.model(x)
+        x = x.view(-1, 1024)  # テンソルの形状変換
+        x = self.fc(x)        # 最終的なクラス分類
+        return x
+```
+
 # 参考
 [MobileNets: Efficient Convolutional Neural Networks for Mobile Vision Applications](https://arxiv.org/abs/1704.04861)
