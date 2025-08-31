@@ -48,7 +48,7 @@
 
 [x] swin transformer
 
-[ ] convnext
+[x] convnext
 
 [ ] CLIP
 
@@ -138,7 +138,7 @@
 
 # TTS
 
-[ ] VITS
+[x] VITS
 
 [ ] HiFiGAN
 
