@@ -12,6 +12,8 @@ description: MobileNet
 
 MobileNetV1の核心的な概念は、従来の標準的な畳み込みの代わりに深度方向分離畳み込みを使用することです。標準的な畳み込み操作は、入力特徴マップの空間次元（幅と高さ）とチャネル次元の両方に対して同時に情報抽出を行いますが、これは計算コストが非常に高くなります。深度方向分離畳み込みは、このプロセスを巧妙に2つのステップに分割します。
 
+![Convolution compare](/assert/MobileNet/dsc.png)
+
 ## 核心的な概念：2段階の分解
 
 ### a. 深度方向畳み込み (Depthwise Convolution)
@@ -94,3 +96,6 @@ $$
 
 これは2つのステップに分解されます：
 
+
+# 参考
+[MobileNets: Efficient Convolutional Neural Networks for Mobile Vision Applications](https://arxiv.org/abs/1704.04861)
