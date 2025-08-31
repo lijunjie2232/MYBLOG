@@ -52,49 +52,47 @@ MobileNetV1の核心的な概念は、従来の標準的な畳み込みの代わ
 
 ![Convolution compare](/assert/MobileNet/cc.png)
 
+以下の仮定に基づいて分析します：
+
+- 入力特徴マップのサイズ：$D_k \times D_k \times M$
+- 畳み込みカーネルのサイズ：$D_F \times D_F \times M$、その数：$N$
+
 ### 標準的な畳み込み (Standard Convolution)
 
-標準的な畳み込み操作において：
-
-- 入力特徴マップ: $x \in \mathbb{R}^{D_F \times D_F \times M}$
-- 出力特徴マップ: $y \in \mathbb{R}^{D_G \times D_G \times N}$
-- カーネル: $w \in \mathbb{R}^{D_K \times D_K \times M \times N}$
-
-ここで：
-- $D_F$ は入力特徴マップの幅と高さ
-- $D_G$ は出力特徴マップの幅と高さ
-- $D_K$ はカーネルの幅と高さ
-
-標準的な畳み込み操作は以下のように定義されます：
-
+単一の畳み込みに対する計算量：
 $$
-y_{i,j,k} = \sum_{m=1}^{M} \sum_{n=1}^{D_K} \sum_{l=1}^{D_K} x_{i+n-1,j+l-1,m} \cdot w_{n,l,m,k}
+D_k \times D_k \times D_F \times D_F \times M
+$$
+
+これは特徴マップの空間次元に含まれる$D_k \times D_k$個の点と、各点での畳み込み操作の計算量$D_F \times D_F \times M$の積です。
+
+$N$個の畳み込みに対する総計算量：
+$$
+D_k \times D_k \times D_F \times D_F \times M \times N
 $$
 
 ここで：
-- $M$ は入力特徴マップのチャネル数
-- $N$ は出力特徴マップのチャネル数
-- $i,j,k$ は特徴マップのインデックス
-- $m,n,l$ はカーネルのインデックス
+- $D_k$：入力特徴マップのサイズ
+- $D_F$：カーネルのサイズ
+- $M$：入力特徴マップのチャネル数
+- $N$：カーネル数
 
+## 深度方向分離畳み込み (DSC / Depthwise Separable Convolution)
 
-計算複雑度: 
+深度方向畳み込みの計算総量：
 $$
-D_K \cdot D_K \cdot M \cdot N \cdot D_G \cdot D_G
+D_k \times D_k \times D_F \times D_F \times M
 $$
 
-ここで：
-- $D_G$ は出力特徴マップの幅と高さ
-- $D_K$ はカーネルの幅と高さ
-- $M$ は入力特徴マップのチャネル数
-- $N$ は出力特徴マップのチャネル数
-- $i,j,k$ は特徴マップのインデックス
-- $m,n,l$ はカーネルのインデックス
+ポイントワイズ畳み込みの計算総量：
+$$
+M \times N \times D_K \times D_K
+$$
 
-## 深度方向分離畳み込み (Depthwise Convolution)
-
-
-これは2つのステップに分解されます：
+Depthwise Separable Convolutionの計算総量：
+$$
+D_k \times D_k \times D_F \times D_F \times M + M \times N \times D_K \times D_K
+$$
 
 
 # 参考
