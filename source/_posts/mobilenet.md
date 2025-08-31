@@ -94,6 +94,7 @@ $$
 D_k \times D_k \times D_F \times D_F \times M + M \times N \times D_K \times D_K
 $$
 
+この分析から、Depthwise Separable Convolutionは通常の畳み込みよりも計算効率がはるかに優れていることがわかります。特に、$D_F = 3$という典型的なカーネルサイズでは、計算量は約1/9に削減されます。
 
 # 参考
 [MobileNets: Efficient Convolutional Neural Networks for Mobile Vision Applications](https://arxiv.org/abs/1704.04861)
