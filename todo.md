@@ -118,6 +118,8 @@
 
 [ ] llama
 
+[ ] langchain
+
 # generative model
 
 [x] GAN
