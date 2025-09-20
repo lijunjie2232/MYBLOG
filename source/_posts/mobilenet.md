@@ -306,6 +306,11 @@ class SeModule(nn.Module):
 
 ![h-swish](/assert/MobileNet/h_swish.png)
 
+
+### sigmoid関数の定義
+
+$$\text{sigmoid}(x) = \sigma(x) = \frac{1}{1 + e^{-x}}$$
+
 ### Swishの数式
 $$\text{swish}(x) = x \cdot \sigma(x) = x \cdot \frac{1}{1 + e^{-x}}$$
 
@@ -319,8 +324,18 @@ $$\text{swish}(x) = x \cdot \sigma(x) = x \cdot \frac{1}{1 + e^{-x}}$$
 - 標準的なsigmoid関数: $\sigma(x) = \frac{1}{1 + e^{-x}}$ は計算コストが高い
 - モバイルデバイスなどリソース制限のある環境では実用性に課題
 
+### h-sigmoidを使用した表現
+$$\text{h-sigmoid}(x) = \frac{\text{ReLU6}(x + 3)}{6}$$
+
 ### h-swishによる近似
 $$\text{h-swish}(x) = x \cdot \frac{\text{ReLU6}(x + 3)}{6}$$
+
+### 特徴
+
+1.  **非線形性**: ReLUと同様に非線形変換を提供
+2.  **滑らかさ**: ReLUとは異なり、滑らかな曲線を形成（微分可能）
+3.  **計算効率**: 除算は定数による乗算として実装可能（例：$\times \frac{1}{6}$）
+4.  **ハードウェアフレンドリー**: ReLU6を使用することで、固定小数点演算での実装が容易
 
 ### 近似の利点
 1. **ハードウェアフレンドリー**:
@@ -354,6 +369,24 @@ class hsigmoid(nn.Module):
         out = F.relu6(x + 3, inplace=True) / 6
         return out
 ```
+
+## 出力層の変更
+
+![MobileNetV3 Output](/assert/MobileNet/v3_out.png)
+
+- ボトルネック層接続の削除: 従来の残差接続を出力層から削除
+- パラメータ削減: ネットワークパラメータを効果的に11%削減
+- 推論時間の短縮: 推論時間を11%削減しながらも、性能はほぼ維持
+
+```python
+out = F.avg_pool2d(out, 7)
+out = out.view(out.size(0), -1)
+out = self.hs3(self.bn3(self.linear3(out)))
+out = self.linear4(out)
+return out
+```
+
+
 
 
 # 参考
