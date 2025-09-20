@@ -173,5 +173,9 @@ class MobileNetv1(nn.Module):
         return x
 ```
 
+# MobileNetV2: Inverted Residuals and Linear Bottlenecks
+
+
 # 参考
 [MobileNets: Efficient Convolutional Neural Networks for Mobile Vision Applications](https://arxiv.org/abs/1704.04861)
+[MobileNetV2: Inverted Residuals and Linear Bottlenecks](https://arxiv.org/abs/1801.04381)
