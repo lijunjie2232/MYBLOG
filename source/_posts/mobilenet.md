@@ -250,6 +250,17 @@ ResNetのResidual Connectionと同様に、勾配がネットワークを流れ�
 
 ネットワーク全体でテンソルサイズを小さく保ちつつ、必要な処理は高次元空間で実行。これにより、計算効率と情報表現のバランスを保ち、より高速かつ軽量なモデル構築が可能となる。
 
+## モデル比較表
+
+| Network           | Top-1 Accuracy (%) | Parameters | MAdds | CPU Time |
+| ----------------- | ------------------ | ---------- | ----- | -------- |
+| MobileNetV1       | 70.6               | 4.2M       | 575M  | 113ms    |
+| ShuffleNet (1.5)  | 71.5               | 3.4M       | 292M  | -        |
+| ShuffleNet (x2)   | 73.7               | 5.4M       | 524M  | -        |
+| NasNet-A          | 74.0               | 5.3M       | 564M  | 183ms    |
+| MobileNetV2       | 72.0               | 3.4M       | 300M  | 75ms     |
+| MobileNetV2 (1.4) | 74.7               | 6.9M       | 585M  | 143ms    |
+
 # 参考
 [MobileNets: Efficient Convolutional Neural Networks for Mobile Vision Applications](https://arxiv.org/abs/1704.04861)
 [MobileNetV2: Inverted Residuals and Linear Bottlenecks](https://arxiv.org/abs/1801.04381)
