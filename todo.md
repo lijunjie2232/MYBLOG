@@ -70,7 +70,7 @@
 
 # lightning model
 
-[ ] mobilenet
+[x] mobilenet
 
 [ ] shufflenet
 
