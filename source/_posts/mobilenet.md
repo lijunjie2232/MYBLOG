@@ -175,6 +175,34 @@ class MobileNetv1(nn.Module):
 
 # MobileNetV2: Inverted Residuals and Linear Bottlenecks
 
+![v1 and v2](/assert/MobileNet/v1_v2.png)
+
+MobileNetV1と比較して、MobileNetV2は引き続きDepthwise Separable Convolutionを使用していますが、その主要構成モジュールは大きく変更されています。この新しい構造は「Bottleneck Residual Block」と呼ばれます。
+
+## Bottleneck Residual Blockの構造
+このブロックは主に3つの畳み込み層で構成されています：
+
+- 1×1 Expansion Layer（拡張層）
+- 3×3 Depthwise Convolution（深度方向畳み込み）
+- 1×1 Projection Layer（投影層）
+
+### Projection Layer（投影層）
+MobileNetV1のPointwise Convolution（1×1畳み込み）は、チャネル数を維持するか2倍にするのに対し、MobileNetV2のProjection Layerはチャネル数を削減します。この層が「Projection（投影）」と呼ばれる所以は、高次元（多数のチャネル）のデータを低次元（少数のチャネル）のテンソルに投影するからです。例えば、144チャネルのテンソルを24チャネルに縮小します。この層は「Bottleneck Layer（ボトルネック層）」とも呼ばれ、ネットワーク内を流れるデータ量を減らします。
+
+### Expansion Layer（拡張層）
+MobileNetV2に新しく追加された層で、これも1×1畳み込みです。この層の目的は、データがDepthwise Convolutionに入る前にチャネル数を拡張することです。Expansion Layerは、常にProjection Layerとは逆に、入力チャネル数よりも多くの出力チャネルを持ちます。拡張係数（Expansion Factor）は、チャネル数を何倍にするかを示すハイパーパラメータで、デフォルトは6です。
+
+## ブロックの処理フロー
+
+例えば、24チャネルのテンソルがBottleneck Residual Blockに入力された場合：
+
+![v2 block flow](/assert/MobileNet/v2_block.png)
+
+1.  **Expansion Layer**: まず、24チャネルを 24 × 6 = 144チャネルに拡張します。
+2.  **Depthwise Convolution**: 次に、この144チャネルのテンソルに3×3のフィルターを適用します。
+3.  **Projection Layer**: 最後に、144チャネルを再び24チャネルなど、より少ないチャネル数に投影します。
+
+このように、Bottleneck Residual Blockの入力と出力は**低次元**のテンソルであり、ブロック内で行われるフィルタリング処理は**高次元**のテンソルに対して行われます。
 
 # 参考
 [MobileNets: Efficient Convolutional Neural Networks for Mobile Vision Applications](https://arxiv.org/abs/1704.04861)
