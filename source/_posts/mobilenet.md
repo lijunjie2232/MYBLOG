@@ -261,6 +261,102 @@ ResNetのResidual Connectionと同様に、勾配がネットワークを流れ�
 | MobileNetV2       | 72.0               | 3.4M       | 300M  | 75ms     |
 | MobileNetV2 (1.4) | 74.7               | 6.9M       | 585M  | 143ms    |
 
+# MobileNetV3
+
+## SE Blockの導入
+
+![SE Block](/assert/MobileNet/se_module.png)
+
+SE Moduleは、チャネル方向の注意力機構を導入することで、各チャネルの重要度に応じた重み付けを行うモジュールです。MobileNetV3など、多くの最新のCNNアーキテクチャで採用されています。
+
+### 構造と処理フロー
+
+- Squeeze (圧縮):
+  - nn.AdaptiveAvgPool2d(1): 各チャネルの特徴マップ全体をグローバル平均プーリングし、空間次元を1×1に圧縮
+  - 結果: (B, C, H, W) → (B, C, 1, 1) （B:バッチサイズ, C:チャネル数）
+
+- Excitation (励起):
+  - 1×1 Conv + BN + ReLU: チャネル数を1/reductionに削減し、非線形変換
+  - 1×1 Conv + BN + hsigmoid: 元のチャネル数に戻し、0〜1の重みを生成
+  - 結果: 各チャネルに対する重要度スコア（重み）を計算
+
+- Scale (スケーリング):
+
+  - 元の入力 x と計算された重みを乗算
+  - 重要なチャネルは強調、重要でないチャネルは抑制
+
+```python
+class SeModule(nn.Module):
+    def __init__(self, in_size, reduction=4):
+        super(SeModule, self).__init__()
+        self.se = nn.Sequential(
+            nn.AdaptiveAvgPool2d(1),                           # Global Average Pooling
+            nn.Conv2d(in_size, in_size // reduction, kernel_size=1, stride=1, padding=0, bias=False),  # FC1
+            nn.BatchNorm2d(in_size // reduction),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(in_size // reduction, in_size, kernel_size=1, stride=1, padding=0, bias=False),   # FC2
+            nn.BatchNorm2d(in_size),
+            hsigmoid())                                        # Hard Sigmoid
+
+    def forward(self, x):
+        return x * self.se(x)                                  # スケーリング
+```
+
+## h-swish と h-sigmoid と Relu6(x + 3)/6
+
+![h-swish](/assert/MobileNet/h_swish.png)
+
+### Swishの数式
+$$\text{swish}(x) = x \cdot \sigma(x) = x \cdot \frac{1}{1 + e^{-x}}$$
+
+### Swishの優位性
+- **無上界・有下界**: 出力範囲が$(-\infty, \infty)$ではなく、下限があるため勾配消失問題に強い
+- **平滑性**: 微分可能で連続的な曲線を形成
+- **非単調性**: 単調増加ではなく、より複雑な非線形変換を可能にする
+- **深層モデルでの優位性**: ReLUよりも深いネットワークで優れた性能を発揮
+- 
+### 計算効率の問題
+- 標準的なsigmoid関数: $\sigma(x) = \frac{1}{1 + e^{-x}}$ は計算コストが高い
+- モバイルデバイスなどリソース制限のある環境では実用性に課題
+
+### h-swishによる近似
+$$\text{h-swish}(x) = x \cdot \frac{\text{ReLU6}(x + 3)}{6}$$
+
+### 近似の利点
+1. **ハードウェアフレンドリー**:
+   - ほぼすべてのソフトウェア・ハードウェアフレームワークでReLU6の最適化実装が利用可能
+   - 異なるsigmoid実装による数値精度の問題を回避
+
+2. **計算効率**:
+   - 除算は定数乗算($\times \frac{1}{6}$)として実装可能
+   - ReLU6は区分線形関数で実装が容易
+
+### MobileNetV3での応用戦略
+
+#### 適用箇所の選択
+- **第1層と後半層のみに適用**: ネットワークの深い層で非線性活性化関数の効果が顕著なため
+- **パラメータ削減**: 深層でのみ使用することで計算コストを抑えながら性能向上を実現
+
+#### 設計思想
+- ネットワークが深くなるにつれて、非線形活性化関数の導入コストが低下することを利用
+- Swishの大部分の利点は深層での使用によって得られることに基づく戦略
+
+このように、MobileNetV3では計算効率と精度のバランスを取るために、h-swishというハードウェアフレンドリーな近似関数を戦略的に使用する設計が採用されています。
+
+```python
+class hswish(nn.Module):
+    def forward(self, x):
+        out = x * F.relu6(x + 3, inplace=True) / 6
+        return out
+
+class hsigmoid(nn.Module):
+    def forward(self, x):
+        out = F.relu6(x + 3, inplace=True) / 6
+        return out
+```
+
+
 # 参考
 [MobileNets: Efficient Convolutional Neural Networks for Mobile Vision Applications](https://arxiv.org/abs/1704.04861)
 [MobileNetV2: Inverted Residuals and Linear Bottlenecks](https://arxiv.org/abs/1801.04381)
+[Searching for MobileNetV3](https://arxiv.org/abs/1905.02244)
