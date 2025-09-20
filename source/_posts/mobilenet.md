@@ -4,7 +4,7 @@ date: 2024-5-11 10:17:00
 categories: [AI]
 tags: [Deep Learning, CNN, mobilenet, 機械学習, AI, 人工知能, 深層学習, 画像認識, 画像分類, image classification]
 lang: ja　
-description: 歴代のMobileNetシリーズモデルを用いる革新を解説。
+description: MobileNetは、モバイル機器や組み込み機器向けの効率的なCNNモデルシリーズで、V1では計算コストを大幅に削減するDepthwise Separable Convolution（DSC）を導入し、V2ではInverted Residual BlockとLinear Bottleneckにより精度と効率のバランスを改善、V3ではSE Blockとh-swish活性化関数を活用してさらに性能を向上させている。
 
 ---
 
