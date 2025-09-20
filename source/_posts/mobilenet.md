@@ -204,6 +204,13 @@ MobileNetV2に新しく追加された層で、これも1×1畳み込みです�
 
 このように、Bottleneck Residual Blockの入力と出力は**低次元**のテンソルであり、ブロック内で行われるフィルタリング処理は**高次元**のテンソルに対して行われます。
 
+## nverted Residual Connection（逆残差接続）
+
+![inverted residual block](/assert/CNN/res_block.png)
+
+ResNetのResidual Connectionと同様に、勾配がネットワークを流れやすくするために存在します。入力チャネル数と出力チャネル数が同じ場合（例えば上の例の24チャネル）にのみ使用されますが、ブロックをいくつか通過するたびに出力チャネルが増加するため、常に使用されるわけではありません。
+この構造により、計算リソースを効率的に活用しながらも、必要な情報を保持可能
+
 # 参考
 [MobileNets: Efficient Convolutional Neural Networks for Mobile Vision Applications](https://arxiv.org/abs/1704.04861)
 [MobileNetV2: Inverted Residuals and Linear Bottlenecks](https://arxiv.org/abs/1801.04381)
