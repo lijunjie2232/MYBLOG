@@ -118,8 +118,6 @@
 
 [ ] llama
 
-[ ] langchain
-
 # generative model
 
 [x] GAN
@@ -147,3 +145,7 @@
 [ ] WaveNet
 
 [ ] Tacotron2
+
+# langchain
+
+# FastAPI
