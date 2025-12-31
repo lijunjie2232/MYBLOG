@@ -1,6 +1,6 @@
 ---
 title: SVDとPCAの本質
-date: 2024-6-14 21：30:04
+date: 2024-6-14 21:30:04
 categories: [AI]
 tags: [Deep Learning, 機械学習, AI, 人工知能, 深層学習, machine learning]
 lang: ja　
