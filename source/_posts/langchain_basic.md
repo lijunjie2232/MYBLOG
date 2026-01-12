@@ -44,7 +44,7 @@ human_msg = HumanMessage(
 ```python
 from langchain.chat_models import init_chat_model
 
-model = init_chat_model("gpt-3.5")
+model = init_chat_model("gpt-3")
 
 response = model.invoke("Hello!")
 response.usage_metadata
@@ -103,7 +103,7 @@ from langchain.chat_models import init_chat_model
 
 os.environ["OPENAI_API_KEY"] = "..."
 
-model = init_chat_model("gpt-3.5")
+model = init_chat_model("gpt-3")
 ```
 
 #### 呼び出す
@@ -229,7 +229,7 @@ def get_search_results(keyword, num_results=3):
     return serialized
 ```
 
-### bind_tools
+#### bind_tools
 
 定義したツールをモデルで使用できるようにするには、を使用してツールをバインドする必要があります bind_tools。その後の呼び出しでは、モデルは必要に応じてバインドされたツールのいずれかを呼び出すことを選択できます。
 
@@ -243,7 +243,7 @@ for tool_call in response.tool_calls:
     print(f"Args: {tool_call['args']}")
 ```
 
-### ToolRuntime
+#### ToolRuntime
 
 ToolRuntime は、状態、コンテキスト、ストア、ストリーミング、構成、およびツール呼び出し ID へのツール アクセスを提供する統合パラメータ。
 
@@ -258,3 +258,281 @@ def get_user_preference(
     preferences = runtime.state.get("user_preferences", {})
     return preferences.get(pref_name, "Not set")
 ```
+
+### エージェント
+
+エージェントはモデルとツールを組み合わせて推論し、どのツールを使用するかを決定し、ソリューションに向けて繰り返し作業できるシステムです。
+
+```python
+from langchain.agents import create_agent
+
+agent_1 = create_agent("openai:gpt-3", tools=tools)
+
+model = ChatOllama(
+    model=MODEL,
+    base_url="http://127.0.0.1:11434",
+)
+agent_2 = create_agent(
+    model=model, # ChatOllama instance
+    tools=tools, # Tool list
+    verbose=True, # Print intermediate steps
+    max_iterations=10, # Maximum number of iterations
+    early_stopping_method="generate", # Early stopping method
+    return_intermediate_steps=True, # Return intermediate steps
+)
+```
+
+#### dynamic model agent
+
+```python
+from langchain.agents import create_agent
+from langchain.agents.middleware import wrap_model_call, ModelRequest, ModelResponse
+
+basic_model = ...
+advanced_model = ...
+
+@wrap_model_call
+def dynamic_model_selection(request: ModelRequest, handler) -> ModelResponse:
+    """Choose model based on conversation complexity."""
+    message_count = len(request.state["messages"])
+
+    if message_count > 10:
+        # Use an advanced model for longer conversations
+        model = advanced_model
+    else:
+        model = basic_model
+
+    return handler(request.override(model=model))
+
+agent = create_agent(
+    model=basic_model,  # Default model
+    tools=tools,
+    middleware=[dynamic_model_selection]
+)
+```
+
+#### use tool and middleware
+
+```python
+from langchain.tools import tool
+from langchain.agents import create_agent
+from langchain.agents.middleware import wrap_tool_call
+from langchain.messages import ToolMessage
+
+
+@tool
+def search(query: str) -> str:
+    """Search for information."""
+    return ...
+
+@tool
+def get_weather(location: str) -> str:
+    """Get weather information for a location."""
+    return ...
+
+@wrap_tool_call
+def handle_tool_errors(request, handler):
+    """Handle tool execution errors with custom messages."""
+    try:
+        return handler(request)
+    except Exception as e:
+        # Return a custom error message to the model
+        return ToolMessage(
+            content=f"Tool error: Please check your input and try again. ({str(e)})",
+            tool_call_id=request.tool_call["id"]
+        )
+
+
+agent = create_agent(
+    model,
+    tools=[search, get_weather],
+    iddleware=[handle_tool_errors],
+)
+```
+
+#### system prompt
+
+```python
+agent = create_agent(
+    model,
+    tools=tools,
+    system_prompt="You are a helpful assistant, ...",
+)
+```
+
+```python
+@dynamic_prompt
+def user_role_prompt(request: ModelRequest) -> str:
+    """Generate system prompt based on user role."""
+    user_role = request.runtime.context.get("user_role", "user")
+    base_prompt = "You are a helpful assistant."
+
+    if user_role == "expert":
+        return f"{base_prompt} Provide detailed technical responses."
+    elif user_role == "beginner":
+        return f"{base_prompt} Explain concepts simply and avoid jargon."
+
+    return base_prompt
+
+class Context(TypedDict):
+    user_role: str
+
+agent = create_agent(
+    ...,
+    middleware=[user_role_prompt],
+    context_schema=Context,
+)
+
+# The system prompt will be set dynamically based on context
+result = agent.invoke(
+    {"messages": [{"role": "user", "content": "Explain machine learning"}]},
+    context={"user_role": "expert"}
+)
+```
+
+#### ToolStrategy
+
+```python
+from pydantic import BaseModel
+from langchain.agents import create_agent
+from langchain.agents.structured_output import ToolStrategy
+
+
+class ContactInfo(BaseModel):
+    name: str
+    email: str
+    phone: str
+
+agent = create_agent(
+    model="gpt-3",
+    tools=[search_tool],
+    response_format=ToolStrategy(ContactInfo)
+)
+
+result = agent.invoke({
+    "messages": [{"role": "user", "content": "Extract contact info from: John Doe, john@example.com, (555) 123-4567"}]
+})
+
+result["structured_response"]
+# ContactInfo(name='John Doe', email='john@example.com', phone='(555) 123-4567')
+```
+
+#### ProviderStrategy
+
+ProviderStrategyはモデルにあるストラクチャ化方法をもちいるが、支持するモデルしか利用できない。
+
+```python
+agent = create_agent(
+    model="gpt-3",
+    response_format=ProviderStrategy(ContactInfo)
+)
+```
+
+#### メモリ
+
+エージェントはメッセージ状態を通じて会話履歴を自動的に維持します。会話中に追加情報を記憶するためにカスタム状態スキーマを使用するようにエージェントを構成することもできます。
+
+```python
+from langchain.agents import AgentState
+
+
+class CustomState(AgentState):
+    user_preferences: dict
+
+agent = create_agent(
+    model,
+    tools=[tool1, tool2],
+    state_schema=CustomState
+)
+# The agent can now track additional state beyond messages
+result = agent.invoke({
+    "messages": [{"role": "user", "content": "I prefer technical explanations"}],
+    "user_preferences": {"style": "technical", "verbosity": "detailed"},
+})
+```
+
+### ストリームモード
+
+ストリームモードは、完全な応答の準備が整う前であっても出力を段階的に表示することで、ストリーミングは、特に LLM の遅延に対処する場合、ユーザー エクスペリエンス（UX）を大幅に向上させます。
+
+```python
+from langchain.agents import create_agent
+
+
+agent = create_agent(
+    model="gpt-3",
+)
+
+for chunk in agent.stream(  
+    {"messages": [{"role": "user", "content": "What is the weather in SF?"}]},
+    stream_mode="updates",
+):
+    for step, data in chunk.items():
+        print(f"step: {step}")
+        print(f"content: {data['messages'][-1].content_blocks}")
+
+"""
+step: model
+content: [{'type': 'tool_call', 'name': 'get_weather', 'args': {'city': 'San Francisco'}, 'id': 'call_OW2NYNsNSKhRZpjW0wm2Aszd'}]
+
+step: tools
+content: [{'type': 'text', 'text': "It's always sunny in San Francisco!"}]
+
+step: model
+content: [{'type': 'text', 'text': 'It's always sunny in San Francisco!'}]
+"""
+```
+
+<table>
+    <thead>
+        <tr>
+            <th>モード</th>
+            <th>説明</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><code>updates</code></td>
+            <td>各エージェント ステップ後に状態の更新をストリーミングします。同じステップで複数の更新が行われる場合（たとえば、複数のノードが実行される場合）、それらの更新は個別にストリーミングされます。</td>
+        </tr>
+        <tr>
+            <td><code>messages</code></td>
+            <td>ストリームタプル <code>(token, metadata)</code> LLM が呼び出される任意のグラフ ノードから。</td>
+        </tr>
+        <tr>
+            <td><code>custom</code></td>
+            <td>ストリーム ライターを使用して、グラフ ノード内からカスタム データをストリーミングします。</td>
+        </tr>
+    </tbody>
+</table>
+
+```python
+for stream_mode, chunk in agent.stream(  
+    {"messages": [{"role": "user", "content": "What is the weather in SF?"}]},
+    stream_mode=["updates", "custom"]
+):
+    print(f"stream_mode: {stream_mode}")
+    print(f"content: {chunk}")
+    print("\n")
+"""
+stream_mode: updates
+content: {'model': {'messages': [AIMessage(content='', response_metadata={'token_usage': {'completion_tokens': 280, 'prompt_tokens': 132, 'total_tokens': 412, 'completion_tokens_details': {'accepted_prediction_tokens': 0, 'audio_tokens': 0, 'reasoning_tokens': 256, 'rejected_prediction_tokens': 0}, 'prompt_tokens_details': {'audio_tokens': 0, 'cached_tokens': 0}}, 'model_provider': 'openai', 'model_name': 'gpt-5-nano-2025-08-07', 'system_fingerprint': None, 'id': 'chatcmpl-C9tlgBzGEbedGYxZ0rTCz5F7OXpL7', 'service_tier': 'default', 'finish_reason': 'tool_calls', 'logprobs': None}, id='lc_run--480c07cb-e405-4411-aa7f-0520fddeed66-0', tool_calls=[{'name': 'get_weather', 'args': {'city': 'San Francisco'}, 'id': 'call_KTNQIftMrl9vgNwEfAJMVu7r', 'type': 'tool_call'}], usage_metadata={'input_tokens': 132, 'output_tokens': 280, 'total_tokens': 412, 'input_token_details': {'audio': 0, 'cache_read': 0}, 'output_token_details': {'audio': 0, 'reasoning': 256}})]}}
+
+
+stream_mode: custom
+content: Looking up data for city: San Francisco
+
+
+stream_mode: custom
+content: Acquired data for city: San Francisco
+
+
+stream_mode: updates
+content: {'tools': {'messages': [ToolMessage(content="It's always sunny in San Francisco!", name='get_weather', tool_call_id='call_KTNQIftMrl9vgNwEfAJMVu7r')]}}
+
+
+stream_mode: updates
+content: {'model': {'messages': [AIMessage(content='San Francisco weather: It's always sunny in San Francisco!\n\n', response_metadata={'token_usage': {'completion_tokens': 764, 'prompt_tokens': 168, 'total_tokens': 932, 'completion_tokens_details': {'accepted_prediction_tokens': 0, 'audio_tokens': 0, 'reasoning_tokens': 704, 'rejected_prediction_tokens': 0}, 'prompt_tokens_details': {'audio_tokens': 0, 'cached_tokens': 0}}, 'model_provider': 'openai', 'model_name': 'gpt-5-nano-2025-08-07', 'system_fingerprint': None, 'id': 'chatcmpl-C9tljDFVki1e1haCyikBptAuXuHYG', 'service_tier': 'default', 'finish_reason': 'stop', 'logprobs': None}, id='lc_run--acbc740a-18fe-4a14-8619-da92a0d0ee90-0', usage_metadata={'input_tokens': 168, 'output_tokens': 764, 'total_tokens': 932, 'input_token_details': {'audio': 0, 'cache_read': 0}, 'output_token_details': {'audio': 0, 'reasoning': 704}})]}}
+"""
+```
+
