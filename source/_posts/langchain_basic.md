@@ -7,19 +7,17 @@ lang: ja　
 description: LangChainの基本的な使い方について解説しており、LLM（大規模言語モデル）が人間のようにテキストを解釈・生成できる強力なAIツールであることを紹介し、コンテンツ作成、言語翻訳、要約、質問応答など多様なタスクに活用できることを述べています。記事では、メッセージ（HumanMessage、AIMessage、SystemMessage）、モデル（OllamaLLM、init_chat_modelなど）、ツール（@toolデコレーターを使ったカスタムツール定義）、エージェント（create_agentによる作成）、ストリームモード（updates、messages、customモード）、出力構造化（ToolStrategy、ProviderStrategy）、短期記憶（checkpointerによる会話履歴の保存）など、LangChainの主要な構成要素について詳細なコード例を交えて説明しています。
 ---
 
-# LangChain
-
 LLM は、人間のようにテキストを解釈して生成できる強力な AI ツールです。各タスクに専門的なトレーニングを必要とせずに、コンテンツの作成、言語の翻訳、要約、質問への回答を行うのに十分な多用途性があります。 -- [LLM Model](https://docs.langchain.com/oss/python/langchain/models)
 
-## インストール
+# インストール
 
 ```bash
 pip install langchain
 ```
 
-## 基本構成要素
+# 基本構成要素
 
-### Message
+## Message
 
 メッセージは、LangChain のモデルのコンテキストの基本単位です。
 
@@ -36,7 +34,7 @@ human_msg = HumanMessage("Hello, how are you?")
 ai_msg = AIMessage("I'm doing well, thanks! How can I help you today?")
 ```
 
-#### メッセージメタデータ
+### メッセージメタデータ
 
 ```python
 # メッセージに追加情報を付与する例
@@ -65,7 +63,7 @@ response.usage_metadata
 """
 ```
 
-#### ツールメッセージ
+### ツールメッセージ
 
 ツールメッセージは、Agentがツールを呼び出してから、ツールよりかえすメッセージです。
 
@@ -79,17 +77,17 @@ ToolMessage(
 )
 ```
 
-### Models
+## Models
 
 モデルは、LLM をラップし、コンテキストを管理し、メッセージを処理するためのメソッドを提供します。
 
 支持するモデルインタフェース：　[https://docs.langchain.com/oss/python/integrations/chat](https://docs.langchain.com/oss/python/integrations/chat)
 
-#### インストール
+### インストール
 
 例：`pip install -qU langchain-ollama`で、`ollama` 支持をインストール
 
-#### 構成方法
+### 構成方法
 
 1. モデルクラスによる
 
@@ -119,7 +117,7 @@ os.environ["OPENAI_API_KEY"] = "..."
 model = init_chat_model("gpt-3")
 ```
 
-#### 呼び出す
+### 呼び出す
 
 1. 文字による
 
@@ -156,7 +154,7 @@ conversation = [
 response = model.invoke(conversation)
 ```
 
-#### stream / astream
+### stream / astream
 
 すべでの`Runnable`クラスは、`stream`メソッドと`astream`メソッドをサポートしています。
 
@@ -198,7 +196,7 @@ async for event in model.astream_events("Hello"):
         pass
 ```
 
-#### 構造化された出力
+### 構造化された出力
 
 ```python
 from pydantic import BaseModel
@@ -236,7 +234,7 @@ json_schema = {
 model_with_json_schema = model.with_json_schema(json_schema, method="json_schema")
 ```
 
-### ツール
+## ツール
 
 ```python
 from langchain.tools import tool
@@ -265,7 +263,7 @@ def get_search_results(keyword, num_results=3):
     return serialized
 ```
 
-#### bind_tools
+### bind_tools
 
 定義したツールをモデルで使用できるようにするには、bind_toolsを使用してツールをバインドする必要があります。その後の呼び出しでは、モデルは必要に応じてバインドされたツールのいずれかを呼び出すことを選択できます。
 
@@ -282,7 +280,7 @@ for tool_call in response.tool_calls:
     print(f"Args: {tool_call['args']}")       # 引数
 ```
 
-#### ToolRuntime
+### ToolRuntime
 
 ToolRuntime は、状態、コンテキスト、ストア、ストリーミング、構成、およびツール呼び出し ID へのツール アクセスを提供する統合パラメータ。
 
@@ -299,7 +297,7 @@ def get_user_preference(
     return preferences.get(pref_name, "Not set")
 ```
 
-### エージェント
+## エージェント
 
 エージェントはモデルとツールを組み合わせて推論し、どのツールを使用するかを決定し、ソリューションに向けて繰り返し作業できるシステムです。
 
@@ -326,7 +324,7 @@ agent_2 = create_agent(
 )
 ```
 
-#### dynamic model agent
+### dynamic model agent
 
 ```python
 from langchain.agents import create_agent
@@ -357,7 +355,7 @@ agent = create_agent(
 )
 ```
 
-#### use tool and middleware
+### use tool and middleware
 
 ```python
 from langchain.tools import tool
@@ -396,7 +394,7 @@ agent = create_agent(
 )
 ```
 
-#### system prompt
+### system prompt
 
 ```python
 # システムプロンプトを設定したエージェント
@@ -441,7 +439,7 @@ result = agent.invoke(
 )
 ```
 
-#### ToolStrategy
+### ToolStrategy
 
 ```python
 from pydantic import BaseModel
@@ -469,7 +467,7 @@ result["structured_response"]
 # ContactInfo(name='John Doe', email='john@example.com', phone='(555) 123-4567')
 ```
 
-#### ProviderStrategy
+### ProviderStrategy
 
 ProviderStrategyはモデルにあるネイティブ構造化方法をもちいるが、サポートしているモデルのみ利用可能。
 
@@ -481,7 +479,7 @@ agent = create_agent(
 )
 ```
 
-#### メモリ
+### メモリ
 
 エージェントはメッセージ状態を通じて会話履歴を自動的に維持します。会話中に追加情報を記憶するためにカスタム状態スキーマを使用するようにエージェントを構成することもできます。
 
@@ -506,7 +504,7 @@ result = agent.invoke({
 })
 ```
 
-### ストリームモード
+## ストリームモード
 
 ストリームモードは、完全な応答の準備が整う前であっても出力を段階的に表示することで、ストリーミングは、特に LLM の遅延に対処する場合、ユーザー エクスペリエンス（UX）を大幅に向上させます。
 
@@ -577,7 +575,7 @@ content: {'model': {'messages': [AIMessage(content='San Francisco weather: It\'s
 """
 ```
 
-### 出力構造化
+## 出力構造化
 
 出力構造化により、エージェントは特定の予測可能な形式でデータを返すことができます。
 
@@ -600,7 +598,7 @@ def create_agent(
 
 ToolStrategy は、ネイティブの構造化出力をサポートしていないモデルの場合、LangChain はツール呼び出しを使用して同じ結果を達成します。
 
-### 短期記憶
+## 短期記憶
 
 エージェントは、短期記憶を介して過去の会話を記憶し、それを現在の会話に反映させることができます。
 
@@ -640,7 +638,7 @@ with PostgresSaver.from_conn_string(DB_URI) as checkpointer:
     )
 ```
 
-#### state_schema
+### state_schema
 
 Agent は、特定偏向状態を記憶するために、state_schema を使用します。
 
@@ -682,7 +680,7 @@ def get_user_info(
     return ...
 ```
 
-#### class AgentState
+### class AgentState
 
 write a **middleware** method to receive the state before model call.
 
