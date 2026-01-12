@@ -209,3 +209,52 @@ model_with_json_schema = model.with_json_schema(json_schema, method="json_schema
 ```
 
 ### ツール
+
+```python
+from langchain.tools import tool
+
+
+@tool("baidu_search")  # Custom name
+def get_search_results(keyword, num_results=3):
+    """seach baidu for keyword"""
+    results = search(keyword, num_results=num_results)
+    assert results
+    documents = WebBaseLoader(get_urls(results)).load()
+    documents = RecursiveCharacterTextSplitter(
+        chunk_size=2048, chunk_overlap=0
+    ).split_documents(documents)
+    serialized = "\n\n".join(
+        (f"Source: {doc.metadata}\nContent: {doc.page_content}") for doc in documents
+    )
+    return serialized
+```
+
+### bind_tools
+
+定義したツールをモデルで使用できるようにするには、を使用してツールをバインドする必要があります bind_tools。その後の呼び出しでは、モデルは必要に応じてバインドされたツールのいずれかを呼び出すことを選択できます。
+
+```python
+model_with_tools = model.bind_tools([baidu_search])  
+
+response = model_with_tools.invoke("...?")
+for tool_call in response.tool_calls:
+    # View tool calls made by the model
+    print(f"Tool: {tool_call['name']}")
+    print(f"Args: {tool_call['args']}")
+```
+
+### ToolRuntime
+
+ToolRuntime は、状態、コンテキスト、ストア、ストリーミング、構成、およびツール呼び出し ID へのツール アクセスを提供する統合パラメータ。
+
+```python
+# Access custom state fields
+@tool
+def get_user_preference(
+    pref_name: str,
+    runtime: ToolRuntime  # ToolRuntime parameter is not visible to the model
+) -> str:
+    """Get a user preference value."""
+    preferences = runtime.state.get("user_preferences", {})
+    return preferences.get(pref_name, "Not set")
+```
