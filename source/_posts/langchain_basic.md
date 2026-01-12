@@ -31,6 +31,44 @@ human_msg = HumanMessage("Hello, how are you?")
 ai_msg = AIMessage("I'm doing well, thanks! How can I help you today?")
 ```
 
+#### メッセージメタデータ
+
+```python
+human_msg = HumanMessage(
+    content="Hello!",
+    name="alice",  # Optional: identify different users
+    id="msg_123",  # Optional: unique identifier for tracing
+)
+```
+
+```python
+from langchain.chat_models import init_chat_model
+
+model = init_chat_model("gpt-3.5")
+
+response = model.invoke("Hello!")
+response.usage_metadata
+"""
+{'input_tokens': 8,
+ 'output_tokens': 304,
+ 'total_tokens': 312,
+ 'input_token_details': {'audio': 0, 'cache_read': 0},
+ 'output_token_details': {'audio': 0, 'reasoning': 256}}
+"""
+```
+
+#### ツールメッセージ
+ツールメッセージは、Agentがツールを呼び出してから、ツールよりかえすメッセージです。
+
+```python
+from langchain.messages import ToolMessage
+
+ToolMessage(
+    content=weather_result,
+    tool_call_id="call_123"  # Must match the call ID
+)
+```
+
 ### Models
 
 モデルは、LLM をラップし、コンテキストを管理し、メッセージを処理するためのメソッドを提供します。
@@ -42,3 +80,132 @@ ai_msg = AIMessage("I'm doing well, thanks! How can I help you today?")
 例：`pip install -qU langchain-ollama`で、`ollama` 支持をインストール
 
 #### 構成方法
+
+1. モデルクラスによる
+
+```python
+from langchain_ollama import OllamaLLM
+
+model = OllamaLLM(
+    model="gpt-oss:20b",
+    # temperature=0.3,  # Lower temperature for more focused responses
+    # top_p=0.9,  # Limit token selection
+    # top_k=40,  # Limit vocabulary consideration
+    # num_predict=100,  # Limit response length
+    # repeat_penalty=1.2,  # Penalize repetition
+)
+```
+
+2. init_chat_model方法による
+
+```python
+from langchain.chat_models import init_chat_model
+
+os.environ["OPENAI_API_KEY"] = "..."
+
+model = init_chat_model("gpt-3.5")
+```
+
+#### 呼び出す
+
+1. 文字による
+
+```python
+response = model.invoke("Why do parrots have colorful feathers?")
+```
+
+2. 複数のdictによる
+
+```python
+conversation = [
+    {"role": "system", "content": "You are a helpful assistant that translates English to French."},
+    {"role": "user", "content": "Translate: I love programming."},
+    {"role": "assistant", "content": "J'adore la programmation."},
+    {"role": "user", "content": "Translate: I love building applications."}
+]
+
+response = model.invoke(conversation)
+```
+
+3. メッセージオブジェクトによる
+
+```python
+conversation = [
+    SystemMessage("You are a helpful assistant that translates English to French."),
+    HumanMessage("Translate: I love programming."),
+    AIMessage("J'adore la programmation."),
+    HumanMessage("Translate: I love building applications.")
+]
+
+response = model.invoke(conversation)
+```
+
+#### stream / astream
+
+すべでの`Runnable`クラスは、`stream`メソッドと`astream`メソッドをサポートしています。
+
+```python
+for chunk in model.stream("What color is the sky?"):
+    # ここで、chunkはAIMessageChunkオブジェクトです
+    for block in chunk.content_blocks:
+        if block["type"] == "reasoning" and (reasoning := block.get("reasoning")):
+            print(f"Reasoning: {reasoning}")
+        elif block["type"] == "tool_call_chunk":
+            print(f"Tool call chunk: {block}")
+        elif block["type"] == "text":
+            print(block["text"])
+        else:
+            ...
+```
+
+```python
+async for chunk in model.astream("What color is the sky?"):
+    ...
+```
+
+```python
+async for event in model.astream_events("Hello"):
+
+    if event["event"] == "on_chat_model_start":
+        print(f"Input: {event['data']['input']}")
+
+    elif event["event"] == "on_chat_model_stream":
+        print(f"Token: {event['data']['chunk'].text}")
+
+    elif event["event"] == "on_chat_model_end":
+        print(f"Full message: {event['data']['output'].text}")
+
+    else:
+        pass
+```
+
+#### 構造化された出力
+
+```python
+class TrackInfo(BaseModel):
+    name: str
+    year: int
+    mediaType: str
+    genre: str
+    unitPrice: float
+
+model_with_structure = model.with_structured_output(TrackInfo, include_raw=True)
+```
+
+- `include_raw` は、構造化された出力に加えて、元のAIMessage含めるかどうかを指定します。
+
+```python
+json_schema = {
+    "type": "object",
+    "properties": {
+        "name": {"type": "string"},
+        "year": {"type": "integer"},
+        "mediaType": {"type": "string"},
+        "genre": {"type": "string"},
+        "unitPrice": {"type": "number"},
+    },
+}
+model_with_json_schema = model.with_json_schema(json_schema, method="json_schema")
+```
+
+### ツール
