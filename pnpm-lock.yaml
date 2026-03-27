@@ -10,7 +10,7 @@ importers:
     dependencies:
       '@renbaoshuo/markdown-it-katex':
         specifier: ^2.0.2
-        version: 2.0.2(katex@0.16.27)(markdown-it@13.0.2)
+        version: 2.0.2(katex@0.16.44)(markdown-it@13.0.2)
       hexo:
         specifier: ^8.1.1
         version: 8.1.1(chokidar@3.6.0)
@@ -54,8 +54,8 @@ importers:
         specifier: ^1.1.0
         version: 1.1.0
       katex:
-        specifier: ^0.16.27
-        version: 0.16.27
+        specifier: ^0.16.44
+        version: 0.16.44
 
 packages:
 
@@ -377,7 +377,7 @@ packages:
 
   glob@7.2.3:
     resolution: {integrity: sha512-nFR0zLpU2YCaRxwoCJvL6UvCH2JFyFVIvwTLsIf21AuHlMskA1hhTdk+LlYJtOlYt9v6dvszD2BGRqBL+iQK9Q==}
-    deprecated: Glob versions prior to v9 are no longer supported
+    deprecated: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
 
   gopd@1.2.0:
     resolution: {integrity: sha512-ZUKRh6/kUFoAiTAtTYPZJ3hw9wNxx+BIBOijnlG9PnrJsCcSjs1wyyD6vJpaYtgnzDrKYRSqf3OO6Rfa93xsRg==}
@@ -586,8 +586,8 @@ packages:
     resolution: {integrity: sha512-5oANDICCTX0NqYIyAiFCCwjQ7ERu3DQG2JFHLbYOf+fXaMoH8eg/zOq5WSYJsKMi/QebW+Eh3gSM+oss1H/bww==}
     hasBin: true
 
-  katex@0.16.27:
-    resolution: {integrity: sha512-aeQoDkuRWSqQN6nSvVCEFvfXdqo1OQiCmmW1kc9xSdjutPv7BGO7pqY9sQRJpMOGrEdfDgF2TfRXe5eUAD2Waw==}
+  katex@0.16.44:
+    resolution: {integrity: sha512-EkxoDTk8ufHqHlf9QxGwcxeLkWRR3iOuYfRpfORgYfqc8s13bgb+YtRY59NK5ZpRaCwq1kqA6a5lpX8C/eLphQ==}
     hasBin: true
 
   linkify-it@2.2.0:
@@ -1019,9 +1019,9 @@ snapshots:
       '@babel/helper-string-parser': 7.27.1
       '@babel/helper-validator-identifier': 7.28.5
 
-  '@renbaoshuo/markdown-it-katex@2.0.2(katex@0.16.27)(markdown-it@13.0.2)':
+  '@renbaoshuo/markdown-it-katex@2.0.2(katex@0.16.44)(markdown-it@13.0.2)':
     dependencies:
-      katex: 0.16.27
+      katex: 0.16.44
       markdown-it: 13.0.2
 
   a-sync-waterfall@1.0.1: {}
@@ -1379,7 +1379,7 @@ snapshots:
   hexo-math@5.0.0:
     dependencies:
       hexo-util: 3.3.0
-      katex: 0.16.27
+      katex: 0.16.44
       mathjax: 3.2.2
 
   hexo-pagination@3.0.0: {}
@@ -1593,7 +1593,7 @@ snapshots:
     dependencies:
       commander: 2.20.3
 
-  katex@0.16.27:
+  katex@0.16.44:
     dependencies:
       commander: 8.3.0
 
