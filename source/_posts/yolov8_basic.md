@@ -1,14 +1,15 @@
 ---
-title: YOLOv8 リアルタイム物体検出
+title: YOLOv8 リアルタイム物体検出1 (基礎)
 
 date: 2024-7-11 11:15:00
 categories: [AI]
-tags: [Deep Learning, PyTorch, Python, Object Detection, 機械学習，AI, 人工知能，深層学習，物体検出，YOLO, リアルタイム検出]
+tags: [Deep Learning, PyTorch, Python, Object Detection, 機械学習, AI, 人工知能, 深層学習, 物体検出, YOLO, リアルタイム検出]
 lang: ja
 description: YOLOv8 は、2023 年に Ultralytics によってリリースされた最新のリアルタイム物体検出モデルです。アンカーフリー方式を採用し、バックボーンネットワークに C2f モジュールを導入することで、精度と速度の両面で大幅な改善を実現しました。本記事では、YOLOv8 のアーキテクチャ、新機能、および実装について詳しく解説します。
 ---
 
-## YOLO アーキテクチャの概要
+
+## YOLOv8 リアルタイム物体検出（基礎）
 
 YOLO（You Only Look Once）は、2016 年に Joseph Redmon らによって提案されたワンステージ型の物体検出アルゴリズムです。従来の物体検出手法とは異なり、YOLO は画像全体を一度だけ評価して、直接物体の位置とクラスを予測します。この「一度だけ見る」というアプローチにより、極めて高速な処理速度を実現しています。
 
@@ -16,21 +17,88 @@ YOLO（You Only Look Once）は、2016 年に Joseph Redmon らによって提�
 
 YOLOv8 のアーキテクチャは、主に以下の 3 つの部分で構成されています：
 
+{% mermaid %}
+graph TB
+    Input["入力画像<br>[batch_size, 3, H, W]"]
+    
+    subgraph Backbone ["Backbone（バックボーン）"]
+        direction TB
+        BB1["CSPDarknet-lite<br>特徴抽出"]
+        BB2["C2f モジュール<br>効率的な特徴表現"]
+        
+        BB1 --> BB2
+    end
+    
+    subgraph Neck ["Neck（ネック）"]
+        direction TB
+        FPN["FPN<br>Feature Pyramid Network<br>上向きパス"]
+        PAN["PAN<br>Path Aggregation Network<br>下向きパス"]
+        
+        FPN --> PAN
+    end
+    
+    subgraph Head ["Head（ヘッド）"]
+        direction TB
+        Detect["Detect Head<br>物体検出"]
+        Segment["Segment Head<br>セグメンテーション"]
+        OBB["OBB Head<br>回転バウンディングボックス"]
+    end
+    
+    Output["出力<br>バウンディングボックス<br>クラス確率<br>マスク（オプション）"]
+    
+    Input --> BB1
+    BB2 --> FPN
+    PAN --> Detect
+    PAN --> Segment
+    PAN --> OBB
+    Detect --> Output
+    Segment --> Output
+    OBB --> Output
+    
+    style Input fill:#e1f5ff
+    style Output fill:#e1f5ff
+    style Backbone fill:#fff4e1
+    style Neck fill:#ffe1f5
+    style Head fill:#e1ffe1
+{% endmermaid %}
+
+
 1. **バックボーン（Backbone）**：入力画像から特徴量を抽出する役割を担います。YOLOv8 では、CSPDarknet をベースに改良された構造が採用されており、C2f モジュールによって効率的な特徴抽出を実現しています。
 
 2. **ネック（Neck）**：バックボーンで抽出された特徴量をさらに強化し、異なるスケールの特徴を統合します。PAN-FPN（Path Aggregation Network - Feature Pyramid Network）構造を用いることで、マルチスケールの物体検出性能を向上させています。
 
 3. **ヘッド（Head）**：最終的な物体の位置（バウンディングボックス）とクラス確率を予測します。YOLOv8 ではアンカーフリー方式が採用されており、事前に定義したアンカーボックスに依存せず、直接物体の中心座標と幅・高さを予測します。
 
-## YOLOv8 の詳細アーキテクチャと理論
+### 基本モジュール
 
 YOLOv8 のアーキテクチャは、いくつかの重要なモジュールによって構成されています。各モジュールの役割と、なぜこの構造が効果的なのかを詳しく見ていきましょう。
-
-### 基本モジュール
 
 #### CBS (ConvModule)
 
 CBS は YOLOv8 の最基本的な構成要素で、**Conv（畳み込み層）+ BN（バッチ正規化）+ SiLU（活性化関数）**の 3 つから構成されます。
+
+{% mermaid %}
+graph TB
+    Input["入力テンソル<br>[batch_size, c1, H, W]"]
+    Conv["nn.Conv2d<br>in:[batch_size, c1, H, W]<br>out:[batch_size, c2, H', W']<br>k×k, s, p, g, d<br>(bias=False)"]
+    BN["nn.BatchNorm2d<br>in:[batch_size, c2, H', W']<br>out:[batch_size, c2, H', W']<br>チャネル数：c2"]
+    Act["nn.SiLU<br>in:[batch_size, c2, H', W']<br>out:[batch_size, c2, H', W']<br>活性化関数"]
+    Output["出力テンソル<br>[batch_size, c2, H', W']"]
+    
+    Input --> Conv
+    Conv --> BN
+    BN --> Act
+    Act --> Output
+    
+    style Input fill:#e1f5ff
+    style Output fill:#e1f5ff
+    style Conv fill:#fff4e1
+    style BN fill:#ffe1e1
+    style Act fill:#e1ffe1
+{% endmermaid %}
+
+
+データフロー：入力 → 畳み込み → バッチ正規化 → 活性化関数 → 出力
 
 ```python
 class Conv(nn.Module):
@@ -99,6 +167,39 @@ class Conv(nn.Module):
 
 Bottleneck は、**「チャネル数を減らして増やす」**という砂時計のような構造を持ちます。これにより、計算コストを抑えながら深いネットワークを構築できます。
 
+{% mermaid %}
+graph TB
+    Input["入力<br>[batch_size, c1, H, W]"]
+    
+    subgraph Bottleneck_Block ["Bottleneck ブロック"]
+        direction TB
+        CV1["Conv1<br>c1 → c_<br>c_ = c2 × e<br>k×k, stride=1"]
+        CV2["Conv2<br>c_ → c2<br>k×k, stride=1"]
+        
+        CV1 --> CV2
+    end
+    
+    Add{"ショートカット?<br>c1 == c2 ?"}
+    Output["出力<br>[batch_size, c2, H, W]"]
+    
+    Input --> CV1
+    CV2 --> Add
+    Input -.->|残差接続| Add
+    Add --> Output
+    
+    style Input fill:#e1f5ff
+    style Output fill:#e1f5ff
+    style CV1 fill:#fff4e1
+    style CV2 fill:#fff4e1
+    style Add fill:#ffe1f5
+{% endmermaid %}
+
+
+**データフロー：**
+
+- **メインパス**: 入力 → Conv1（チャネル削減）→ Conv2（チャネル復元）→ ショートカット判定 → 出力
+- **ショートカットパス**: 入力 → （c1 == c2 の場合のみ）加算 → 出力
+
 ```python
 class Bottleneck(nn.Module):
     """
@@ -151,6 +252,73 @@ class Bottleneck(nn.Module):
 #### C2f (CSPLayer_2Conv)
 
 C2f は YOLOv8 の**核心的なモジュール**で、CBS と Bottleneck を組み合わせた深いネットワーク構造です。CSP（Cross Stage Partial）構造を採用しています。
+
+{% mermaid %}
+graph TB
+    Input["入力<br>[batch_size, c1, H, W]"]
+    
+    CV1["Conv1<br>c1 → 2×c<br>c = c2 × e<br>1×1 Conv"]
+    
+    Split["分割 chunk/split<br>チャネル方向に等分"]
+    
+    Path1["パス 1<br>[batch_size, c, H, W]<br>そのまま保持"]
+    Path2["パス 2<br>[batch_size, c, H, W]<br>Bottleneck シーケンスへ"]
+    
+    subgraph Bottleneck_Sequence ["Bottleneck シーケンス n個"]
+        direction TB
+        BN1["Bottleneck 1<br>c → c"]
+        BNDots["...×(n-2)"]
+        BNn["Bottleneck n<br>c → c"]
+        
+        BN1 --> BNDots
+        BNDots --> BNn
+    end
+    
+    Cat["連結 cat<br>チャネル方向に結合<br>(2+n)×c チャネル"]
+    
+    CV2["Conv2<br>(2+n)×c → c2<br>1×1 Conv"]
+    
+    Output["出力<br>[batch_size, c2, H, W]"]
+    
+    Input --> CV1
+    CV1 --> Split
+    Split --> Path1
+    Split --> Path2
+    Path2 --> BN1
+    BNn --> Cat
+    Path1 --> Cat
+    
+    Cat --> CV2
+    CV2 --> Output
+    
+    style Input fill:#e1f5ff
+    style Output fill:#e1f5ff
+    style CV1 fill:#fff4e1
+    style CV2 fill:#fff4e1
+    style Split fill:#ffe1f5
+    style Cat fill:#ffe1f5
+    style Path1 fill:#e1ffe1
+    style BN1 fill:#fff4e1
+    style BNDots fill:#fff4e1
+    style BNn fill:#fff4e1
+{% endmermaid %}
+
+**データフロー：**
+
+1. **初期処理**: 入力 → Conv1（c1 → 2×c）→ 分割（2 つのパス）
+2. **並列パス**:
+   - パス 1: そのまま保持（skip connection）
+   - パス 2: n 個の Bottleneck を順次通過（各 Bottleneck: c → c）
+3. **特徴統合**: すべてのパスを連結 → Conv2（(2+n)×c → c2）→ 出力
+
+**例：n=3 の場合**
+- 入力: [batch, c1, H, W]
+- Conv1 後: [batch, 2c, H, W]
+- 分割後: 2 つの [batch, c, H, W]
+- Bottleneck 3回: 3 つの [batch, c, H, W] が追加
+- 連結前: 合計 5 つの特徴マップ（2 + 3）
+- 連結後: [batch, 5c, H, W]
+- 出力: [batch, c2, H, W]
 
 ```python
 class C2f(nn.Module):
@@ -250,6 +418,70 @@ class C2f(nn.Module):
 
 SPPF は、**異なるスケールの特徴を効率的に抽出**するためのレイヤです。YOLOv5 から継承され、YOLOv8 でも引き続き採用されています。
 
+{% mermaid %}
+graph TB
+    Input["入力<br>[batch_size, c1, H, W]"]
+    
+    CV1["Conv1<br>c1 → c_<br>c_ = c1 // 2<br>1×1 Conv"]
+    
+    Pool0["特徴 0<br>[batch_size, c_, H, W]<br>元の特徵"]
+    
+    subgraph Sequential_Pooling ["逐次最大プーリング k=5, stride=1"]
+        direction TB
+        Pool1["MaxPool2d 1回目<br>受容野: 5×5<br>[batch_size, c_, H, W]"]
+        Pool2["MaxPool2d 2回目<br>受容野: 9×9<br>[batch_size, c_, H, W]"]
+        Pool3["MaxPool2d 3回目<br>受容野: 13×13<br>[batch_size, c_, H, W]"]
+        
+        Pool1 --> Pool2
+        Pool2 --> Pool3
+    end
+    
+    Cat["連結 cat<br>チャネル方向に結合<br>4 × c_ チャネル<br>[batch_size, 4c_, H, W]"]
+    
+    CV2["Conv2<br>4×c_ → c2<br>1×1 Conv"]
+    
+    Output["出力<br>[batch_size, c2, H, W]"]
+    
+    Input --> CV1
+    CV1 --> Pool0
+    Pool0 --> Pool1
+    
+    Pool0 --> Cat
+    Pool1 --> Cat
+    Pool2 --> Cat
+    Pool3 --> Cat
+    
+    Cat --> CV2
+    CV2 --> Output
+    
+    style Input fill:#e1f5ff
+    style Output fill:#e1f5ff
+    style CV1 fill:#fff4e1
+    style CV2 fill:#fff4e1
+    style Pool0 fill:#e1ffe1
+    style Pool1 fill:#ffe1e1
+    style Pool2 fill:#ffe1e1
+    style Pool3 fill:#ffe1e1
+    style Cat fill:#ffe1f5
+{% endmermaid %}
+
+**データフロー：**
+
+1. **初期処理**: 入力 → Conv1（c1 → c_）→ 特徴マップ生成
+2. **逐次プーリング**: 
+   - 特徴 0: 元の特徵（受容野：1×1）
+   - 特徴 1: MaxPool 1回（受容野：5×5）
+   - 特徴 2: MaxPool 2回（受容野：9×9）
+   - 特徴 3: MaxPool 3回（受容野：13×13）
+3. **特徴統合**: 4 つの特徴を連結 → Conv2（4×c_ → c2）→ 出力
+
+**受容野の計算原理：**
+- 各 MaxPool2d: kernel=5, stride=1, padding=2
+- 1 回目: 5×5
+- 2 回目: 5 + 5 - 1 = 9×9
+- 3 回目: 9 + 5 - 1 = 13×13
+- これにより SPP(k=(5, 9, 13)) と同等の効果を実現
+
 ```python
 class SPPF(nn.Module):
     """
@@ -330,3 +562,7 @@ class SPPF(nn.Module):
 YOLOv8 のアーキテクチャが優れた性能を発揮する理由は、効率的な特徴抽出、勾配フローの最適化、マルチスケール特徴の統合、そして計算効率と精度のバランスという 4 つの設計思想にあります。まず、CBS、Bottleneck、C2f によって階層的に豊富な特徴を抽出でき、各モジュールが役割分担して計算リソースを効率的に活用しています。さらに、ショートカット接続（Bottleneck の `self.add`）により深いネットワークでも勾配消失を防ぎ、C2f の並列構造によって複数の勾配パスを確保することで、効率的な学習を実現しています。また、SPPF や後続の FPN/PAN 構造により様々なサイズの物体に対応可能で、細かい特徴と大域的な特徴を両方活用できます。加えて、チャネル圧縮（Bottleneck、C2f）により計算量を削減しながら表現力を維持し、リアルタイム処理と高精度検出の両立を実現している点が YOLOv8 の大きな特徴です。
 
 
+## **関連資料**
+
+- [YOLOv8 リアルタイム物体検出2（高度技術解析：Anchor-Free Object Detection / DFL / TAL）](../../../../2024/07/17/yolov8_advanced_anchor_free/)
+- [YOLOv8 リアルタイム物体検出3（損失関数の詳細解説）](../../../../2024/07/21/yolov8_loss_details/)損失関数の完全な実装と理論解説
