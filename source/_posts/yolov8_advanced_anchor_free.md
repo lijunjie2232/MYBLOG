@@ -961,3 +961,488 @@ Detect の forward メソッドは以下の2つの主要な処理を行います
 `80×80 + 40×40 + 20×20 = 6400 + 1600 + 400 = 8400` 点
 
 つまり、YOLOv8 は1枚の画像から **8400 個の予測点** を生成し、各点で144次元の出力（64次元のbbox + 80次元の分類）を行います。
+
+
+## TAL (Task-Aligned Assigner)
+
+YOLOv8 の正負样本割り当てには、**Task-Aligned Assigner (TAL)** が採用されています。これは TOOD (Task-aligned One-stage Object Detection) で提案された手法で、分類タスクと位置回帰タスクの最適アンカー点が一致するように設計されています。
+
+### 背景：タスク不对齐の問題
+
+従来の単一ステージ検出器では、分類と位置回帰を2つの並列ブランチで独立して実行するため、以下の問題が発生していました：
+
+**1. 分類と位置回帰の独立性**
+
+2つの独立したブランチ設計により、タスク間の相互作用が欠如し、予測時に不整合が生じます。例えば、あるアンカー点が高い分類スコアを持つ一方で、別のアンカー点がより正確な境界ボックスを予測するといった状況が発生します。
+
+**2. タスク非依存の样本割り当て**
+
+- **アンカーフリー検出器**：幾何学的な基準（物体中心に近いアンカー点）を使用
+- **アンカーベース検出器**：IoU の閾値に基づいて割り当て
+
+しかし、分類と位置回帰の最適アンカー点は必ずしも一致せず、物体の形状や特徴によって大きく変化する可能性があります。これにより、NMS 処理中に正確な境界ボックスが不正確なものに抑制されるリスクがあります。
+
+![TOOD の全体学習メカニズム](/assert/yolov8/TAL_algo.png)
+
+<center>TOOD の全体学習メカニズム：T-Head と TAL の協調動作</center>
+
+### Task-Aligned Head (T-Head)
+
+TOOD では、従来の並列ヘッド構造を改良した **Task-Aligned Head (T-Head)** を提案しました。
+
+![従来の並列ヘッドと T-Head の比較](/assert/yolov8/THead.png)
+
+<center>左：従来の並列ヘッド、右：提案された T-Head</center>
+
+#### 従来の並列ヘッドの問題点
+
+{% mermaid %}
+graph LR
+    FPN["FPN 特徴"] --> Branch1["分類ブランチ"]
+    FPN --> Branch2["位置回帰ブランチ"]
+    
+    Branch1 --> Pred1["分類予測 P"]
+    Branch2 --> Pred2["位置予測 B"]
+    
+    style FPN fill:#e1f5ff
+    style Pred1 fill:#ffcdd2
+    style Pred2 fill:#ffcdd2
+{% endmermaid %}
+
+- 2つのブランチが完全に独立
+- タスク間の相互作用なし
+- 特徴の空間分布が異なる可能性
+
+#### T-Head の革新
+
+T-Head は以下の3つの主要コンポーネントで構成されます：
+
+**1. タスク交互特徴抽出器**
+
+複数の畳み込み層を通じて、分類と位置回帰の両方に有益な**タスク交互特徴**を学習します：
+
+$$X^{inter}_k = \delta(\text{conv}_k(X^{inter}_{k-1}))$$
+
+ここで、$X^{inter}_0 = X^{fpn}$（FPN 特徴）、$\delta$ は ReLU 活性化関数です。
+
+**2. レイヤー注意力機構**
+
+タスク固有の特徴を動的に計算し、タスク分解を促進します：
+
+$$w = \sigma(\text{fc}_2(\delta(\text{fc}_1(x^{inter}))))$$
+
+$$X^{task}_k = w_k \cdot X^{inter}_k$$
+
+ここで、$w \in \mathbb{R}^N$ は学習されたレイヤー注意力ベクトルです。
+
+**3. タスクアライメント予測器 (TAP)**
+
+- **空間確率図 M**：分類予測を調整
+  $$P' = P \cdot M$$
+  
+- **空間オフセット図 O**：位置予測を調整
+  $$B'(i,j,c) = \sum_{m,n} B(i+m, j+n, c) \cdot K(m,n)$$
+
+これらのアライメント図は、交互特徴から自動的に学習されます。
+
+### Task Alignment Learning (TAL)
+
+TAL は、T-Head に学習信号を提供し、2つのタスクの最適アンカー点を明示的に近づける（甚至統一する）ための学習戦略です。
+
+#### タスクアライメント指標
+
+TAL の核心は、分類スコアと IoU を組み合わせた**タスクアライメント指標** $t$ です：
+
+$$t = s^\alpha \times u^\beta$$
+
+ここで：
+- $s$：分類スコア（予測されたクラスの確率）
+- $u$：IoU（予測ボックスと GT ボックスの交差比）
+- $\alpha$：分類タスクの重み（YOLOv8 では 0.5）
+- $\beta$：位置回帰タスクの重み（YOLOv8 では 6.0）
+
+**指標の意味**：
+- $t$ が大きい → 高い分類スコア **かつ** 高精度な位置回帰
+- $t$ が小さい → 分類または位置回帰のどちらか（または両方）が不正確
+
+YOLOv8 での実装：
+
+```python
+# ultralytics/utils/tal.py から抜粋
+align_metric = bbox_scores.pow(self.alpha) * overlaps.pow(self.beta)
+```
+
+#### 訓練样本分配
+
+TAL の样本分配戦略は非常にシンプルです：
+
+**各 GT インスタンスに対して**：
+1. 全てのアンカー点でタスクアライメント指標 $t$ を計算
+2. $t$ 値が最大の **top-k** 個のアンカー点を**正样本**として選択
+3. 残りのアンカー点を**负样本**として扱う
+
+この戦略により、**分類と位置回帰の両方で高品質な予測を行うアンカー点**のみが正样本として使用されます。
+
+#### タスクアライメント損失
+
+TAL は、アライメント指標 $t$ を活用して損失関数を設計しています：
+
+**分類損失**：
+
+正样本のラベルを二元ラベル {0, 1} ではなく、正規化されたアライメント指標 $\hat{t}$ に置き換えます：
+
+$$L_{cls} = -\sum_{i=1}^{N_{pos}} \hat{t}_i \log(p_i) - \sum_{j=1}^{N_{neg}} \log(1 - p_j)$$
+
+ここで、$\hat{t}$ はインスタンスレベルで正規化され、最大値がそのインスタンスの最大 IoU 値と等しくなります。
+
+焦点損失（Focal Loss）を適用：
+
+$$L_{cls} = -\sum_{i=1}^{N_{pos}} \hat{t}_i (1 - p_i)^\gamma \log(p_i) - \sum_{j=1}^{N_{neg}} p_j^\gamma \log(1 - p_j)$$
+
+**位置回帰損失**：
+
+アライメント指標 $\hat{t}$ で重み付けされた GIoU 損失：
+
+$$L_{reg} = \sum_{i=1}^{N_{pos}} \hat{t}_i \cdot L_{GIoU}(b_i, \bar{b}_i)$$
+
+ここで、$b_i$ は予測ボックス、$\bar{b}_i$ は GT ボックスです。
+
+**総損失**：
+
+$$L = L_{cls} + L_{reg}$$
+
+### YOLOv8 における TAL の実装
+
+YOLOv8 では、TOOD の TAL を簡略化・最適化して採用しています。
+
+#### TaskAlignedAssigner のコード解説
+
+YOLOv8 の TAL 実装は `ultralytics/utils/tal.py` の `TaskAlignedAssigner` クラスにあります。処理フローを詳しく見ていきましょう。
+
+{% mermaid %}
+graph TB
+    Start["入力 pd_scores, pd_bboxes, gt_labels, gt_bboxes"] --> Step1["Step 1: GT 内のアンカー点を選択"]
+    
+    Step1 --> select_candidates["select_candidates_in_gts<br/>anchor_points が GT 内にあるか判定<br/>shape: b, n_max_boxes, h*w"]
+    
+    select_candidates --> Step2["Step 2: アライメント指標と IoU を計算"]
+    
+    Step2 --> get_box_metrics["get_box_metrics<br/>bbox_scores: 予測分類スコア取得<br/>overlaps: CIoU 計算<br/>align_metric = scores^α * IoU^β"]
+    
+    get_box_metrics --> Step3["Step 3: Top-k アンカー点を選択"]
+    
+    Step3 --> select_topk["select_topk_candidates<br/>各 GT に対して align_metric の top-k を選択<br/>shape: b, n_max_boxes, h*w"]
+    
+    select_topk --> Step4["Step 4: マスクを結合"]
+    
+    Step4 --> merge_mask["mask_pos = mask_topk * mask_in_gts * mask_gt<br/>正样本マスク生成"]
+    
+    merge_mask --> Step5["Step 5: 重複割り当てを解決"]
+    
+    Step5 --> select_highest["select_highest_overlaps<br/>1つのアンカーが複数GTに割り当てられた場合<br/>IoU が最大のGTを選択"]
+    
+    select_highest --> Step6["Step 6: 目標値を割り当て"]
+    
+    Step6 --> get_targets["get_targets<br/>target_labels: 分類ラベル<br/>target_bboxes: GT ボックス<br/>target_scores: One-hot スコア"]
+    
+    get_targets --> Step7["Step 7: スコアを正規化"]
+    
+    Step7 --> normalize["norm_align_metric で target_scores を重み付け<br/>高品質な正样本ほど高い目標スコア"]
+    
+    normalize --> Output["出力 target_labels, target_bboxes,<br/>target_scores, fg_mask, target_gt_idx"]
+    
+    style Start fill:#e1f5ff
+    style Step1 fill:#fff9c4
+    style select_candidates fill:#e8f5e9
+    style Step2 fill:#fff9c4
+    style get_box_metrics fill:#e8f5e9
+    style Step3 fill:#fff9c4
+    style select_topk fill:#e8f5e9
+    style Step4 fill:#fff9c4
+    style merge_mask fill:#e8f5e9
+    style Step5 fill:#fff9c4
+    style select_highest fill:#e8f5e9
+    style Step6 fill:#fff9c4
+    style get_targets fill:#e8f5e9
+    style Step7 fill:#fff9c4
+    style normalize fill:#e8f5e9
+    style Output fill:#c8e6c9
+{% endmermaid %}
+
+#### Step 1: GT 内のアンカー点を選択
+
+```python
+def select_candidates_in_gts(xy_centers, gt_bboxes, eps=1e-9):
+    """
+    GT 内の正样本アンカー中心を選択します。
+    各 GT ボックスに対して、アンカー点がボックス内にあるかどうかを判定するマスクを生成します。
+    
+    Args:
+        xy_centers (Tensor): shape(h*w, 2) - アンカー中心座標
+        gt_bboxes (Tensor): shape(b, n_boxes, 4) - GT ボックス (xyxy形式)
+    
+    Returns:
+        (Tensor): shape(b, n_boxes, h*w) - ブール型テンソル
+                 True: アンカー中心が対応するGT内
+                 False: アンカー中心がGT外
+    """
+    n_anchors = xy_centers.shape[0]
+    bs, n_boxes, _ = gt_bboxes.shape
+    
+    # GT ボックスを左上 (lt) と右下 (rb) に分割
+    lt, rb = gt_bboxes.view(-1, 1, 4).chunk(2, 2)  # shape: (b*n_boxes, 1, 2)
+    
+    # 各アンカー中心と GT の境界との距離を計算
+    # bbox_deltas: shape(b, n_boxes, n_anchors, 4)
+    # [x_center - x_left, y_center - y_top, x_right - x_center, y_bottom - y_center]
+    bbox_deltas = torch.cat(
+        (xy_centers[None] - lt, rb - xy_centers[None]), 
+        dim=2
+    ).view(bs, n_boxes, n_anchors, -1)
+    
+    # 全ての4方向の距離が正（epsより大きい）場合、アンカーはGT内
+    return bbox_deltas.amin(3).gt_(eps)
+```
+
+**処理の流れ**：
+1. GT ボックスを左上 `(x1, y1)` と右下 `(x2, y2)` に分割
+2. 各アンカー点 `(cx, cy)` に対して、4方向の距離を計算：
+   - 左: `cx - x1` （正ならアンカーは左境界より右）
+   - 上: `cy - y1` （正ならアンカーは上境界より下）
+   - 右: `x2 - cx` （正ならアンカーは右境界より左）
+   - 下: `y2 - cy` （正ならアンカーは下境界より上）
+3. 4方向全てが正の場合、アンカーは GT 内と判定
+
+#### Step 2: アライメント指標と IoU を計算
+
+```python
+def get_box_metrics(self, pd_scores, pd_bboxes, gt_labels, gt_bboxes, mask_gt):
+    """
+    予測ボックスと GT ボックスのアライメント指標と IoU を計算します。
+    
+    Args:
+        pd_scores (Tensor): shape(bs, num_total_anchors, num_classes)
+                           予測分類スコア
+        pd_bboxes (Tensor): shape(bs, num_total_anchors, 4)
+                           予測ボックス（DFL からデコード済み）
+        gt_labels (Tensor): shape(bs, n_max_boxes, 1)
+        gt_bboxes (Tensor): shape(bs, n_max_boxes, 4)
+        mask_gt (Tensor): shape(bs, n_max_boxes, h*w)
+                         GT 内のアンカー点マスク
+    
+    Returns:
+        align_metric (Tensor): shape(b, max_num_obj, na) - アライメント指標
+        overlaps (Tensor): shape(b, max_num_obj, na) - CIoU 値
+    """
+    na = pd_bboxes.shape[-2]  # num_total_anchors
+    mask_gt = mask_gt.bool()
+    
+    # 初期化
+    overlaps = torch.zeros([self.bs, self.n_max_boxes, na], 
+                          dtype=pd_bboxes.dtype, device=pd_bboxes.device)
+    bbox_scores = torch.zeros([self.bs, self.n_max_boxes, na], 
+                             dtype=pd_scores.dtype, device=pd_scores.device)
+    
+    # インデックス作成
+    ind = torch.zeros([2, self.bs, self.n_max_boxes], dtype=torch.long)
+    ind[0] = torch.arange(end=self.bs).view(-1, 1).expand(-1, self.n_max_boxes)  # バッチインデックス
+    ind[1] = gt_labels.squeeze(-1)  # クラスラベル
+    
+    # 各 GT に対する予測分類スコアを取得
+    # pd_scores[ind[0], :, ind[1]]: 正しいクラスのスコアのみ抽出
+    bbox_scores[mask_gt] = pd_scores[ind[0], :, ind[1]][mask_gt]
+    
+    # 予測ボックスと GT ボックスを展開して形状を合わせる
+    pd_boxes = pd_bboxes.unsqueeze(1).expand(-1, self.n_max_boxes, -1, -1)[mask_gt]
+    gt_boxes = gt_bboxes.unsqueeze(2).expand(-1, -1, na, -1)[mask_gt]
+    
+    # CIoU を計算
+    overlaps[mask_gt] = self.iou_calculation(gt_boxes, pd_boxes)
+    
+    # アライメント指標を計算: t = s^α * u^β
+    align_metric = bbox_scores.pow(self.alpha) * overlaps.pow(self.beta)
+    
+    return align_metric, overlaps
+```
+
+**重要なポイント**：
+- **分類スコアの抽出**: 各 GT の正しいクラスに対応する予測スコアのみを使用
+- **CIoU の使用**: より正確な重なり評価のため、CIoU (Complete IoU) を採用
+- **アライメント指標**: $t = s^{0.5} \times u^{6.0}$ （YOLOv8 のデフォルト）
+  - $\beta=6.0$ が大きいため、IoU の影響が強く、位置精度の高いアンカー点を優先
+
+#### Step 3: Top-k アンカー点を選択
+
+```python
+def select_topk_candidates(self, metrics, largest=True, topk_mask=None):
+    """
+    指定された指標に基づいて top-k 候補を選択します。
+    各 GT ボックスに対して、アライメント指標が最大の top-k アンカー点を選択します。
+    
+    Args:
+        metrics (Tensor): shape(b, max_num_obj, h*w) - アライメント指標
+        largest (bool): True なら最大値を選択
+        topk_mask (Tensor): 任意のブール型マスク
+    
+    Returns:
+        (Tensor): shape(b, max_num_obj, h*w) - 選択された top-k マスク
+    """
+    # top-k の指標とインデックスを取得
+    # shape: (b, max_num_obj, topk)
+    topk_metrics, topk_idxs = torch.topk(metrics, self.topk, dim=-1, largest=largest)
+    
+    if topk_mask is None:
+        topk_mask = (topk_metrics.max(-1, keepdim=True)[0] > self.eps).expand_as(topk_idxs)
+    
+    # 無効なインデックスを 0 に設定
+    topk_idxs.masked_fill_(~topk_mask, 0)
+    
+    # カウンターテンソルを作成して scatter_add で top-k 位置に 1 を設定
+    count_tensor = torch.zeros(metrics.shape, dtype=torch.int8, device=topk_idxs.device)
+    ones = torch.ones_like(topk_idxs[:, :, :1], dtype=torch.int8, device=topk_idxs.device)
+    
+    for k in range(self.topk):
+        # 各 k に対して、対応する位置に 1 を加算
+        count_tensor.scatter_add_(-1, topk_idxs[:, :, k : k + 1], ones)
+    
+    # 複数の GT に割り当てられたアンカーをフィルタリング（1 より大きい場合 0 に）
+    count_tensor.masked_fill_(count_tensor > 1, 0)
+    
+    return count_tensor.to(metrics.dtype)
+```
+
+**処理の流れ**：
+1. `torch.topk` で各 GT に対してアライメント指標が最大の top-k インデックスを取得
+2. scatter_add を使用して、選択された位置に 1 を設定
+3. 1つのアンカーが複数GTに選択された場合、そのアンカーを無効化（後で解決）
+
+#### Step 4 & 5: マスク結合と重複解決
+
+```python
+# Step 4: マスクを結合
+mask_pos = mask_topk * mask_in_gts * mask_gt
+
+# Step 5: 重複割り当てを解決
+target_gt_idx, fg_mask, mask_pos = self.select_highest_overlaps(
+    mask_pos, overlaps, self.n_max_boxes
+)
+```
+
+`select_highest_overlaps` の処理：
+
+```python
+@staticmethod
+def select_highest_overlaps(mask_pos, overlaps, n_max_boxes):
+    """
+    1つのアンカーが複数 GT に割り当てられた場合、IoU が最大の GT を選択します。
+    
+    Args:
+        mask_pos (Tensor): shape(b, n_max_boxes, h*w)
+        overlaps (Tensor): shape(b, n_max_boxes, h*w)
+    
+    Returns:
+        target_gt_idx (Tensor): shape(b, h*w) - 各アンカーに割り当てられた GT インデックス
+        fg_mask (Tensor): shape(b, h*w) - 前景マスク
+        mask_pos (Tensor): shape(b, n_max_boxes, h*w) - 更新された正样本マスク
+    """
+    # 各アンカーに割り当てられた GT の数を計算
+    fg_mask = mask_pos.sum(-2)  # shape: (b, h*w)
+    
+    if fg_mask.max() > 1:  # 重複割り当てが存在
+        # 複数 GT に割り当てられたアンカーのマスク
+        mask_multi_gts = (fg_mask.unsqueeze(1) > 1).expand(-1, n_max_boxes, -1)
+        
+        # IoU が最大の GT のインデックスを取得
+        max_overlaps_idx = overlaps.argmax(1)  # shape: (b, h*w)
+        
+        # 最大 IoU の位置に 1 を設定
+        is_max_overlaps = torch.zeros(mask_pos.shape, dtype=mask_pos.dtype, device=mask_pos.device)
+        is_max_overlaps.scatter_(1, max_overlaps_idx.unsqueeze(1), 1)
+        
+        # 複数割り当ての場合、最大 IoU の GT のみ保持
+        mask_pos = torch.where(mask_multi_gts, is_max_overlaps, mask_pos).float()
+        fg_mask = mask_pos.sum(-2)
+    
+    # 各アンカーがどの GT にサービスするか（インデックス）
+    target_gt_idx = mask_pos.argmax(-2)  # shape: (b, h*w)
+    
+    return target_gt_idx, fg_mask, mask_pos
+```
+
+**重要なポイント**：
+- **重複解決**: 1つのアンカーが複数GTに割り当てられた場合、IoU が最大のGTのみを選択
+- これにより、各アンカーは高々1つのGTにのみ割り当てられる
+
+#### Step 6 & 7: 目標値割り当てと正規化
+
+```python
+def get_targets(self, gt_labels, gt_bboxes, target_gt_idx, fg_mask):
+    """
+    正样本アンカー点に対する目標ラベル、目標ボックス、目標スコアを計算します。
+    
+    Args:
+        gt_labels (Tensor): shape(b, max_num_obj, 1)
+        gt_bboxes (Tensor): shape(b, max_num_obj, 4)
+        target_gt_idx (Tensor): shape(b, h*w) - 割り当てられた GT インデックス
+        fg_mask (Tensor): shape(b, h*w) - 前景マスク
+    
+    Returns:
+        target_labels (Tensor): shape(b, h*w) - 目標分類ラベル
+        target_bboxes (Tensor): shape(b, h*w, 4) - 目標ボックス
+        target_scores (Tensor): shape(b, h*w, num_classes) - 目標スコア
+    """
+    # バッチインデックスを作成
+    batch_ind = torch.arange(end=self.bs, dtype=torch.int64, device=gt_labels.device)[..., None]
+    target_gt_idx = target_gt_idx + batch_ind * self.n_max_boxes  # 平坦化インデックス
+    
+    # 目標ラベルを割り当て
+    target_labels = gt_labels.long().flatten()[target_gt_idx]  # shape: (b, h*w)
+    
+    # 目標ボックスを割り当て
+    target_bboxes = gt_bboxes.view(-1, gt_bboxes.shape[-1])[target_gt_idx]  # shape: (b, h*w, 4)
+    
+    # 目標スコア（One-hot）を作成
+    target_labels.clamp_(0)
+    target_scores = torch.zeros(
+        (target_labels.shape[0], target_labels.shape[1], self.num_classes),
+        dtype=torch.int64,
+        device=target_labels.device,
+    )  # shape: (b, h*w, 80)
+    
+    # scatter_ で One-hot エンコーディング
+    target_scores.scatter_(2, target_labels.unsqueeze(-1), 1)
+    
+    # 负样本のスコアを 0 に設定
+    fg_scores_mask = fg_mask[:, :, None].repeat(1, 1, self.num_classes)
+    target_scores = torch.where(fg_scores_mask > 0, target_scores, 0)
+    
+    return target_labels, target_bboxes, target_scores
+```
+
+**正規化処理**：
+
+```python
+# アライメント指標を正規化
+align_metric *= mask_pos
+pos_align_metrics = align_metric.amax(dim=-1, keepdim=True)  # 各GTの最大アライメント指標
+pos_overlaps = (overlaps * mask_pos).amax(dim=-1, keepdim=True)  # 各GTの最大IoU
+
+# 正規化されたアライメント指標
+norm_align_metric = (
+    align_metric * pos_overlaps / (pos_align_metrics + self.eps)
+).amax(-2).unsqueeze(-1)
+
+# 目標スコアに重み付け
+target_scores = target_scores * norm_align_metric
+```
+
+**正規化の意味**：
+- 高品質な正样本（高いアライメント指標と IoU）ほど、目標スコアが大きくなる
+- これにより、モデルは高品質なサンプルからより多く学ぶ
+- 困難なサンプル（低いアライメント指標）の影響
+
+
+## **関連資料**
+
+- [ YOLOv8 リアルタイム物体検出1 (基礎)](../../../../2024/07/11/yolov8_basic/) - YOLOv8 architecture and basic concepts
+- [YOLOv8 リアルタイム物体検出3（損失関数の詳細解説）](../../../../2024/07/21/yolov8_loss_details/) - 損失関数の完全な実装と理論解説
