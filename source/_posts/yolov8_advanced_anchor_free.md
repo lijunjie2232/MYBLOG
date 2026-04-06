@@ -778,3 +778,186 @@ def make_anchors(feats, strides, grid_cell_offset=0.5):
     return torch.cat(anchor_points), torch.cat(stride_tensor)
 ```
 
+
+## 検出ヘッド（Detect Header）
+
+YOLOv8 の検出ヘッドは、アンカーフリー方式を採用しており、事前に定義されたアンカーボックスに依存せず、直接物体の中心座標と幅・高さを予測します。この設計思想は、物体の形やサイズに依存しない汎用的な物体検出が可能になりました。
+
+![YOLOv8 検出ヘッド構造](/assert/yolov8/detect_header.png)
+
+### Detect Head の基本構造
+
+YOLOv8 の検出タスクの本質は、特徴マップの各グリッドセル（grid cell）上で、対応する **バウンディングボックス（bbox：4つの分布回帰パラメータ）＋ 分類（class logits）** を予測することです。
+
+YOLOv8 では、境界ボックス回帰に **DFL（Distribution Focal Loss）** を導入しており、これにより Head の出力次元が従来の `xywh` 直接回帰とは異なります。
+
+#### 検出ヘッドの出力形式（DFL 表現）
+
+各予測点において：
+
+*   **4つの境界ボックス座標 → 各座標を reg_max=16 の離散分布で表現**
+    
+*   つまり、各座標は16個の確率を予測するため、合計 **4×16 = 64 チャンネル**
+    
+*   类别予測チャンネル数 = nc（例：COCO データセットでは 80）
+    
+
+したがって、Head の出力チャンネル数は：
+
+```cobol
+no = 4 * reg_max + nc = 64 + 80 = 144
+```
+
+#### Detect Head の構造（マルチブランチ畳み込み）
+
+YOLOv8 のコードにおける実装：
+
+📍 **ファイル**：**`ultralytics/nn/modules/head.py`**  
+📍 **クラス**：`class Detect(nn.Module)`
+
+```python
+class Detect(nn.Module):
+    """
+    YOLOv8 の検出層を初期化します。
+    指定されたクラス数とチャンネル数に基づいて、検出ヘッドを構築します。
+    
+    Args:
+        nc (int): クラス数（例：COCOなら80）
+        ch (tuple): バックボーンの特徴マップからのチャンネルサイズのタプル
+    """
+    dynamic = False  # グリッド再構成を強制
+    export = False  # エクスポートモード
+    format = None  # エクスポート形式
+    end2end = False  # エンドツーエンド
+    max_det = 300  # 最大検出数
+    shape = None
+    anchors = torch.empty(0)  # 初期化
+    strides = torch.empty(0)  # 初期化
+    legacy = False  # v3/v5/v8/v9 モデルとの後方互換性
+    xyxy = False  # xyxy または xywh 出力
+
+    def __init__(self, nc: int = 80, ch: Tuple = ()):
+        super().__init__()
+        self.nc = nc  # クラス数
+        self.nl = len(ch)  # 検出層の数（通常3層：P3, P4, P5）
+        self.reg_max = 16  # DFL チャンネル数（ch[0] // 16 に比例）
+        self.no = nc + self.reg_max * 4  # 各アンカーあたりの出力数
+        self.stride = torch.zeros(self.nl)  # ビルド時に計算されるストライド
+        
+        # チャンネル数の計算
+        c2, c3 = max((16, ch[0] // 4, self.reg_max * 4)), max(ch[0], min(self.nc, 100))
+        
+        # バウンディングボックス回帰ブランチ（cv2）
+        # 各スケールの特徴マップに対して、3層の畳み込みを実行
+        # 最終的に 4 * reg_max = 64 チャンネルを出力
+        self.cv2 = nn.ModuleList(
+            nn.Sequential(
+                Conv(x, c2, 3),      # 3x3 畳み込み
+                Conv(c2, c2, 3),     # 3x3 畳み込み
+                nn.Conv2d(c2, 4 * self.reg_max, 1)  # 1x1 畳み込みで64チャンネル出力
+            ) for x in ch
+        )
+        
+        # 分類ブランチ（cv3）
+        # Legacy モードと通常モードで構造が異なる
+        # 通常モードでは Depthwise Convolution を使用して効率化
+        self.cv3 = (
+            nn.ModuleList(
+                nn.Sequential(
+                    Conv(x, c3, 3),
+                    Conv(c3, c3, 3),
+                    nn.Conv2d(c3, self.nc, 1)
+                ) for x in ch
+            )
+            if self.legacy
+            else nn.ModuleList(
+                nn.Sequential(
+                    nn.Sequential(DWConv(x, x, 3), Conv(x, c3, 1)),  # DWConv + 1x1 Conv
+                    nn.Sequential(DWConv(c3, c3, 3), Conv(c3, c3, 1)),  # DWConv + 1x1 Conv
+                    nn.Conv2d(c3, self.nc, 1),  # 最終的な分類出力
+                )
+                for x in ch
+            )
+        )
+        
+        # Distribution Focal Loss のための DFL モジュール
+        # reg_max > 1 の場合のみ有効
+        self.dfl = DFL(self.reg_max) if self.reg_max > 1 else nn.Identity()
+
+        # エンドツーエンド推論用のコピー（オプション）
+        if self.end2end:
+            self.one2one_cv2 = copy.deepcopy(self.cv2)
+            self.one2one_cv3 = copy.deepcopy(self.cv3)
+```
+
+##### バウンディングボックス回帰ブランチ（cv2）
+
+```python
+# bbox 回帰ブランチ
+# 各スケールの特徴マップからバウンディングボックスのパラメータを予測
+# 出力：4 * reg_max = 64 チャンネル（DFL 表現）
+self.cv2 = nn.ModuleList(
+    nn.Sequential(
+        Conv(x, c2, 3),              # 第1層：3x3 畳み込み
+        Conv(c2, c2, 3),             # 第2層：3x3 畳み込み
+        nn.Conv2d(c2, 4 * self.reg_max, 1)  # 第3層：1x1 畳み込みで64チャンネル出力
+    ) for x in ch  # ch は各スケールの入力チャンネル数
+)
+```
+
+##### 分類ブランチ（cv3）
+
+```python
+# 分類ブランチ
+# 各スケールの特徴マップからクラス確率を予測
+# 出力：nc チャンネル（クラス数）
+self.cv3 = nn.ModuleList(
+    nn.Sequential(
+        nn.Sequential(
+            DWConv(x, x, 3),    # Depthwise 畳み込み（効率的な特徴抽出）
+            Conv(x, c3, 1)      # 1x1 畳み込み
+        ),
+        nn.Sequential(
+            DWConv(c3, c3, 3),  # Depthwise 畳み込み
+            Conv(c3, c3, 1)     # 1x1 畳み込み
+        ),
+        nn.Conv2d(c3, self.nc, 1)  # 最終的な分類出力（nc チャンネル）
+    ) for x in ch
+)
+```
+
+#### forward メソッドの動作（訓練時）
+
+Detect の forward メソッドは以下の2つの主要な処理を行います：
+
+1. **各スケールで box と cls を結合**：
+    
+    ```python
+    # 各スケールの特徴マップに対して、bboxブランチとclsブランチの出力をチャンネル方向で結合
+    # 例：[B, 64, H, W] + [B, 80, H, W] → [B, 144, H, W]
+    for i in range(self.nl):
+        x[i] = torch.cat((self.cv2[i](x[i]), self.cv3[i](x[i])), 1)
+    ```
+    
+2. **訓練状態ではデコードせずに直接返す**：
+    
+    ```python
+    # 訓練時は生の出力を返す（損失計算のため）
+    # 推論時のみデコード処理を実行
+    if self.training:
+        return x
+    ```
+    
+
+例えば、640×640 の画像を入力とした場合、FPN は3層の特徴マップを出力します：
+
+| 層 | 特徴マップサイズ | 出力 shape（B=1 の場合） |
+| --- | --- | --- |
+| P3 | 80×80 | \[1, 144, 80, 80\] |
+| P4 | 40×40 | \[1, 144, 40, 40\] |
+| P5 | 20×20 | \[1, 144, 20, 20\] |
+
+総予測点数：  
+`80×80 + 40×40 + 20×20 = 6400 + 1600 + 400 = 8400` 点
+
+つまり、YOLOv8 は1枚の画像から **8400 個の予測点** を生成し、各点で144次元の出力（64次元のbbox + 80次元の分類）を行います。
