@@ -86,7 +86,7 @@
 
 [ ] yolov5
 
-[ ] yolov8
+[x] yolov8
 
 [ ] ultralytics
 
@@ -147,5 +147,7 @@
 [ ] Tacotron2
 
 # langchain
+
+[x] langchain base
 
 # FastAPI
