@@ -161,3 +161,129 @@ Guardrails（ガードレール）は、エージェントの入出力やツー�
 | `"hash"` | 決定論的なハッシュ値へ置換 | `alice@example.com` → `a8f5f167...` | 値自体は隠しつつ同一人物の突合だけ行いたい場合 |
 | `"block"` | PII 検出時に例外を送出して即時停止 | 例外送出（処理中断） | API キー混入など、処理続行自体が禁止される場合 |
 
+さらに、適用ポイントも 3 つのブールフラグで独立制御できます。
+
+- `apply_to_input=True`（デフォルト `True`）：モデル呼び出し前にユーザー入力を検査・サニタイズ
+- `apply_to_output=True`（デフォルト `False`）：モデル出力後に AI メッセージを検査（`langchain>=1.3.2` ではストリーミング出力に対しても **末尾 128 文字のスライディングバッファ** を保持するストリーム変換器が働き、チャンク境界をまたぐ PII 漏洩＝Split-Boundary Leak を防止します）
+- `apply_to_tool_results=True`（デフォルト `False`）：外部 DB や API から返却されたツール結果に含まれる PII を検査
+
+```python
+from langchain.agents.middleware import PIIMiddleware
+
+# 複数の PII 種別に対して異なる戦略を多層適用する例
+pii_middlewares = [
+    # メールアドレスは入力段階で完全置換（[REDACTED_EMAIL]）
+    PIIMiddleware("email", strategy="redact", apply_to_input=True),
+    # クレジットカード番号は下4桁のみ残してマスク
+    PIIMiddleware("credit_card", strategy="mask", apply_to_input=True),
+    # 自社形式の API キーはカスタム正規表現で検知し即時ブロック
+    PIIMiddleware(
+        "api_key",
+        detector=r"sk-[a-zA-Z0-9]{32}",
+        strategy="block",
+        apply_to_input=True,
+    ),
+]
+```
+
+### 2.3 カスタムガードレールにおける `jump_to="end"`
+
+独自の決定論的ガードレールを `before_agent` で実装する場合、`@hook_config(can_jump_to=["end"])` を宣言し、返り値に `"jump_to": "end"` を含めることで、**LLM を一度も呼び出さずに即座に安全な拒否応答を返して終了**できます。これにより、悪意ある入力に対するトークン消費とツール誤爆を完全にゼロへ抑え込めます。
+
+---
+
+## 3. Human-in-the-Loop（HITL）：危険操作に対する人間承認アーキテクチャ
+
+本番環境へのデプロイ、データベースの削除、外部顧客へのメール送信といった**不可逆な副作用（Side Effects）を伴うツール実行**では、AI の自律判断だけで実行させてはなりません。LangChain v1 の `HumanInTheLoopMiddleware` は、LangGraph の **Interrupt（割り込み）** と **Checkpointer（状態永続化）** を組み合わせ、安全かつ再開可能な承認ワークフローを提供します。
+
+> `HumanInTheLoopMiddleware` はツール実行前に `interrupt()` を発行してグラフ実行を一時停止し、LangGraph の永続化層（Checkpointer）へ状態を保存します。再開時は同じ `thread_id` と `Command(resume=...)` を渡すことで、`approve`・`edit`・`reject`・`respond` の4種類の意思決定を安全に反映できます。
+
+### 3.1 4 種類の意思決定タイプ（Decision Types）
+
+承認者（人間）は、一時停止されたツール呼び出しに対して次の 4 種類の判断を下せます。
+
+| Decision Type | ツール実行 | 動作とエージェントへのフィードバック | 典型的なユースケース |
+| :--- | :--- | :--- | :--- |
+| **`approve`** | 実行する（元の引数） | モデルが提案した引数そのままツールを実行し、結果を返す | 妥当な本番デプロイやメール送信の承認 |
+| **`edit`** | 実行する（修正後の引数） | 人間が修正した `edited_action`（ツール名・引数）で実行。モデルには「人間が引数を書き換えた」旨の通知（`edit_notice`）を付与 | デプロイ先を `production` から `staging` へ変更して実行 |
+| **`reject`** | **実行しない** | ツール実行をスキップし、エラー状態の合成 `ToolMessage`（却下理由 `message` 付き）をモデルへ返す | 危険な `DELETE` クエリを拒否し、理由を伝えて代替案を促す |
+| **`respond`** | **実行しない** | 人間の入力 `message` を**正常なツール結果**として合成 `ToolMessage` に格納して返す | `ask_user` のように人間の回答自体がツール出力となる確認プロンプト |
+
+ここで極めて重要な設計ルールがあります。**副作用ツールの拒否に `respond` を使ってはいけません。** `respond` はモデルに対して「ツールが成功し、その戻り値が返ってきた」と伝えるため、モデルが「デプロイは完了した」と誤認する原因になります。拒否には必ず `reject` を使用してください。また、`langchain>=1.5.2` では `reject` と `respond` で生成された合成 `ToolMessage` に `source="hitl_interrupt_decision"` の通知メタデータが付与されるため、フロントエンド側で実ツール出力と明確に区別できます。
+
+### 3.2 HITL 実行ライフサイクルと状態遷移
+
+{% mermaid %}
+sequenceDiagram
+    autonumber
+    participant User as ユーザー / アプリ
+    participant Agent as Agent (Checkpointer付)
+    participant PII as PIIMiddleware
+    participant HITL as HumanInTheLoopMiddleware
+    participant Tool as 危険ツール (deploy_release)
+
+    User->>Agent: invoke(入力, config={"thread_id": "T1"})
+    Agent->>PII: before_model (入力サニタイズ)
+    PII-->>Agent: [REDACTED_EMAIL] へ永続置換
+    Agent->>Agent: LLM 推論 → deploy_release 呼び出し提案
+    Agent->>HITL: after_model / ツール実行前チェック
+    HITL->>Agent: interrupt(HITLRequest) 発行 & チェックポイント保存
+    Agent-->>User: __interrupt__ を含む中断レスポンス返却
+
+    Note over User: 人間レビュアーが引数を確認し<br/>approve / edit / reject / respond を選択
+
+    User->>Agent: invoke(Command(resume=decisions), config={"thread_id": "T1"})
+    Agent->>HITL: 状態復元 & 意思決定の検証
+    alt approve / edit
+        HITL->>Tool: 承認/修正済み引数でツール実行
+        Tool-->>Agent: 実行結果 (ToolMessage)
+    else reject / respond
+        HITL-->>Agent: ツール未実行で合成 ToolMessage を生成
+    end
+    Agent->>Agent: LLM 最終応答生成
+    Agent-->>User: 最終レスポンス返却
+{% endmermaid %}
+
+### 3.3 条件付き割り込み（`when`）と 2 つの割り込みモード（`batched` vs `per_call`）
+
+LangChain v1.3.3 以降では、すべての呼び出しを一律に止めるのではなく、引数に応じて動的に割り込みを判定する **`when` 述語** がサポートされています。たとえば「`SELECT` 文なら自動承認、`DELETE` / `UPDATE` なら承認待ち」といったきめ細かいポリシーが数行で書けます。
+
+さらに `langchain>=1.4.6` からは、`interrupt_mode` に以下の 2 モードが用意されています。
+
+| モード | 割り込み単位 | 再開時の指定方法 | 特徴・推奨度 |
+| :--- | :--- | :--- | :--- |
+| **`"batched"`**（現行デフォルト） | 1 回のモデルターンにつき 1 つの割り込みに複数ツールをまとめる | `Command(resume={"decisions": [...]})`（出現順のリスト） | `after_model` フックで動作。Lab 6 のようなシンプルな単一/一括承認に明快 |
+| **`"per_call"`**（次世代推奨） | 承認対象ツール 1 件ごとに独立した割り込み ID を発行 | `Command(resume={interrupt_id: decision})`（ID マップ） | 各割り込みが JSON Schema（`response_schema`）を持ち、入力不正時は `ValidationError` で安全に再入力可能。非対象ツール（例: `read_data`）は待機せず即時実行 |
+
+```python
+from langchain.agents.middleware import HumanInTheLoopMiddleware, ToolCallRequest
+
+# 本番環境（production）へのデプロイ時のみ人間承認を要求する条件述語
+def is_production_deploy(request: ToolCallRequest) -> bool:
+    return request.tool_call["args"].get("env") == "production"
+
+# 条件付き割り込み＋per_call モードの設定例
+hitl_middleware = HumanInTheLoopMiddleware(
+    interrupt_on={
+        "deploy_release": {
+            "allowed_decisions": ["approve", "edit", "reject"],
+            "when": is_production_deploy,
+        },
+        "read_status": False,  # 読み取り専用ツールは自動承認
+    },
+    description_prefix="本番操作の承認待ち",
+    interrupt_mode="per_call",  # 既存の一括形式を使う場合は "batched"
+)
+```
+
+---
+
+## 4. まとめ
+
+本稿では、本番運用の AI エージェントに不可欠な 3 つの設計理論を整理しました。
+
+1. **Context Engineering**：`Transient`（単一呼び出しのみ）と `Persistent`（状態へ永続化）を明確に分け、3 つのデータソース（Runtime Context / State / Store）を Middleware 経由で制御する。
+2. **Guardrails（`PIIMiddleware`）**：決定論的フィルタで機密情報を前段で確実にサニタイズし、必要に応じてモデルベース評価を後段に積む多層防御を構成する。
+3. **Human-in-the-Loop**：Checkpointer と `thread_id` を前提に、ツール実行前に安全に一時停止し、`approve` / `edit` / `reject` / `respond` で人間の判断をグラフへ統合する。
+
+次回の **Part 6 実践編** では、本稿で解説した `PIIMiddleware` と `HumanInTheLoopMiddleware` を組み合わせ、**メールアドレスの自動マスキングと本番デプロイ承認フロー**を実際に動作させ、中断ペイロードやチェックポイントの状態変化を実測ログとともに検証します。
