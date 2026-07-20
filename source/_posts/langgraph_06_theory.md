@@ -150,3 +150,121 @@ parent_graph = (
 ## 3. Cross-Thread Store（`BaseStore`）の設計理論
 
 Checkpointer が「**1 つのスレッド（会話・ジョブ）内の状態スナップショット**」を管理するのに対し、**Store（`BaseStore`）** は「**スレッドを横断して共有される長期記憶（Key-Value + ベクトル検索）**」を担います。
+
+| 観点 | Checkpointer（短期・スレッド内記憶） | Store（長期・スレッド横断記憶） |
+| --- | --- | --- |
+| **スコープ** | 単一の `thread_id` に閉じた状態 | すべてのスレッド・ユーザー・サブグラフから参照可能 |
+| **データ構造** | グラフの State スナップショット（Super-step ごと） | 階層 Namespace (`tuple[str, ...]`) + Key + JSON Dict (`Item`) |
+| **検索機能** | `thread_id` / `checkpoint_id` による時系列取得 | Exact Get / Prefix Search / メタデータフィルタ / セマンティック検索 |
+| **代表的な用途** | 会話履歴、HITL 中断再開、Time Travel | ユーザー嗜好、社内ポリシー、学習済み事実、ナレッジベース |
+| **本番バックエンド** | `SqliteSaver`, `PostgresSaver` など | `PostgresStore`, `MongoDBStore`, `RedisStore`, `UpstashStore` など |
+
+> **Store の自動伝播メカニズム**：親グラフを `parent.compile(store=store)` でコンパイルすると、親グラフ内のノードだけでなく、**親ノードから呼び出される Subgraph 内のノードへも同一の `BaseStore` インスタンスが自動的に注入されます**。ノード関数のシグネチャに `*, store: BaseStore` または `runtime: Runtime[Context]` を宣言するだけで、サブグラフ側のコンパイル時に `store` を再指定することなく長期記憶へアクセスできます。
+
+{% mermaid %}
+flowchart TB
+    subgraph Thread1["Thread A (thread_id='t-001')"]
+        P1["ParentGraph<br/>compile(checkpointer, store)"] --> S1["Subgraph<br/>sub_worker(state, *, store)"]
+    end
+
+    subgraph Thread2["Thread B (thread_id='t-002')"]
+        P2["ParentGraph<br/>compile(checkpointer, store)"] --> S2["Subgraph<br/>sub_worker(state, *, store)"]
+    end
+
+    CP1[("Checkpointer<br/>Thread A 専用スナップショット")]
+    CP2[("Checkpointer<br/>Thread B 専用スナップショット")]
+    ST[("Cross-Thread Store (BaseStore)<br/>Namespace: ('team', 'infra') / key: 'policy'<br/>Namespace: ('user_1', 'memories') / key: uuid")]
+
+    P1 <--> CP1
+    P2 <--> CP2
+    S1 -- "store 自動伝播<br/>get / search / put" --> ST
+    S2 -- "store 自動伝播<br/>get / search / put" --> ST
+
+    style Thread1 fill:#eef6ff,stroke:#3b82f6,stroke-width:2px
+    style Thread2 fill:#f5f3ff,stroke:#7c3aed,stroke-width:2px
+    style CP1 fill:#fef3c7,stroke:#d97706
+    style CP2 fill:#fef3c7,stroke:#d97706
+    style ST fill:#dcfce7,stroke:#16a34a,stroke-width:2px
+{% endmermaid %}
+
+### Namespace 設計の原則
+
+`BaseStore` では、すべてのアイテムが **`(namespace: tuple[str, ...], key: str)`** の組で一意に識別されます。保存されたエントリは `Item` オブジェクトとして返され、`value`（JSON シリアライズ可能な `dict`）・`key`・`namespace`・`created_at`・`updated_at` 属性を持ちます。
+
+実運用で破綻しない Namespace を設計する際の 4 つの原則を押さえておきましょう。
+
+1. **階層は「広いスコープ → 狭いスコープ」の順で並べる**
+   - 例：`("org_acme", "team_infra", "policies")` や `(user_id, "preferences")`。
+   - `store.search(namespace_prefix)` は **前方一致（Prefix Match）** で動作するため、`("org_acme",)` を指定すれば配下の全チーム・全カテゴリのアイテムを横断検索でき、`("org_acme", "team_infra", "policies")` を指定すれば対象を厳密に絞り込めます。
+2. **単一ドキュメント参照は `store.get(namespace, key)` を使う**
+   - 社内ポリシーやユーザープロファイルのように固定キーで引けるものは `get()` を使うことで `O(1)`（SQL バックエンドでは `(namespace, key)` の複合主キー検索）で取得できます。
+3. **列挙時の `limit` 切り詰めとバックエンド間の順序差異に注意する**
+   - `store.search()` のデフォルト `limit` は `10` であり、上限を超えたアイテムはエラーを出さず暗黙的に切り捨てられます。全件走査には `limit` と `offset` を使ったページネーションが必要です。
+   - また、`InMemoryStore` は挿入順（最新が末尾）で返すのに対し、`PostgresStore` は `updated_at` 降順（最新が先頭）で返します。順序に依存するロジックは必ずクライアント側で `item.updated_at` によるソートを行ってください。
+4. **シリアライズ制約を守る**
+   - `value` はプレーンな Python `dict`（JSON 互換）に限定し、カスタムクラスやソケットオブジェクトを格納してはいけません。
+
+### セマンティック検索とフィールド単位のインデックス制御
+
+`InMemoryStore` や `PostgresStore` に `index` 設定を与えると、`store.search(namespace, query="...", limit=3)` によるベクトル類似度検索が有効になります。
+
+```python
+from langgraph.store.memory import InMemoryStore
+from langchain.embeddings import init_embeddings
+
+# 埋め込みモデルを指定してセマンティック検索対応 Store を構築
+store = InMemoryStore(
+    index={
+        "embed": init_embeddings("openai:text-embedding-3-small"),  # 埋め込みプロバイダ
+        "dims": 1536,                                              # ベクトル次元数
+        "fields": ["rule", "$"],                                   # インデックス対象フィールド（"$" は全体）
+    }
+)
+
+# 特定フィールドのみ埋め込み対象にする場合
+store.put(
+    ("team", "infra"),
+    "deploy-policy-01",
+    {"rule": "本番変更は必ずカナリアデプロイを行う", "owner": "SRE"},
+    index=["rule"],  # owner は検索ノイズになるため埋め込みから除外
+)
+
+# 埋め込み不要なシステムメタデータは index=False でコスト削減
+store.put(
+    ("team", "infra"),
+    "last-audit",
+    {"checked_at": "2026-06-21"},
+    index=False,
+)
+```
+
+### ノードからの Store アクセス：2 つの注入スタイル
+
+LangGraph のノード関数から Store にアクセスする方法は 2 通りあります。
+
+1. **キーワード引数注入（`*, store: BaseStore`）**：シンプルに Store だけが必要な場合。Subgraph 内のワーカーノードでよく使われます。
+2. **`Runtime[Context]` オブジェクト経由（`runtime: Runtime[Context]`）**：`StateGraph(State, context_schema=Context)` と組み合わせ、`runtime.context.user_id`（実行時コンテキスト）と `runtime.store`（長期記憶）を型安全に同時取得する場合。本番のマルチテナントアプリではこちらが推奨されます。
+
+### カスタム Store 実装のコントラクト
+
+独自のデータストア（DynamoDB や社内 API など）を LangGraph の Store として統合したい場合は、`langgraph.store.base.BaseStore` を継承し、以下の 5 つの非同期メソッド（および同期版）を実装します。
+
+- `aput(namespace, key, value, index=None)`：単一アイテムの保存・上書き
+- `aget(namespace, key)`：完全一致による取得（存在しなければ `None`）
+- `adelete(namespace, key)`：単一アイテムの削除
+- `asearch(namespace_prefix, *, query=None, filter=None, limit=10, offset=0)`：プレフィックス検索・フィルタ・ベクトル検索
+- `alist_namespaces(*, prefix=None, suffix=None, max_depth=None, limit=100, offset=0)`：存在する名前空間の一覧取得
+
+SQL バックエンドで実装する際は、`namespace TEXT[]` カラムに GIN インデックスを張り、`PRIMARY KEY (namespace, key)` とすることで、Prefix 検索と `O(1)` の Exact Get を両立できます。
+
+---
+
+## まとめ
+
+本記事では、大規模・長期稼働する LangGraph アプリケーションに不可欠な **Subgraphs** と **Cross-Thread Store** の理論を整理しました。
+
+- **Subgraphs** は「共有 State（直接 `add_node`）」と「独立 State（ラッパー関数経由）」の 2 方式があり、マルチエージェントの履歴分離には独立 State が有効。
+- Subgraph の永続化は `checkpointer=None`（Per-invocation）を基本とし、マルチターン蓄積が必要な場合のみ `checkpointer=True`（Per-thread）＋名前空間分離を検討する。
+- **Cross-Thread Store（`BaseStore`）** は Checkpointer と役割分担し、階層タプル Namespace によってスレッドやサブグラフの境界を越えた長期記憶を提供する。
+
+次回の **Part 6 実践編** では、独立スキーマ Subgraph と `InMemoryStore` を実際に組み合わせ、親グラフからサブグラフへ自動伝播された社内ポリシーを参照して回答を生成するマルチ階層グラフをコードと実測出力付きで検証します。
