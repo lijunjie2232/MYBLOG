@@ -151,3 +151,122 @@ app = Pregel(
 
 ### Graph API と Functional API の使い分け
 
+| 比較観点 | Graph API (`StateGraph`) | Functional API (`@entrypoint` / `@task`) |
+| --- | --- | --- |
+| **推奨ユースケース** | **新規に構築する LangGraph エージェント／ワークフロー全般** | **既存コードや他フレームワーク（CrewAI / AutoGen / Claude Agent SDK 等）を最小改修でラップして LangSmith へデプロイしたい場合** |
+| **制御フロー** | エッジ・条件分岐・`Send` / `Command` | 通常の Python 構文（`if` / `for` / 関数呼び出し） |
+| **状態管理** | 共有 State スキーマ + Reducer | 関数ローカル変数 + `previous` パラメータ |
+| **チェックポイント粒度** | 各 Super-step 終了ごと | 各 `@task` の完了結果および `@entrypoint` 終了時 |
+| **静的グラフ可視化** | 対応（`draw_mermaid` / Studio グラフ表示） | 非対応（動的制御フローのため） |
+
+### 2 つの構成要素：`@entrypoint` と `@task`
+
+1. **`@entrypoint(checkpointer=..., store=...)`**
+   - ワークフローの開始点を定義し、デコレートされた関数を `Pregel` インスタンスへ変換します。
+   - **単一の位置引数**のみを入力として受け取ります（複数値を渡す場合は `dict` や `TypedDict` でまとめます）。
+   - キーワード引数として `previous`（同一 `thread_id` での前回戻り値）、`config`（`RunnableConfig`）、`store`（`BaseStore`）、`writer`（カスタムストリーム用）、`runtime`（`Runtime`）を自動注入できます。戻り値と次回の `previous` を分けたい場合は `entrypoint.final(value=..., save=...)` を使用します。
+
+2. **`@task`**
+   - API 呼び出しや LLM 推論、ファイル I/O などの**離散的な作業単位**をラップします。
+   - 呼び出すと即座にバックグラウンド実行を開始し、**Future ライクなオブジェクト**を返します。同期なら `.result()`、非同期なら `await` で結果を回収するため、複数タスクを先に起動してからまとめて `.result()` を呼ぶだけで簡単に並列実行できます。
+   - タスクの戻り値はチェックポイントに保存されるため、**中断（`interrupt()`）やエラーからの再開時に再計算されずキャッシュから復元されます**。
+
+> **決定的リプレイ（Deterministic Replay）の鉄則**：Functional API で `interrupt()` や障害から再開（Resume）すると、LangGraph は停止した行から直接再開するのではなく、**`@entrypoint` 関数の先頭からコードを再実行（リプレイ）します**。その際、完了済みの `@task` は再実行されずチェックポイントから結果が即座に返されます。したがって、**副作用（外部 API 書き込み・メール送信・ファイル出力）や非決定的な処理（LLM 呼び出し・乱数・現在時刻 `time.time()`）は、必ず `@task` の内部に閉じ込めなければなりません**。
+
+### 再開とチェックポイントの 3 原則
+
+1. **シリアライズ可能性（Serialization）**：`checkpointer` を有効にする場合、`@entrypoint` の入出力と `@task` の出力はすべて **JSON シリアライズ可能**（`dict`, `list`, `str`, `int`, `float`, `bool`, `None`）である必要があります。
+2. **決定性（Determinism）**：`@entrypoint` 直下で `time.time()` や `random.random()` を使って `if` 分岐すると、リプレイ時に初回とは別の分岐へ入り、`interrupt()` のインデックス対応が壊れます。必ず `@task` 化して値を固定してください。
+3. **冪等性（Idempotency）**：タスクの途中でプロセスがクラッシュした場合、未完了タスクは再開時に再実行されます。外部システムへの書き込みタスクは冪等性キー（Idempotency Key）を使うか、既存状態を確認してから書き込む設計にします。
+
+```python
+import time
+from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.func import entrypoint, task
+from langgraph.types import interrupt
+
+checkpointer = InMemorySaver()
+
+
+# 良い設計：現在時刻の取得や外部書き込みを @task に閉じ込める
+@task
+def get_current_timestamp() -> float:
+    """非決定的な壁時計読み取りをタスク化し、リプレイ時に同一値を復元する。"""
+    return time.time()
+
+
+@task
+def write_audit_log(message: str) -> None:
+    """副作用（ファイル書き込み）をタスク化し、再開時の二重実行を防止する。"""
+    with open("audit.log", "a", encoding="utf-8") as f:
+        f.write(message + "\n")
+
+
+@entrypoint(checkpointer=checkpointer)
+def safe_workflow(inputs: dict) -> dict:
+    # リプレイ時も初回とまったく同じ timestamp が返り、分岐がズレない
+    t1 = get_current_timestamp().result()
+    branch = "slow" if (t1 - inputs["t0"]) > 1.0 else "fast"
+
+    # 再開時にチェックポイント復元されるため、ログが二重に書かれない
+    write_audit_log(f"branch={branch}").result()
+
+    # 人間の承認待ちで一時停止
+    approved = interrupt({"branch": branch, "question": "続行しますか？"})
+    return {"branch": branch, "approved": approved}
+```
+
+---
+
+## 3. Workflows vs Agents 設計指針
+
+LangGraph でシステムを設計する際、最も重要なアーキテクチャ判断は**「どこまでを確定的な Workflow として組み、どこからを自律的な Agent に任せるか」**です。
+
+- **Workflows（ワークフロー）**：事前に定義されたコードパスと順序に従って LLM やツールを呼び出すシステム。予測可能性・検証容易性・コスト制御に優れる。
+- **Agents（エージェント）**：LLM 自身が状況を観察し、どのツールを何回呼び出すか・いつ終了するかを動的に決定するフィードバックループ型システム。未知の問題や開放的な探索に強い。
+
+{% mermaid %}
+flowchart LR
+    W1["1. Prompt Chaining<br/>直列パイプライン + ゲート"]
+    W2["2. Routing<br/>入力分類 → 専門ルート分岐"]
+    W3["3. Parallelization<br/>並列サブタスク / 多数決"]
+    W4["4. Orchestrator-Worker<br/>動的計画 → Send() 並列実行"]
+    W5["5. Evaluator-Optimizer<br/>生成 ↔ 評価フィードバックループ"]
+    A1["6. Autonomous Agent<br/>LLM ↔ ToolNode 自律ループ"]
+
+    W1 --> W2 --> W3 --> W4 --> W5 --> A1
+
+    style W1 fill:#ecfdf5,stroke:#10b981
+    style W2 fill:#ecfdf5,stroke:#10b981
+    style W3 fill:#eff6ff,stroke:#3b82f6
+    style W4 fill:#eff6ff,stroke:#3b82f6
+    style W5 fill:#fef3c7,stroke:#d97706
+    style A1 fill:#fef2f2,stroke:#ef4444,stroke-width:2px
+{% endmermaid %}
+
+### 6 つの標準パターンと LangGraph 実装プリミティブ
+
+| パターン | 分類 | 特徴と適用場面 | LangGraph での主要プリミティブ |
+| --- | --- | --- | --- |
+| **1. Prompt Chaining** | Workflow | 固定ステップで順次処理し、必要に応じて品質ゲートで分岐（翻訳・校正など） | `add_edge` + `add_conditional_edges` |
+| **2. Routing** | Workflow | 構造化出力（`with_structured_output`）で入力を分類し専用ノードへ振り分け | `with_structured_output` + 条件エッジ |
+| **3. Parallelization** | Workflow | 事前定義された複数の独立サブタスクを同時実行して統合（多観点スコアリング等） | 同一ノードからの複数 `add_edge`（Fan-out / Fan-in） |
+| **4. Orchestrator-Worker** | Workflow | サブタスク数が実行時まで決まらない場合に計画ノードが動的にワーカーを生成 | `Send` API + `Annotated[list, operator.add]` |
+| **5. Evaluator-Optimizer** | Workflow | 生成ノードと評価ノードを合格基準に達するまで反復させる | 循環エッジ + 構造化評価スキーマ |
+| **6. Autonomous Agent** | Agent | LLM が `tool_calls` を出し続ける限り `ToolNode` を実行し続ける自律ループ | `MessagesState` + `bind_tools` + `ToolNode` + `ToolRuntime` |
+
+### 実務における選定ガイドライン
+
+> **設計の鉄則**：最初からフル自律型の Agent を作るべきではありません。まずは **Prompt Chaining や Routing などの単純な Workflow** で要件を満たせるか検討し、サブタスクが動的なら **Orchestrator-Worker**、品質の反復改善が必要なら **Evaluator-Optimizer** へと段階的に自律性を上げます。Agent ループは「解法ステップが事前に予測できない領域」に限定し、さらに `ToolRuntime` を使ってグラフ State や実行コンテキスト（`organization_id` 等）を LLM に改ざんされない形で安全にツールへ注入するのが堅牢な設計です。
+
+---
+
+## まとめ
+
+本記事では、LangGraph の最下層から設計思想までを貫く 3 つの柱を解説しました。
+
+- **Pregel BSP モデル**：Plan → Execution → Update の 3 フェーズと Channel 抽象（`LastValue`, `BinaryOperatorAggregate`, `DeltaChannel` 等）により、並列実行の安全性と Super-step 境界での一貫した永続化を実現している。
+- **Functional API（`@entrypoint` / `@task`）**：既存の Python 制御フローを保ったまま Pregel の耐久実行・チェックポイント・並列化を利用できるが、「JSON シリアライズ」「決定性」「冪等性」の 3 原則を厳守する必要がある。
+- **Workflows vs Agents**：自律性を上げるほどレイテンシ・コスト・予測困難性が増すため、問題構造に応じて 6 パターンの中から最小限の複雑さを選ぶのがベストプラクティス。
+
+次回の **Part 7 実践編** では、Functional API（`@entrypoint` / `@task`）と `InMemorySaver` を使ってチェックポイント対応のコピーライティングワークフローを構築し、実測出力とともにその内部挙動を検証します。
