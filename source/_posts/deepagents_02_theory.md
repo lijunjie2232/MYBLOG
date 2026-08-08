@@ -156,3 +156,126 @@ sequenceDiagram
     Note over Comp: 最長一致ルート "/memories/" にヒット<br/>プレフィックス "/memories" を除去 → "/pref.txt"
     Comp->>Sub: write("/pref.txt", "lang=ja")
     Sub->>Store: put(namespace=("user", "demo"), key="/pref.txt", value=...)
+    Store-->>Sub: OK
+    Sub-->>Comp: WriteResult(path="/pref.txt")
+    Note over Comp: 呼び出し元へ返すパスや ls/grep 結果には<br/>元のプレフィックス "/memories/" を復元
+    Comp-->>Agent: WriteResult(path="/memories/pref.txt")
+{% endmermaid %}
+
+### ルーティングの 3 つの重要ルール
+
+1. **最長プレフィックス一致（Longest Prefix Match）**
+   `routes={"/memories/": backend_a, "/memories/projects/": backend_b}` のようにネストしたルートを定義した場合、より長いプレフィックス（`"/memories/projects/"`）が優先されます。
+2. **委譲時のプレフィックス除去（Prefix Stripping）と集約時の復元**
+   エージェントが `/memories/pref.txt` へ書き込むと、`CompositeBackend` はマッチしたルートプレフィックスを取り除いた **`/pref.txt`** を子バックエンド（`StoreBackend` や `FilesystemBackend`）へ渡します。一方、エージェントが `ls("/")`・`glob`・`grep` を実行した際には、全マウント先の結果を集約し、元のプレフィックス（`/memories/pref.txt`）を復元して返します。
+   - **実務上の重要ポイント**: アプリケーション側の Python コードから `store.search(("user", "demo"))` のように `BaseStore` を直接参照すると、保存されているキーは `/memories/pref.txt` ではなく **`/pref.txt`** になっています（この挙動は次回の Part 2 実践編で実測確認します）。
+3. **権限（`permissions=`）との連携**
+   `create_deep_agent(..., permissions=[FilesystemPermission(...)])` で宣言的なアクセス制御を設定すると、権限チェックは `CompositeBackend` のルーティング **前** に仮想パスに対して評価されます（上から順に First-match-wins）。これにより「`/policies/**` は全組織共有の `StoreBackend` にマウントしつつ、エージェントからの書き込み（`"write"`）だけを拒否して読み取り専用にする」といった構成が数行で実現できます。
+
+---
+
+## 5. 宣言的 Permissions とカスタム Backend / Policy Hook
+
+エンタープライズ用途では「特定ディレクトリだけ読み取り専用にしたい」「S3 や社内 API を仮想ファイルシステムとして見せたい」「書き込み前に PII チェックや監査ログを挟みたい」といった要件が出てきます。DeepAgents はこれらを 2 つのレイヤーでサポートします。
+
+### 5.1 `FilesystemPermission` による宣言的アクセス制御
+
+`permissions=` に渡したルールは上から順に評価され（First-match-wins）、どのルールにも一致しない操作は許可されます。
+
+```python
+from deepagents import FilesystemPermission, create_deep_agent
+from deepagents.backends import CompositeBackend, StateBackend, StoreBackend
+
+# /memories/ はユーザー単位で読み書き可、/policies/ は組織共有かつ書き込み禁止にする構成
+agent = create_deep_agent(
+    model="openai:gpt-4.1",
+    backend=CompositeBackend(
+        default=StateBackend(),
+        routes={
+            "/memories/": StoreBackend(
+                namespace=lambda rt: (rt.server_info.user.identity,),
+            ),
+            "/policies/": StoreBackend(
+                namespace=lambda rt: (rt.context.org_id,),
+            ),
+        },
+    ),
+    permissions=[
+        # /policies/** への write / edit / delete を拒否（read は許可）
+        FilesystemPermission(
+            operations=["write"],
+            paths=["/policies/**"],
+            mode="deny",
+        ),
+    ],
+)
+```
+
+※ 注意：宣言的 Permissions は組み込みファイルシステムツールに対してのみ適用されます。`SandboxBackend` や `LocalShellBackend` の `execute` ツール（任意シェル実行）には適用されないため、シェル実行時はコンテナ隔離や HITL と併用してください。
+
+### 5.2 Policy Wrapper によるカスタム検証フック
+
+パス単位の allow/deny を超えた独自ロジック（監査ログ出力・レート制限・機密パターン検査など）を挟む場合は、`BackendProtocol` をラップする `PolicyWrapper` を実装します。失敗時は例外を投げず、`WriteResult(error=...)` を返すのが鉄則です。
+
+```python
+from deepagents.backends.protocol import (
+    BackendProtocol,
+    EditResult,
+    GlobResult,
+    GrepResult,
+    LsResult,
+    ReadResult,
+    WriteResult,
+)
+
+
+class PolicyWrapper(BackendProtocol):
+    """任意の Backend に禁止プレフィックスや監査ロジックを後付けするラッパー。"""
+
+    def __init__(self, inner: BackendProtocol, deny_prefixes: list[str] | None = None):
+        self.inner = inner
+        # 末尾スラッシュを正規化してプレフィックス誤一致を防止
+        self.deny_prefixes = [
+            p if p.endswith("/") else p + "/" for p in (deny_prefixes or [])
+        ]
+
+    def _is_denied(self, path: str) -> bool:
+        return any(path.startswith(prefix) for prefix in self.deny_prefixes)
+
+    def ls(self, path: str) -> LsResult:
+        return self.inner.ls(path)
+
+    def read(self, file_path: str, offset: int = 0, limit: int = 2000) -> ReadResult:
+        return self.inner.read(file_path, offset=offset, limit=limit)
+
+    def grep(self, pattern: str, path: str | None = None, glob: str | None = None) -> GrepResult:
+        return self.inner.grep(pattern, path, glob)
+
+    def glob(self, pattern: str, path: str | None = None) -> GlobResult:
+        return self.inner.glob(pattern, path)
+
+    def write(self, file_path: str, content: str) -> WriteResult:
+        # 禁止パスへの書き込みは例外ではなく構造化エラーで返し、モデルに別経路を選ばせる
+        if self._is_denied(file_path):
+            return WriteResult(error=f"Writes are not allowed under {file_path}")
+        return self.inner.write(file_path, content)
+
+    def edit(
+        self, file_path: str, old_string: str, new_string: str, replace_all: bool = False
+    ) -> EditResult:
+        if self._is_denied(file_path):
+            return EditResult(error=f"Edits are not allowed under {file_path}")
+        return self.inner.edit(file_path, old_string, new_string, replace_all)
+```
+
+---
+
+## 6. まとめと次回の実践編に向けて
+
+本記事（Part 2 理論編）では、DeepAgents の仮想ファイルシステムと Backends のアーキテクチャを解説しました。
+
+- 全ファイルツールは **`BackendProtocol`** を介して動作し、失敗時は例外ではなく構造化 Result の `error` を返すことでモデルの自己修復を促す。
+- スレッド内の **`StateBackend`**、ローカルディスクの **`FilesystemBackend`（`virtual_mode=True` 必須）**、スレッド横断の **`StoreBackend`（キーワード専用 `namespace` 必須）** を **`CompositeBackend`** で束ねるのが王道パターンである。
+- `CompositeBackend` は最長プレフィックス一致で子バックエンドへ委譲する際、ルートプレフィックスを剥がして保存し、`ls` / `grep` / `glob` 時に復元する。
+
+次回の **Part 2 実践編** では、`default=FilesystemBackend(virtual_mode=True)` と `routes={"/memories/": StoreBackend(namespace=...)}` を組み合わせた `CompositeBackend` を実際に構築し、1 回の指示で「実ディスク（`/notes.txt`）」と「LangGraph Store（`/memories/pref.txt` → キー `/pref.txt`）」へ経路分割される様子を実測検証します。
