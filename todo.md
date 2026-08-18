@@ -130,7 +130,7 @@
 
 [ ] Flow
 
-[ ] diffusion model
+[x] diffusion model
 
 [ ] controlnet
 
