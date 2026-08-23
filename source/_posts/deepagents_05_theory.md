@@ -161,3 +161,130 @@ dynamic_agent = create_deep_agent(
     middleware=[CodeInterpreterMiddleware(ptc=["glob"])],
 )
 ```
+
+### 4.2 Async Subagents（非同期バックグラウンド実行と通知駆動）
+
+同期 `task` ではサブエージェント完了まで親がブロックされます。数分かかる調査やコーディングを裏で走らせつつ、ユーザーと対話を続けたい場合は **`AsyncSubAgent`** を使用します。
+
+`AsyncSubAgent` は [Agent Protocol](https://github.com/langchain-ai/agent-protocol) 準拠サーバー（LangSmith Agent Server 等）上で独立したスレッドとして動作し、`AsyncSubAgentMiddleware` が親に 5 つの管理ツールを提供します。
+
+- `start_async_task`: 即座に Task ID（＝子スレッド ID）を返却して裏実行を開始。
+- `check_async_task`: 最新ステータス・結果・エラー・承認待ち（`waiting`）割り込みを取得。
+- `update_async_task`: 同一スレッド上で追加指示を送信（デフォルト `update_strategy="interrupt"`、待機実行なら `"enqueue"`）。
+- `cancel_async_task`: 実行中タスクをキャンセル。
+- `list_async_tasks`: 追跡中タスク一覧のライブステータスを並列取得。
+
+特筆すべき設計として、タスクのメタデータは会話履歴ではなく専用の **`async_tasks` State チャネル** に保存されます。これにより、親の会話が長くなって要約（Compaction）が走っても Task ID が失われません。また、同一デプロイ内であれば **ASGI トランスポート**（ネットワーク遅延ゼロ）で通信し、完了・失敗時には Agent Server から親へ自動通知（`HumanMessage` + `TaskEvent` メタデータ）が届くため、親がポーリングし続ける無駄も排除されます。
+
+```python
+from deepagents import AsyncSubAgent, create_deep_agent
+from langchain_core.messages import get_notification_metadata
+
+# ハイブリッド構成: researcher は同一デプロイ内 ASGI、coder はリモート HTTP サーバーへ委譲
+async_subagents = [
+    AsyncSubAgent(
+        name="researcher",
+        description="複数ソースの調査と要約をバックグラウンドで実行するリサーチエージェント",
+        graph_id="researcher",
+        # url 省略時は同一 langgraph.json 内の ASGI トランスポート（遅延ゼロ）
+    ),
+    AsyncSubAgent(
+        name="coder",
+        description="独立スケールされたリモート環境で大規模コード修正を行うエージェント",
+        graph_id="coder",
+        url="https://coder-deployment.example.com",
+        update_strategy="enqueue",  # 実行中タスクへの追指示を割り込みせずキュー積みする
+    ),
+]
+
+supervisor = create_deep_agent(
+    model="openai:gpt-4o",
+    subagents=async_subagents,
+)
+
+# 親のメッセージ履歴から非同期サブエージェントの完了通知イベントだけを抽出するヘルパー
+def inspect_async_notifications(messages: list) -> list[dict]:
+    events = []
+    for msg in messages:
+        meta = get_notification_metadata(msg)
+        if meta and meta.get("source") == "async_subagent":
+            events.append(meta["data"])  # task_id, agent_name, status, run_id を含む
+    return events
+```
+
+同期 `task` と非同期 `AsyncSubAgent` の実行フローの違いを比較します。
+
+{% mermaid %}
+sequenceDiagram
+    participant U as User
+    participant Sup as Supervisor (親)
+    participant Sync as Sync SubAgent (task)
+    participant Async as Async SubAgent (独立スレッド)
+
+    rect rgb(227, 242, 253)
+        Note over U,Sync: 同期委譲 (SubAgentMiddleware)
+        U->>Sup: "2026-07 のコストを分析して"
+        Sup->>Sync: task(subagent_type="finops-analyst")
+        Note over Sup: 完了までブロック待機
+        Sync->>Sync: 隔離コンテキスト内で複数ツール実行
+        Sync-->>Sup: ToolMessage (要約結果のみ返却)
+        Sup-->>U: 最終レポート回答
+    end
+
+    rect rgb(237, 231, 246)
+        Note over U,Async: 非同期委譲 (AsyncSubAgentMiddleware)
+        U->>Sup: "競合調査を裏で進めて"
+        Sup->>Async: start_async_task(agent="researcher")
+        Async-->>Sup: 即座に task_id を返却
+        Sup-->>U: "調査を開始しました (ID: ...)。他に作業はありますか？"
+        Note over Async: 独立スレッドでバックグラウンド実行
+        Async-->>Sup: 完了通知 (HumanMessage + TaskEvent)
+        Sup-->>U: 調査完了レポートを提示
+    end
+{% endmermaid %}
+
+---
+
+## 5. Runtime Context 伝播とベストプラクティス
+
+`create_deep_agent(..., context_schema=Context)` で定義したランタイムコンテキスト（`user_id` や設定フラグ等）は、親の `invoke(..., context=...)` から**すべての同期サブエージェントとそのツールへ自動伝播**します。さらに、親とサブエージェントが同じツールを共有している場合は、ツール内から `runtime.config["metadata"]["lc_agent_name"]` を参照して「どのサブエージェントが呼んだか」で挙動を分岐できます。
+
+```python
+from dataclasses import dataclass
+from langchain_core.tools import tool
+from langchain.tools import ToolRuntime
+
+
+@dataclass
+class AppContext:
+    user_id: str
+    strict_audit: bool = False
+
+
+@tool
+def query_internal_metrics(query: str, runtime: ToolRuntime[AppContext]) -> str:
+    """呼び出し元エージェント名と Runtime Context に応じてメトリクスを照会する。"""
+    # どのサブエージェントからの呼び出しかを自動識別
+    caller = runtime.config.get("metadata", {}).get("lc_agent_name", "supervisor")
+    user_id = runtime.context.user_id
+    mode = "strict" if runtime.context.strict_audit else "standard"
+    return f"[{caller}] user={user_id} mode={mode} query={query}"
+```
+
+実務でサブエージェントを設計する際の 4 大原則は以下の通りです。
+
+1. **明確な `description`**: 「何でも手伝う」ではなく、発動トリガーと責務境界を具体的に書く。
+2. **最小権限のツールセット（Minimize Tool Sets）**: サブエージェントには業務に必須なツールだけを与え、誤操作とトークン消費を抑える。
+3. **タスク別のモデル最適化**: 親のオーケストレーションと子の専門処理（長文読解・数値計算・高速分類）で最適なモデルを使い分ける。
+4. **簡潔な返却契約**: サブエージェントの `system_prompt` で「生データは返さず、要約・数値・結論のみを返す（必要ならファイルへ書き出してパスだけ返す）」ルールを徹底する。
+
+---
+
+## まとめ
+
+本記事では、DeepAgents の Subagents が実現する **Context Quarantine（コンテキスト隔離）** の理論と、5 つの委譲形態（Static / General-Purpose / Forked / Dynamic / Async）の設計指針を解説しました。
+
+- 同期 `SubAgent` は `SubAgentMiddleware` と `task` ツールを通じて、最小限のツール・独立コンテキスト・厳格な返却要約を実現する。
+- 文脈を引き継ぎたいときは `mode="fork"`、コード制御で大規模並列化したいときは `CodeInterpreterMiddleware`、長時間バックグラウンド実行したいときは `AsyncSubAgent` へとシームレスに拡張できる。
+
+次回の **Part 5 実践編** では、クラウドコスト照会ツール `query_cost_db` を専門サブエージェント `finops-analyst` にのみ隔離し、親エージェントからの `task` 委譲とコスト分析レポート生成を実測ログ付きで検証します。
