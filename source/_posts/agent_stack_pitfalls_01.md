@@ -279,3 +279,218 @@ def smoke_test_model(model_name: str) -> None:
 
     print(
         f"[{model_name}] basic={t_basic:.2f}s, tool_call={t_tool:.2f}s, "
+        f"calls={len(tool_resp.tool_calls)}"
+    )
+```
+
+---
+
+## 落とし穴 4：並列ラボ実行時に踏んだ `429 Rate limit exceeded: maximum 20 requests per minute`
+
+### 問題
+
+高速な `MiniCPM-V-4.7-35B-A3B` を手に入れたことで調子に乗り、7 つのラボスクリプトや LangGraph の `Send` による並列ファンアウト、さらに複数の検証プロセスを同時に走らせたところ、即座に HTTP 429 で叩き落とされました。
+
+```text
+openai.RateLimitError: Error code: 429 - {
+  'error': {
+    'message': 'Rate limit exceeded: maximum 20 requests per minute',
+    'type': 'rate_limit_error'
+  }
+}
+```
+
+特に LangChain Lab 6（HITL で複数ターン＋検証、実測 `39.01s`）や Lab 7（Supervisor + Subagent の入れ子推論、実測 `19.42s`）を直列・並列で連続実行すると、1 ラボあたり 3〜6 リクエストを消費するため、わずか 30 秒足らずで **20 RPM（Requests Per Minute）** の上限に到達してしまいます。
+
+### 発生条件
+
+- API プロキシ側に **20 requests / minute（平均 3 秒に 1 リクエスト）** のレート制限が課されている
+- 複数のラボランナーを並列起動したり、LangGraph の `Send` で 3 並列ワーカーを一気に投げた直後に次のラボを待機なしで開始した場合
+- しかも `MiniCPM-V-4.7-35B-A3B` が 0.64s〜1.21s と**速すぎる**ため、低速モデル時代には顕在化しなかった RPM 制限を容易に突き抜ける
+
+### 試行錯誤
+
+1. 最初は `ChatOpenAI(max_retries=2)` だけで乗り切れると考えたが、SDK の短い自動リトライ間隔では 60 秒スライディングウィンドウが回復せず、結局 `RateLimitError` でラボ全体が落ちた。
+2. ラボ間に固定で `time.sleep(2)` を入れてみたが、1 ラボ内で 5 回 LLM を呼ぶケース（例：並列ツール呼び出しや Subagent）では依然としてバーストが発生した。
+3. 最終的に、**① ラボランナーの直列実行＋ラボ間ペーシング（クールダウン）** と、**② `RateLimitError` 専用の指数バックオフ＋ジッター（Exponential Backoff with Jitter）ラッパー** の 2 段構えにしたことで、全 21 ラボの完走率が 100% になった。
+
+### 根本原因
+
+モデルが高速化すると、スループットのボトルネックが「推論時間」から「API ゲートウェイの RPM 制限」へ移動します。特にエージェントは 1 回の `agent.invoke()` の裏で複数回の HTTP リクエスト（プランニング → ツール呼び出し → ツール結果の統合 → Subagent 推論）を発行するため、**ユーザー目線の「1 実行」がゲートウェイ目線では「5 リクエスト」**としてカウントされます。
+
+以下のフローのように、事前ペーシングと事後バックオフの両方を組み合わせるのが堅牢です。
+
+{% mermaid %}
+flowchart LR
+    Req["ラボ / エージェント実行要求"] --> Pace["事前ペーシング<br/>(トークンバケット / 最小間隔 3.2s)"]
+    Pace --> Call["LLM API 呼び出し"]
+    Call --> Check{"結果判定"}
+    Check -- "200 OK" --> Next["次のステップ / ラボへ"]
+    Check -- "429 Rate Limit" --> RetryCheck{"リトライ上限<br/>未満?"}
+    RetryCheck -- "Yes" --> Backoff["指数バックオフ待機<br/>min(60s, 4s * 2^attempt + jitter)"]
+    Backoff --> Call
+    RetryCheck -- "No" --> Fail["エラー送出・ログ記録"]
+
+    style Req fill:#e0f2fe,stroke:#0284c7,color:#0f172a
+    style Pace fill:#fef3c7,stroke:#d97706,color:#0f172a
+    style Backoff fill:#ede9fe,stroke:#7c3aed,color:#0f172a
+    style Next fill:#dcfce7,stroke:#16a34a,color:#0f172a
+    style Fail fill:#fee2e2,stroke:#dc2626,color:#0f172a
+{% endmermaid %}
+
+### まとめ・再発防止策
+
+テストスイートやバッチ処理でエージェントを連続実行する際は、以下のようなリトライ＋ペーシングユーティリティを共通モジュール化しておきます。LangChain の `InMemoryRateLimiter` を `ChatOpenAI(rate_limiter=...)` に渡すアプローチも非常に有効です。
+
+```python
+import random
+import time
+from typing import Callable, TypeVar
+from langchain_core.rate_limiters import InMemoryRateLimiter
+from openai import RateLimitError
+
+T = TypeVar("T")
+
+# 20 RPM 制限に対し、安全マージンを取って 18 RPM (0.3 req/sec) に制限する RateLimiter
+safe_rate_limiter = InMemoryRateLimiter(
+    requests_per_second=0.3,   # 約 3.3 秒に 1 リクエスト
+    check_every_n_seconds=0.1, # ポーリング間隔
+    max_bucket_size=3,         # 瞬間バーストを最大 3 リクエストまでに抑制
+)
+
+
+def run_with_rate_limit_backoff(
+    fn: Callable[[], T],
+    max_attempts: int = 5,
+    base_delay_s: float = 4.0,
+    max_delay_s: float = 60.0,
+) -> T:
+    """429 RateLimitError 発生時に指数バックオフ＋ジッターで再試行するラッパー。"""
+    for attempt in range(max_attempts):
+        try:
+            return fn()
+        except RateLimitError as exc:
+            if attempt == max_attempts - 1:
+                raise
+            # 指数的に待機時間を延ばし、ランダムなジッターで再衝突を防ぐ
+            jitter = random.uniform(0.5, 2.0)
+            wait_s = min(max_delay_s, base_delay_s * (2 ** attempt) + jitter)
+            print(
+                f"[429 Retry {attempt + 1}/{max_attempts}] "
+                f"{wait_s:.1f}s 待機します... ({exc})"
+            )
+            time.sleep(wait_s)
+    raise RuntimeError("到達不能コード")
+```
+
+---
+
+## 落とし穴 5：OpenAI 互換カスタムエンドポイントでの Structured Output（`ProviderStrategy` vs `ToolStrategy`）
+
+### 問題
+
+LangChain v1.5.2 の `create_agent(..., response_format=IncidentReport)` を使い、障害レポートを Pydantic スキーマ（`service`, `severity`, `root_cause`, `action_items`）で厳密に構造化抽出しようとした際、OpenAI 互換カスタムエンドポイントでは**プロバイダネイティブの `json_schema` 構造化出力（`ProviderStrategy`）が不安定、あるいは未対応で失敗する**という落とし穴に直面しました。
+
+### 発生条件
+
+- `ChatOpenAI` で公式 OpenAI API ではなく、セルフホストの OpenAI 互換エンドポイント（`base_url` 指定）に接続している
+- LangChain v1.5.2 の `create_agent()` に `response_format=PydanticModel` をそのまま渡すか、`ProviderStrategy` を明示指定した
+- エンドポイント側のサービングエンジンが OpenAI の `response_format: {"type": "json_schema", "strict": true}`（Structured Outputs API）を完全実装していない、またはモデル固有の制約でスキーマ違反や 400 エラーを返す
+
+### 試行錯誤
+
+1. まず `ProviderStrategy`（ネイティブ JSON Schema 制約）の挙動を確認したところ、OpenAI 互換プロキシ越しではバックエンド実装に強く依存し、一部スキーマ（`Literal` やネスト配列など）でプロキシがパラメータを無視したり、プレーンテキスト混じりの出力になってパースに失敗するケースがあった。
+2. LangChain v1 の `langchain.agents.structured_output` モジュールを確認したところ、ネイティブ制約に頼る `ProviderStrategy` とは別に、**モデルの Tool Calling 機能を使って構造化オブジェクトを生成させる `ToolStrategy`** が用意されていることが分かった。
+3. Lab 3（`lab3_structured_streaming`）で `response_format=ToolStrategy(IncidentReport)` を明示したところ、Tool Calling に強い `MiniCPM-V-4.7-35B-A3B` で一発で完璧な構造化レスポンスが得られた（実行時間 **7.70 秒**、後続のストリーミング検証も **27 チャンク**で完走）。
+
+実際の Lab 3 で取得できた `structured_response` は以下の通りです。
+
+```json
+{
+  "service": "payment-gateway",
+  "severity": "P1",
+  "root_cause": "DBコネクションプールの枯渇",
+  "action_items": [
+    "プール上限を50から150へ引き上げる",
+    "スロークエリの調査を実施する"
+  ]
+}
+```
+
+### 根本原因
+
+LangChain v1 の `create_agent` における Structured Output には 2 つの戦略が存在します（参考：[langchain-ai/langchain](https://github.com/langchain-ai/langchain)）。
+
+| 戦略クラス | 内部メカニズム | 強み | OpenAI 互換プロキシでの落とし穴 |
+| :--- | :--- | :--- | :--- |
+| **`ProviderStrategy`** | OpenAI 等の `response_format: {type: "json_schema"}` を直接送信 | 公式 API ではトークンレベルでスキーマ厳守 | 互換プロキシや非対応モデルで `400 Error` やサイレント無視が起きやすい |
+| **`ToolStrategy`** | Pydantic モデルを人工的なツール定義としてバインドし、Tool Call 引数を検証 | **Tool Calling 対応モデルならどの互換 API でも動く**。検証エラー時の自動リトライも効く | 1 ステップぶんツール呼び出し形式を経由する |
+
+OpenAI 互換エンドポイントでは「JSON Schema 厳格モード（Structured Outputs）」の実装成熟度にバラつきがある一方、「Tool Calling（Function Calling）」はほぼすべてのモダンなオープンウェイトモデル／サービングエンジンで最優先にサポートされています。
+
+### まとめ・再発防止策
+
+セルフホストやサードパーティの OpenAI 互換エンドポイントを使う場合、**最初から `ToolStrategy` を明示指定する**のが最も移植性と安定性の高い選択です。
+
+```python
+import os
+from typing import Literal
+from pydantic import BaseModel, Field
+from langchain_openai import ChatOpenAI
+from langchain.agents import create_agent
+from langchain.agents.structured_output import ToolStrategy
+
+
+class IncidentReport(BaseModel):
+    """障害インシデントの構造化レポートスキーマ。"""
+    service: str = Field(description="障害が発生したサービス名")
+    severity: Literal["P1", "P2", "P3"] = Field(description="重要度")
+    root_cause: str = Field(description="推定される根本原因")
+    action_items: list[str] = Field(description="実施すべき対応アクション一覧")
+
+
+# OpenAI 互換エンドポイントへの接続（キーは環境変数から取得）
+llm = ChatOpenAI(
+    model="MiniCPM-V-4.7-35B-A3B",
+    base_url=os.getenv("BASE_URL"),
+    api_key=os.getenv("API_KEY"),
+    temperature=0.0,
+    timeout=45.0,
+    max_retries=2,
+)
+
+# 互換プロキシでの json_schema 非対応を回避するため ToolStrategy を明示
+agent = create_agent(
+    model=llm,
+    tools=[],
+    response_format=ToolStrategy(IncidentReport),
+)
+
+result = agent.invoke({
+    "messages": [
+        (
+            "user",
+            "payment-gateway で DB コネクションプール枯渇による P1 障害が発生。"
+            "プール上限を50から150へ引き上げ、スロークエリ調査を行う報告書を作成して。",
+        )
+    ]
+})
+
+# result["structured_response"] に検証済みの IncidentReport インスタンスが格納される
+report: IncidentReport = result["structured_response"]
+print(report.model_dump_json(indent=2, ensure_ascii=False))
+```
+
+---
+
+## Part 1 まとめ：基盤レイヤーのチェックリスト
+
+今回の 5 つの落とし穴を振り返ると、どれも「コードロジックの複雑さ」ではなく、**実行環境・プロキシ仕様・モデル特性・レート制限・プロトコル互換性**という周辺境界で発生していました。新しい AI エージェント検証環境を立ち上げる際は、以下の 5 項目を初日のチェックリストにしておくと無駄なデバッグ時間を大幅に削れます。
+
+1. **Windows PowerShell 5.1**：`&&` を使わず、`.\.venv\Scripts\python.exe` を直接呼ぶ。
+2. **プロキシの型差異**：`PydanticSerializationUnexpectedValue` のような警告は生レスポンスを確認したうえでピンポイントに制御する。
+3. **モデル選定とタイムアウト**：本編前に「基本応答 + Tool Calling」の 2 項目スモークテストを回し、`ChatOpenAI` に必ず `timeout` と `max_retries` を設定する。
+4. **RPM レート制限**：高速 MoE モデルほど 20 RPM 制限に当たりやすいため、`InMemoryRateLimiter`＋指数バックオフを標準装備する。
+5. **Structured Output**：OpenAI 互換カスタムエンドポイントでは `ProviderStrategy` に賭けず、`ToolStrategy` を明示する。
+
+次回の **Part 2** では、いよいよフレームワーク内部の深部——**DeepAgents 0.7.41 の `StoreBackend` 破壊的変更、`CompositeBackend` のプレフィックス剥離、Large Tool Result Offloading 閾値と 63 秒レイテンシ急増、そして LangGraph の `interrupt()` 冪等性と Time Travel のチェックポイント選択**——で踏んだ 5 つの落とし穴を徹底解剖します。
