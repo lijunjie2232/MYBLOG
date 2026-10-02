@@ -204,3 +204,164 @@ compiled = CompiledStateGraph[StateT, ContextT, InputT, OutputT](
 
 # 3. ノード・通常エッジ・合流エッジ・条件分岐を Pregel プリミティブへ配線
 compiled.attach_node(START, None)
+for key, node in self.nodes.items():
+    compiled.attach_node(key, node)
+
+for start, end in self.edges:
+    compiled.attach_edge(start, end)
+for starts, end in self.waiting_edges:
+    compiled.attach_edge(starts, end)
+for start, branches in self.branches.items():
+    for name, branch in branches.items():
+        compiled.attach_branch(start, name, branch)
+
+return compiled.validate()
+```
+
+### 4.1 `attach_node`：トリガーチャネルと 2 段構えの `ChannelWrite`
+
+`attach_node` は、すべての通常ノードに対して専用の制御チャネル `branch:to:<key>` を生成します。
+
+```python
+# ノード実行をトリガーする制御チャネルを定義
+branch_channel = _CHANNEL_BRANCH_TO.format(key)  # "branch:to:<key>"
+self.channels[branch_channel] = (
+    # defer=True の場合は他タスクが全て終わるまで発火しない遅延チャネルを使用
+    LastValueAfterFinish(Any)
+    if node.defer
+    else EphemeralValue(Any, guard=False)
+)
+
+self.nodes[key] = PregelNode(
+    triggers=[branch_channel],                    # branch:to:<key> への書き込みで起動
+    channels=(ROOT if is_single_input else input_channels),  # 読み取る State キー群
+    mapper=mapper,                                # Pydantic / dataclass への型変換関数
+    writers=[ChannelWrite(write_entries)],        # 戻り値を State 更新 & 制御コマンドへ分解
+    bound=node.runnable,
+    ...
+)
+```
+
+ここで極めて重要なのが `write_entries` の 2 つの `ChannelWriteTupleEntry` です。
+
+1. **State 更新マッパー（`_get_updates` / `_get_root`）**：ノードの戻り値が `dict`、`Command`、`Command` のリスト、あるいは dataclass / Pydantic モデルであるかを判別し、`output_key_set`（有効なチャネル名集合）に含まれる `(channel, value)` タプル列だけを抽出します。なお `Command.PARENT` は親グラフ宛てのためローカル State 更新からは除外されます。
+2. **制御フローマッパー（`_control_branch`）**：戻り値に `Send` や `Command(goto=...)` が含まれていた場合、以下のように**制御用チャネルへの書き込み**に変換します。
+   - `Send` → `(TASKS, send_obj)`（`__pregel_tasks` への PUSH タスク発行）
+   - `Command(goto="next_node")` → `("branch:to:next_node", None)`（次ノードのトリガー発火）
+   - `Command(graph=Command.PARENT)` → `ParentCommand(command)` 例外を送出し、親グラフの実行ループへ伝播
+
+### 4.2 `attach_edge`：通常エッジと Fan-In バリア同期
+
+`attach_edge` は、`starts` が単一文字列かシーケンス（`waiting_edges`）かで完全に異なるチャネル配線を行います。
+
+```python
+def attach_edge(self, starts: str | Sequence[str], end: str) -> None:
+    if isinstance(starts, str):
+        # 単一エッジ: starts ノードの末尾に "branch:to:<end>" への書き込みを追加するだけ
+        if end != END:
+            self.nodes[starts].writers.append(
+                ChannelWrite(
+                    (ChannelWriteEntry(_CHANNEL_BRANCH_TO.format(end), None),)
+                )
+            )
+    elif end != END:
+        # 複数エッジの合流（Fan-In）: NamedBarrierValue チャネルを動的に生成
+        channel_name = f"join:{'+'.join(starts)}:{end}"
+        if self.builder.nodes[end].defer:
+            self.channels[channel_name] = NamedBarrierValueAfterFinish(str, set(starts))
+        else:
+            self.channels[channel_name] = NamedBarrierValue(str, set(starts))
+        # 合流先ノードのトリガーにバリアチャネルを追加
+        self.nodes[end].triggers.append(channel_name)
+        # 各上流ノードの完了時に、自身のノード名をバリアチャネルへ書き込む
+        for start in starts:
+            self.nodes[start].writers.append(
+                ChannelWrite((ChannelWriteEntry(channel_name, start),))
+            )
+```
+
+通常エッジが単なる `EphemeralValue` への `None` 書き込みで表現される一方、複数ノード待ち合わせ（`add_edge(["A", "B"], "C")`）では `join:A+B:C` という `NamedBarrierValue` チャネルが生成されます。上流の `"A"` と `"B"` がそれぞれ自身の名前を書き込み、集合 `{"A", "B"}` が揃ったスーパーステップで初めて `"C"` がトリガーされるという、Pregel のチャネル抽象を最大限に活かした設計です。
+
+---
+
+## 5. 条件分岐の仕組み：`BranchSpec` と `fresh=True` による最新状態読み取り
+
+条件分岐（`add_conditional_edges`）は [`graph/_branch.py`](https://github.com/langchain-ai/langgraph/blob/main/libs/langgraph/langgraph/graph/_branch.py) の `BranchSpec` として表現され、`CompiledStateGraph.attach_branch` で遷移元ノードの `writers` リストに追加されます。
+
+```python
+class BranchSpec(NamedTuple):
+    path: Runnable[Any, Hashable | list[Hashable]]
+    ends: dict[Hashable, str] | None
+    input_schema: type[Any] | None = None
+
+    def _route(
+        self,
+        input: Any,
+        config: RunnableConfig,
+        *,
+        reader: Callable[[RunnableConfig], Any] | None,
+        writer: _Writer,
+    ) -> Runnable:
+        if reader:
+            # 重要: fresh=True で直前のノード書き込みを反映した最新 State を読み直す
+            value = reader(config)
+            # dict State の場合、ノードが返した追加キーもパススルーでマージ
+            if (
+                isinstance(value, dict)
+                and isinstance(input, dict)
+                and self.input_schema is None
+            ):
+                value = {**input, **value}
+        else:
+            value = input
+        # ユーザー定義の分岐関数を実行
+        result = self.path.invoke(value, config)
+        return self._finish(writer, input, result, config)
+```
+
+ここで注目すべきは、`attach_branch` が `BranchSpec.run` に渡す `reader` です。
+
+```python
+reader = partial(
+    ChannelRead.do_read,
+    select=channels[0] if channels == [ROOT] else channels,
+    fresh=True,      # 同一タスク内で行われた直前の ChannelWrite を即時適用して読む
+    mapper=mapper,
+)
+```
+
+1 つの `PregelNode` の実行パイプラインでは、**`bound`（ノード本体）→ `writers[0]`（State への `ChannelWrite`）→ `writers[1]`（`BranchSpec` ルーター）** の順で実行されます。`writers[0]` の時点ではまだ次のスーパーステップへコミットされていないため、`fresh=True` を指定することで「現在のチェックポイント値＋このタスクが今書き込んだ pending writes」をメモリ上で仮マージした最新 State を分岐関数へ渡せるようになっています。
+
+{% mermaid %}
+sequenceDiagram
+    participant Node as "PregelNode.bound (ユーザー関数)"
+    participant W0 as "writers[0]: ChannelWrite"
+    participant Buf as "タスクローカル writes バッファ"
+    participant Br as "writers[1]: BranchSpec._route"
+    participant Rd as "ChannelRead.do_read(fresh=True)"
+
+    Node->>W0: Partial State / Command を返却
+    W0->>Buf: _get_updates() で (state_key, val) を書き込み
+    W0->>Buf: _control_branch() で Send / goto を書き込み
+    W0->>Br: ノード戻り値 (input) をそのまま渡す
+    Br->>Rd: 最新 State を要求 (fresh=True)
+    Rd->>Buf: pending writes をチャネルへ仮適用
+    Rd-->>Br: マージ済み最新 State を返却
+    Br->>Br: self.path.invoke(value, config) で遷移先決定
+    Br->>Buf: ChannelWrite.do_write() で branch:to:<dest> or Send を書き込み
+{% endmermaid %}
+
+また、`_finish()` 内で `self.ends` によるマッピング解決後、`Send` であればそのままタスクキュー（`TASKS`）へ、ノード名であれば `branch:to:<dest>` への `ChannelWriteEntry` へと変換し、`END` の場合は書き込みを行わずに静かに終了します。
+
+---
+
+## 6. まとめ：Part 1 で見えた LangGraph の設計哲学
+
+`StateGraph` のコンパイル機構を読み解くと、LangGraph のコア設計が極めてクリーンな **「すべての制御フローをチャネルへの書き込みに還元する」** アプローチに基づいていることが分かります。
+
+- **データフロー**：`state_schema` の各フィールド → `LastValue` / `BinaryOperatorAggregate` / `DeltaChannel` 等
+- **制御フロー（通常エッジ / `Command.goto`）**：`branch:to:<node>` という `EphemeralValue`（`defer=True` 時は `LastValueAfterFinish`）への書き込み
+- **制御フロー（合流エッジ）**：`join:<starts>:<end>` という `NamedBarrierValue` へのノード名書き込み
+- **動的ファンアウト（`Send`）**：`TASKS` チャネルへの直接パブリッシュ
+
+次回の Part 2 では、この状態管理と制御フローの土台となっている **Channels 抽象（`BaseChannel`, `LastValue`, `BinaryOperatorAggregate`, `Topic`, `DeltaChannel`）と `add_messages` リデューサ** の実装を詳しく解析します。
