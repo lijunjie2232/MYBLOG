@@ -221,3 +221,179 @@ class BinaryOperatorAggregate(Generic[Value], BaseChannel[Value, Value, Value]):
                     # 同一ステップで複数の Overwrite は非決定的なため禁止
                     raise InvalidUpdateError(...)
                 self.value = overwrite_value
+                seen_overwrite = True
+                continue
+            if not seen_overwrite:
+                # 通常の Reducer 畳み込み: acc = op(acc, val)
+                self.value = self.operator(self.value, value)
+        return True
+```
+
+### `Overwrite` の 3 形式認識（`_get_overwrite`）
+`BinaryOperatorAggregate` は Reducer を経由せずに値を丸ごとリセットするための `Overwrite(value)` をサポートしています。`_get_overwrite()` を見ると、Python オブジェクトの `Overwrite` インスタンスだけでなく、API サーバー経由の JSON シリアライズで型情報が落ちた `{"__overwrite__": value}` および `{"type": "__overwrite__", "value": ...}` の 3 形式すべてを認識する堅牢な設計になっています。
+
+---
+
+## 4. `Topic`：PubSub 型メッセージチャネル
+
+[`channels/topic.py`](https://github.com/langchain-ai/langgraph/blob/main/libs/langgraph/langgraph/channels/topic.py) の `Topic` は、単一値またはリストの書き込みを `_flatten()` で平坦化して蓄積する PubSub チャネルです。
+
+```python
+class Topic(Generic[Value], BaseChannel[Sequence[Value], Value | list[Value], list[Value]]):
+    __slots__ = ("values", "accumulate")
+
+    def update(self, values: Sequence[Value | list[Value]]) -> bool:
+        updated = False
+        # accumulate=False の場合、毎スーパーステップ開始時に前回の値を破棄する
+        if not self.accumulate:
+            updated = bool(self.values)
+            self.values = list[Value]()
+        if flat_values := tuple(_flatten(values)):
+            updated = True
+            self.values.extend(flat_values)
+        return updated
+```
+
+`accumulate=False`（デフォルト）では「前ステップで何らかのイベントが発行された場合のみ次ステップの購読ノードを起動し、書き込みが無いステップで空に戻す」挙動となり、内部的には `TASKS`（動的 `Send` パケット用チャネル）などのイベントキューとして活用されています。
+
+---
+
+## 5. `DeltaChannel`：巨大状態のチェックポイント肥大化を防ぐリプレイ型チャネル
+
+長時間の会話や大量のドキュメントを保持するエージェントでは、毎ステップごとに State 全体をスナップショット保存する `BinaryOperatorAggregate` だと、ストレージ容量がステップ数の二乗 $O(N^2)$ で膨らみます。これを解決するために導入されたのが [`channels/delta.py`](https://github.com/langchain-ai/langgraph/blob/main/libs/langgraph/langgraph/channels/delta.py) の **`DeltaChannel`** です。
+
+```python
+class DeltaChannel(Generic[Value], BaseChannel[Any, Any, Any]):
+    __slots__ = ("value", "reducer", "snapshot_frequency")
+
+    def checkpoint(self) -> Any:
+        # 重要: 通常の checkpoint() では常に MISSING を返し、blob 保存をスキップする！
+        # snapshot_frequency 回目（または最大スーパーステップ到達時）のみ
+        # create_checkpoint() 側が _DeltaSnapshot(ch.get()) を明示的に保存する。
+        return MISSING
+
+    def replay_writes(self, writes: Sequence[PendingWrite]) -> None:
+        """
+        チェックポイント復元時に、直近スナップショット以降の祖先 writes を
+        古い順に一括で reducer に畳み込んで現在値を再構築する。
+        """
+        values = [v for _, _, v in writes]
+        if not values:
+            return
+        base = self.value
+        start = 0
+        # 途中に Overwrite が含まれていれば、最後の Overwrite を新しい基点にする
+        for i, v in enumerate(values):
+            is_ow, ow_value = _get_overwrite(v)
+            if is_ow:
+                base = _copy.copy(ow_value) if ow_value is not None else self.typ()
+                start = i + 1
+        remaining = values[start:]
+        # バッチ不変性: reducer(reducer(s, xs), ys) == reducer(s, xs + ys) を前提に一括適用
+        self.value = self.reducer(base, remaining) if remaining else base
+```
+
+{% mermaid %}
+flowchart LR
+    subgraph Save["チェックポイント保存時 (create_checkpoint)"]
+        U1["通常ステップ (k % freq != 0)"] --> M1["checkpoint() -> MISSING<br/>(差分 writes のみ記録)"]
+        U2["スナップショット到達時<br/>(k >= snapshot_frequency)"] --> M2["_DeltaSnapshot(value)<br/>を blob に保存"]
+    end
+
+    subgraph Restore["チェックポイント復元時"]
+        S0["直近の _DeltaSnapshot をロード"] --> H["get_delta_channel_history()<br/>で以降の差分 writes を取得"]
+        H --> R["DeltaChannel.replay_writes()<br/>最後の Overwrite 以降を一括 fold"]
+        R --> V["現在 State を完全に再構築"]
+    end
+
+    M2 -.-> S0
+    M1 -.-> H
+
+    style Save fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
+    style Restore fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
+{% endmermaid %}
+
+`DeltaChannel` の Reducer は `(state, list[writes]) -> new_state` というバッチ形式を取り、**結合則（batching-invariance）** `reducer(reducer(state, xs), ys) == reducer(state, xs + ys)` を満たす必要があります。これにより、復元時に数十ステップ分の差分書き込みを 1 回の `reducer()` 呼び出しで高速にリプレイできる設計になっています。
+
+---
+
+## 6. `add_messages`：ID ベースのメッセージマージと削除ロジック
+
+LangGraph のチャットエージェントで最も多用される Reducer が [`graph/message.py`](https://github.com/langchain-ai/langgraph/blob/main/libs/langgraph/langgraph/graph/message.py) の `add_messages` です。単純な `list.__add__` とは異なり、以下の 4 つの機能を実装しています。
+
+```python
+@_add_messages_wrapper
+def add_messages(
+    left: Messages,
+    right: Messages,
+    *,
+    format: Literal["langchain-openai"] | None = None,
+) -> Messages:
+    remove_all_idx = None
+    # 単一メッセージが渡された場合もリストへ正規化
+    if not isinstance(left, list):
+        left = [left]
+    if not isinstance(right, list):
+        right = [right]
+    # BaseMessage への変換（高速パス: 全要素が既に BaseMessage で Chunk でなければスキップ）
+    left = _coerce_to_messages(left)
+    right = _coerce_to_messages(right)
+
+    # ID 未設定のメッセージに UUID4 を自動付与 + REMOVE_ALL_MESSAGES の検出
+    for m in left:
+        if m.id is None:
+            m.id = str(uuid.uuid4())
+    for idx, m in enumerate(right):
+        if m.id is None:
+            m.id = str(uuid.uuid4())
+        if isinstance(m, RemoveMessage) and m.id == REMOVE_ALL_MESSAGES:
+            remove_all_idx = idx
+
+    # REMOVE_ALL_MESSAGES ("__remove_all__") が含まれていれば、それ以前を全消去
+    if remove_all_idx is not None:
+        return right[remove_all_idx + 1 :]
+
+    # O(N) で ID ベースのマージ・上書き・個別削除を実行
+    merged = left.copy()
+    merged_by_id = {m.id: i for i, m in enumerate(merged)}
+    ids_to_remove = set()
+    for m in right:
+        if (existing_idx := merged_by_id.get(m.id)) is not None:
+            if isinstance(m, RemoveMessage):
+                ids_to_remove.add(m.id)       # 既存メッセージの削除マーク
+            else:
+                ids_to_remove.discard(m.id)   # 同 ID で再挿入された場合は削除を取り消し
+                merged[existing_idx] = m      # 同一 ID のメッセージをインプレース置換
+        else:
+            if isinstance(m, RemoveMessage):
+                raise ValueError(
+                    f"Attempting to delete a message with an ID that doesn't exist ('{m.id}')"
+                )
+            merged_by_id[m.id] = len(merged)
+            merged.append(m)
+
+    if ids_to_remove:
+        merged = [m for m in merged if m.id not in ids_to_remove]
+
+    if format == "langchain-openai":
+        merged = _format_messages(merged)
+    return merged
+```
+
+### 実装の細かな工夫
+1. **カリー化デコレータ（`_add_messages_wrapper`）**：`Annotated[list, add_messages]` のように関数そのままでも、`Annotated[list, add_messages(format="langchain-openai")]` のようにオプション付きの部分適用（`functools.partial`）でも使える二通りの呼び出しを 1 つのラッパーで実現しています。
+2. **型チェックによる高速パス（`_coerce_to_messages`）**：長い会話履歴で毎ステップ全要素を `convert_to_messages()` に通すコストを避けるため、`set(map(type, messages))` でユニークな型集合だけを確認し、すべて通常の `BaseMessage`（非 `BaseMessageChunk`）であればそのまま返却します。
+3. **削除の遅延フィルタリング**：ループ内で `list.pop()` するとインデックスがずれて $O(N^2)$ になるため、`ids_to_remove` セットに記録しておき、最後に 1 回のリスト内包表記でフィルタリングしています。
+
+---
+
+## 7. まとめ
+
+Part 2 では、LangGraph の状態モデルの中核である Channels 層を解析しました。
+
+- **`BaseChannel`** の `update` / `consume` / `finish` の 3 フックにより、揮発性・遅延実行・バリア同期といった多様な制御パターンがチャネル側へ綺麗にカプセル化されている
+- **`LastValue`** は並列書き込みの衝突を即座に検出し、**`BinaryOperatorAggregate`** は Reducer 畳み込みと `Overwrite` リセットを両立する
+- **`DeltaChannel`** はスナップショット＋差分リプレイにより、長寿命スレッドのチェックポイント肥大化を根本から抑える
+- **`add_messages`** は UUID 自動採番・ID ベース置換・`RemoveMessage` / `REMOVE_ALL_MESSAGES` による履歴編集を $O(N)$ で実現する
+
+次回の Part 3 では、これらのチャネルを実際に駆動する **Pregel BSP 実行ループ（`pregel/main.py`, `pregel/_loop.py`）** の Plan → Execution → Update サイクルを徹底解析します。
