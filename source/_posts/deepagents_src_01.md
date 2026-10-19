@@ -174,3 +174,140 @@ return create_agent(
             "lc_versions": {"deepagents": _lc_version()},
             "lc_agent_name": name,
         },
+    }
+)
+```
+
+---
+
+## 3. デフォルト Middleware スタックの厳密な順序設計
+
+DeepAgents の真骨頂は、**Middleware スタックの層構造と並び順**にあります。[`graph.py` L920-L1004](https://github.com/langchain-ai/deepagents/blob/main/libs/deepagents/deepagents/graph.py#L920-L1004) で組み立てられるメインエージェントのスタックは、大きく **Base Stack（コア層）**、**User Middleware 挿入スロット**、**Tail Stack（プロンプト最適化・ガード層）** の 3 ブロックに分かれています。
+
+{% mermaid %}
+flowchart LR
+    subgraph BASE["1. Base Stack (_main_core_names)"]
+        direction TB
+        M1["1. FilesystemMiddleware<br/>(ファイル操作・権限・巨大結果退避)"]
+        M2["2. SubAgentMiddleware<br/>(task ツール・同期サブエージェント)"]
+        M3["3. _ParentNotifierMiddleware<br/>(親通知フック)"]
+        M4["4. SummarizationMiddleware<br/>(コンテキスト圧縮パイプライン)"]
+        M5["5. PatchToolCallsMiddleware<br/>(宙ぶらりん tool_call 修復)"]
+        M6["6. AsyncSubAgentMiddleware<br/>(非同期リモートサブエージェント / 条件付)"]
+        M1 --> M2 --> M3 --> M4 --> M5 --> M6
+    end
+
+    subgraph USER["2. User Middleware Slot"]
+        direction TB
+        U1["新規カスタム Middleware を<br/>ここにスプライス挿入<br/>(既存名一致はインプレース置換)"]
+    end
+
+    subgraph TAIL["3. Tail Stack (プロンプト・キャッシュ・安全層)"]
+        direction TB
+        T1["7. Profile extra_middleware"]
+        T2["8. SkillsMiddleware (条件付)"]
+        T3["9. PromptCachingMiddleware<br/>(Anthropic / Bedrock / Fireworks)"]
+        T4["10. MemoryMiddleware (条件付)<br/>(add_cache_control=True)"]
+        T5["11. HumanInTheLoopMiddleware (条件付)"]
+        T6["12. UnsupportedContentMiddleware"]
+        T7["13. ModelRefusalMiddleware"]
+        T8["14. _ToolExclusionMiddleware (条件付)"]
+        T1 --> T2 --> T3 --> T4 --> T5 --> T6 --> T7 --> T8
+    end
+
+    BASE --> USER --> TAIL
+
+    style BASE fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
+    style USER fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
+    style TAIL fill:#fff3e0,stroke:#ef6c00,color:#e65100
+{% endmermaid %}
+
+### なぜこの順序でなければならないのか？
+
+ソースコード内のコメントには、各層の順序に関する極めて実践的な設計理由が明記されています。
+
+1. **`SummarizationMiddleware` が `SkillsMiddleware` やキャッシュ層より前にある理由**
+   - `SkillsMiddleware` は「圧縮（compaction）後の会話履歴」と「ルーティング・フォールバック後の実際に呼び出されるモデル」を見て、必要なスキルツールだけを段階的に開示（Progressive Disclosure）する必要があります。そのため、ユーザー Middleware や `SummarizationMiddleware` より**内側（後段）**に配置されています。
+2. **`PromptCachingMiddleware` と `MemoryMiddleware` の位置関係**
+   - `MemoryMiddleware`（`AGENTS.md` などの動的メモリ）はシステムプロンプトの内容を更新し得るため、静的なプレフィックスをキャッシュする `PromptCachingMiddleware` の**後**に配置し、メモリ更新で Anthropic Prompt Cache のプレフィックス全体が無効化されるのを防いでいます（`MemoryMiddleware` 自身も `add_cache_control=True` で独自のキャッシュブレークポイントを付与します）。
+3. **`ModelRefusalMiddleware` が末尾にある理由**
+   - ユーザーが `ModelFallbackMiddleware` などのフォールバック用 Middleware を渡した場合、ユーザー層が先にモデルの拒否応答（refusal）を捕捉して別モデルへ切り替えられるようにするため、`ModelRefusalMiddleware` は Tail Stack の終端近くに置かれています。
+4. **`_ToolExclusionMiddleware` が絶対最後尾にある理由**
+   - `HarnessProfile.excluded_tools` で禁止されたツール名を、すべてのツール注入 Middleware やユーザーカスタム Middleware の `wrap_model_call` が終わった後に一括で剥がすことで、カスタム Middleware による意図しない復活を防ぎます。
+
+---
+
+## 4. カスタム Middleware のマージと除外の仕組み
+
+### 4.1 `_apply_custom_middleware`：名前一致のインプレース置換と Permissions 保護
+
+ユーザーが `create_deep_agent(..., middleware=[...])` で渡した Middleware は、単純に末尾へ追加されるのではなく、[`_apply_custom_middleware`](https://github.com/langchain-ai/deepagents/blob/main/libs/deepagents/deepagents/graph.py#L223-L263) によって賢くマージされます。
+
+```python
+# https://github.com/langchain-ai/deepagents/blob/main/libs/deepagents/deepagents/graph.py
+def _apply_custom_middleware(
+    base: list[AgentMiddleware[Any, Any, Any]],
+    custom: Sequence[AgentMiddleware[Any, Any, Any]],
+    *,
+    core_names: set[str] | None = None,
+) -> list[AgentMiddleware[Any, Any, Any]]:
+    if not custom:
+        return list(base)
+    current_names = {m.name for m in base}
+    replacements: dict[str, AgentMiddleware[Any, Any, Any]] = {}
+    to_append: list[AgentMiddleware[Any, Any, Any]] = []
+    for m in custom:
+        if m.name in current_names:
+            # 既存スタックと同じ .name を持つ場合は「インプレース置換」候補へ
+            replacements[m.name] = m
+        else:
+            # 新規の Middleware は挿入候補へ
+            to_append.append(m)
+
+    result = list(base)
+    for i, m in enumerate(result):
+        if m.name in replacements:
+            replacement = replacements[m.name]
+            # FilesystemMiddleware を置換する際、エージェントレベルの permissions を誤って剥がさないためのガード
+            if isinstance(m, FilesystemMiddleware) and m._permissions and isinstance(replacement, FilesystemMiddleware):
+                if replacement._permissions and replacement._permissions != m._permissions:
+                    msg = "FilesystemMiddleware permissions conflict with the agent permissions; use the same rules or omit middleware permissions."
+                    raise ValueError(msg)
+                # 置換側に permissions が未設定ならエージェントのルールを自動継承
+                replacement = replacement._with_permissions(m._permissions)
+            result[i] = replacement
+
+    if to_append and core_names is not None:
+        # 新規 Middleware は「最後の core_names の直後（= Tail Stack の手前）」にスプライス挿入する
+        pos = max((i for i, m in enumerate(result) if m.name in core_names), default=len(result) - 1) + 1
+        result[pos:pos] = to_append
+    else:
+        result.extend(to_append)
+    return result
+```
+
+この設計のおかげで、例えばカスタムの `FilesystemMiddleware` や `SkillsMiddleware` を渡してもスタック内の相対位置（順序）が崩れず、同時にセキュリティ境界である `permissions` ルールの抜け漏れも防止されます。
+
+### 4.2 必須スキャフォールディング保護と 2 パス除外（`_excluded_middleware.py`）
+
+`HarnessProfile.excluded_middleware` を使うと、モデル特性に合わせて特定の Middleware をスタックから除外できます。しかし、コア機能を支える Middleware まで消してしまうとエージェントがサイレントに壊れます。
+
+そこで [`graph.py` L266-L293](https://github.com/langchain-ai/deepagents/blob/main/libs/deepagents/deepagents/graph.py#L266-L293) と [`_excluded_middleware.py`](https://github.com/langchain-ai/deepagents/blob/main/libs/deepagents/deepagents/_excluded_middleware.py) では以下の 3 段階の防御を敷いています。
+
+1. **必須スキャフォールディングの保護（`_REQUIRED_MIDDLEWARE`）**：`FilesystemMiddleware` と `SubAgentMiddleware` は除外禁止として `_validate_excluded_middleware_config` で即座に `ValueError` を送出します。
+2. **2 パスの `_apply_excluded_middleware`**：
+   - 1 回目は `_apply_custom_middleware` の**前**に実行し、デフォルトスタックから不要なものを落とします。
+   - 2 回目は `_apply_custom_middleware` の**後**に実行します。クラス指定の除外は `isinstance` ではなく **厳密な型一致（`type(mw)`）** で判定されるため、ユーザーがサブクラスで差し替えた場合は温存される設計です。
+3. **カバレッジ検証（`_verify_excluded_middleware_coverage`）**：メインエージェントと General-Purpose サブエージェントの全スタックを処理し終えた後、**一度もマッチしなかった除外指定**があればタイポや古いプロファイルとみなして `ValueError` で明示的に失敗させます。
+
+---
+
+## まとめ
+
+Part 1 では、[`create_deep_agent`](https://github.com/langchain-ai/deepagents/blob/main/libs/deepagents/deepagents/graph.py) が単なるラッパーではなく、長期自律エージェントを破綻させないための精密な「組み立て工場」であることを見てきました。
+
+- **`DeepAgentState`** は `DeltaChannel` によりチェックポイント肥大化を $O(N)$ に抑制。
+- **Middleware スタック**は「ファイル/サブエージェント/要約 → ユーザー拡張 → プロファイル/スキル/キャッシュ/メモリ/HITL/安全ガード」という因果関係に基づいた順序で厳密に構成。
+- **`_apply_custom_middleware`** と **`_excluded_middleware`** により、拡張性とセキュリティ不変条件（`permissions` や必須 Middleware）を両立。
+
+次回 Part 2 では、DeepAgents の全ファイル操作とシェル実行を支えるストレージ抽象化層 **`BackendProtocol` と各種 Backend 実装**（`StateBackend`, `FilesystemBackend`, `StoreBackend`, `CompositeBackend`）の内部構造を詳しく解説します。
