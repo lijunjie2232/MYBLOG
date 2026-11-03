@@ -9,3 +9,5 @@ _multiconfig.yml
 theme/particlex/
 source/_posts/_posts_/
 **/.vscode
+third_party/
+.env
